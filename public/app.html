@@ -986,7 +986,8 @@ function renderPurchaseList() {
   var rows = '';
   for (var i = 0; i < DB.purchases.length; i++) {
     var p = DB.purchases[i];
-    rows += '<tr><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.date + '</td><td>' + p.supplier + '</td><td>' + p.product + '</td><td style="text-align:center;">' + p.qty + '</td><td style="font-weight:600;">' + fmt(p.total) + '</td><td>' + p.branch + '</td><td>' + statusBadge(p.status) + '</td></tr>';
+    rows += '<tr><td>' + p.date + '</td><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.supplier + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(p.total) + '</td><td style="text-align:center;"><i class="fas fa-paperclip" style="color:var(--muted);font-size:14px;cursor:pointer;" title="Attachment"></i></td><td>' + statusBadge(p.status) + '</td>';
+    rows += '<td style="width:100px;"><button class="btn btn-secondary btn-sm btn-icon" data-edit-pur="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Purchase List</div>';
@@ -994,7 +995,7 @@ function renderPurchaseList() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-primary" id="btn-add-purchase"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Invoice</th><th>Date</th><th>Supplier</th><th>Product</th><th>Qty</th><th>Total</th><th>Branch</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Invoice</th><th>Supplier</th><th>Total</th><th style="width:60px;text-align:center;">Attach</th><th>Status</th><th style="width:100px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -1213,6 +1214,12 @@ function bindPurchaseEvents() {
       }
       closeModal(); showToast('Purchase saved successfully'); renderPage();
     });
+
+    // Delete buttons on list
+    var delBtns = document.querySelectorAll('[data-del-pur]');
+    for (var d = 0; d < delBtns.length; d++) {
+      (function(b) { b.addEventListener('click', function() { deleteItem('purchases', parseInt(b.getAttribute('data-del-pur')), 'purchase'); }); })(delBtns[d]);
+    }
   });
 }
 
