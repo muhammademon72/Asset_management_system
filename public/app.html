@@ -223,25 +223,31 @@ const DB = {
     { id: 5, name: 'Mizanur Rahman', empId: 'EMP-005', department: 'IT', designation: 'Technician', branch: 'Khulna Branch', phone: '01511234567', email: 'mizan@itassets.com', status: 'Active' },
     { id: 6, name: 'Fahmida Akter', empId: 'EMP-006', department: 'Admin', designation: 'Assistant', branch: 'Head Office', phone: '01411234567', email: 'fahmida@itassets.com', status: 'Active' },
   ],
-  departments: ['IT', 'Finance', 'HR', 'Admin', 'Operations', 'Marketing'],
-  designations: ['Manager', 'Senior Officer', 'Officer', 'Executive', 'Assistant', 'Technician'],
+  departments: [
+    { id: 1, name: 'IT', status: 'Active' }, { id: 2, name: 'Finance', status: 'Active' }, { id: 3, name: 'HR', status: 'Active' }, { id: 4, name: 'Admin', status: 'Active' }, { id: 5, name: 'Operations', status: 'Active' }, { id: 6, name: 'Marketing', status: 'Active' },
+  ],
+  designations: [
+    { id: 1, name: 'Manager', status: 'Active' }, { id: 2, name: 'Senior Officer', status: 'Active' }, { id: 3, name: 'Officer', status: 'Active' }, { id: 4, name: 'Executive', status: 'Active' }, { id: 5, name: 'Assistant', status: 'Active' }, { id: 6, name: 'Technician', status: 'Active' },
+  ],
   categories: [
-    { id: 1, name: 'Laptop', description: 'All laptop devices' },
-    { id: 2, name: 'Desktop', description: 'Desktop computers and workstations' },
-    { id: 3, name: 'Printer', description: 'Printers and scanners' },
-    { id: 4, name: 'Networking', description: 'Switches, routers, access points' },
-    { id: 5, name: 'Server', description: 'Server hardware and components' },
-    { id: 6, name: 'UPS', description: 'Uninterruptible power supplies' },
+    { id: 1, name: 'Laptop', description: 'All laptop devices', status: 'Active' },
+    { id: 2, name: 'Desktop', description: 'Desktop computers and workstations', status: 'Active' },
+    { id: 3, name: 'Printer', description: 'Printers and scanners', status: 'Active' },
+    { id: 4, name: 'Networking', description: 'Switches, routers, access points', status: 'Active' },
+    { id: 5, name: 'Server', description: 'Server hardware and components', status: 'Active' },
+    { id: 6, name: 'UPS', description: 'Uninterruptible power supplies', status: 'Active' },
   ],
   brands: [
-    { id: 1, name: 'Dell', category: 'Laptop' },
-    { id: 2, name: 'HP', category: 'Laptop' },
-    { id: 3, name: 'Lenovo', category: 'Laptop' },
-    { id: 4, name: 'Cisco', category: 'Networking' },
-    { id: 5, name: 'HP Printer', category: 'Printer' },
-    { id: 6, name: 'APC', category: 'UPS' },
+    { id: 1, name: 'Dell', category: 'Laptop', status: 'Active' },
+    { id: 2, name: 'HP', category: 'Laptop', status: 'Active' },
+    { id: 3, name: 'Lenovo', category: 'Laptop', status: 'Active' },
+    { id: 4, name: 'Cisco', category: 'Networking', status: 'Active' },
+    { id: 5, name: 'HP Printer', category: 'Printer', status: 'Active' },
+    { id: 6, name: 'APC', category: 'UPS', status: 'Active' },
   ],
-  uoms: ['Piece', 'Set', 'Pair', 'Box', 'Pack'],
+  uoms: [
+    { id: 1, name: 'Piece', status: 'Active' }, { id: 2, name: 'Set', status: 'Active' }, { id: 3, name: 'Pair', status: 'Active' }, { id: 4, name: 'Box', status: 'Active' }, { id: 5, name: 'Pack', status: 'Active' },
+  ],
   products: [
     { id: 1, name: 'Dell Latitude 5540', category: 'Laptop', brand: 'Dell', uom: 'Piece', price: 85000, status: 'Active' },
     { id: 2, name: 'HP ProBook 450 G10', category: 'Laptop', brand: 'HP', uom: 'Piece', price: 78000, status: 'Active' },
@@ -745,11 +751,11 @@ function openEmployeeModal(editId) {
   }
   var deptOpts = '';
   for (var i = 0; i < DB.departments.length; i++) {
-    deptOpts += '<option' + (e && e.department === DB.departments[i] ? ' selected' : '') + '>' + DB.departments[i] + '</option>';
+    deptOpts += '<option' + (e && e.department === DB.departments[i].name ? ' selected' : '') + '>' + DB.departments[i].name + '</option';
   }
   var desigOpts = '';
   for (var j = 0; j < DB.designations.length; j++) {
-    desigOpts += '<option' + (e && e.designation === DB.designations[j] ? ' selected' : '') + '>' + DB.designations[j] + '</option>';
+    desigOpts += '<option' + (e && e.designation === DB.designations[j].name ? ' selected' : '') + '>' + DB.designations[j].name + '</option';
   }
   var branchOpts = '';
   for (var k = 0; k < DB.branches.length; k++) {
@@ -763,7 +769,8 @@ function openEmployeeModal(editId) {
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-emp-branch">' + branchOpts + '</select></div>';
   html += '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-emp-phone" value="' + (e ? e.phone : '') + '"></div></div>';
   html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-emp-email" value="' + (e ? e.email : '') + '"></div>';
-  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-emp-status"><option' + (e && e.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (e && e.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
+  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button';
   html += '<button class="btn btn-primary" id="btn-save-emp"><i class="fas fa-save"></i> ' + (e ? 'Update' : 'Save') + '</button></div></div>';
   openModal(html);
 
@@ -771,9 +778,9 @@ function openEmployeeModal(editId) {
     var name = document.getElementById('f-emp-name').value.trim();
     var empId = document.getElementById('f-emp-id').value.trim();
     if (!name || !empId) { showToast('Name and Employee ID required', 'error'); return; }
-    var data = { name: name, empId: empId, department: document.getElementById('f-emp-dept').value, designation: document.getElementById('f-emp-desig').value, branch: document.getElementById('f-emp-branch').value, phone: document.getElementById('f-emp-phone').value.trim(), email: document.getElementById('f-emp-email').value.trim() };
+    var data = { name: name, empId: empId, department: document.getElementById('f-emp-dept').value, designation: document.getElementById('f-emp-desig').value, branch: document.getElementById('f-emp-branch').value, phone: document.getElementById('f-emp-phone').value.trim(), email: document.getElementById('f-emp-email').value.trim(), status: document.getElementById('f-emp-status').value };
     if (e) { Object.assign(e, data); showToast('Employee updated'); }
-    else { data.id = Date.now(); data.status = 'Active'; DB.employees.push(data); showToast('Employee added'); }
+    else { data.id = Date.now(); DB.employees.push(data); showToast('Employee added'); }
     closeModal(); renderPage();
   });
 }
@@ -785,11 +792,13 @@ function renderSimpleList(title, arr, collection, addPlaceholder, fieldKey) {
   html += '<button class="btn btn-primary" id="btn-add-simple"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>#</th><th>Name</th>' + (fieldKey === 'description' ? '<th>Description</th>' : '') + (fieldKey === 'category' ? '<th>Category</th>' : '') + '<th style="width:120px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>#</th><th>Name</th>' + (fieldKey === 'description' ? '<th>Description</th>' : '') + (fieldKey === 'category' ? '<th>Category</th>' : '') + '<th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < arr.length; i++) {
+    var itemStatus = (typeof arr[i] === 'string' ? 'Active' : (arr[i].status || 'Active'));
     html += '<tr><td style="font-weight:600;">' + (i+1) + '</td><td>' + (typeof arr[i] === 'string' ? arr[i] : arr[i].name) + '</td>';
     if (fieldKey === 'description') html += '<td>' + arr[i].description + '</td>';
     if (fieldKey === 'category') html += '<td>' + arr[i].category + '</td>';
+    html += '<td>' + statusBadge(itemStatus) + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-simple="' + i + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-simple="' + i + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
@@ -808,9 +817,11 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
       for (var i = 0; i < DB.categories.length; i++) opts += '<option>' + DB.categories[i].name + '</option>';
       extraField = '<div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-extra">' + opts + '</select></div>';
     }
+    var statusField = '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-simple-status"><option>Active</option><option>Inactive</option></select></div>';
     var html = '<div style="padding:24px;">' + modalHeader('Add New') + '<div style="padding-top:16px;">';
     html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-simple-name" placeholder="' + addPlaceholder + '"></div>';
     html += extraField;
+    html += statusField;
     html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
     html += '<button class="btn btn-primary" id="btn-save-simple"><i class="fas fa-save"></i> Save</button></div></div>';
     openModal(html);
@@ -818,10 +829,11 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
       var name = document.getElementById('f-simple-name').value.trim();
       if (!name) { showToast('Name is required', 'error'); return; }
       var extra = document.getElementById('f-extra');
+      var status = document.getElementById('f-simple-status').value;
       if (collection === 'departments' || collection === 'designations' || collection === 'uoms') {
-        DB[collection].push(name);
+        DB[collection].push({ id: Date.now(), name: name, status: status });
       } else {
-        var obj = { id: Date.now(), name: name };
+        var obj = { id: Date.now(), name: name, status: status };
         if (fieldKey === 'description') obj.description = extra ? extra.value.trim() : '';
         if (fieldKey === 'category') obj.category = extra ? extra.value : '';
         DB[collection].push(obj);
@@ -842,9 +854,12 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
           for (var ci = 0; ci < DB.categories.length; ci++) opts += '<option' + (item.category === DB.categories[ci].name ? ' selected' : '') + '>' + DB.categories[ci].name + '</option>';
           extraField = '<div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-extra">' + opts + '</select></div>';
         }
+        var itemStatus = (typeof item === 'string' ? 'Active' : (item.status || 'Active'));
+        var statusField = '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-simple-status"><option' + (itemStatus === 'Active' ? ' selected' : '') + '>Active</option><option' + (itemStatus === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
         var html = '<div style="padding:24px;">' + modalHeader('Edit') + '<div style="padding-top:16px;">';
         html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-simple-name" value="' + itemName + '"></div>';
         html += extraField;
+        html += statusField;
         html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
         html += '<button class="btn btn-primary" id="btn-save-simple"><i class="fas fa-save"></i> Update</button></div></div>';
         openModal(html);
@@ -852,8 +867,9 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
           var name = document.getElementById('f-simple-name').value.trim();
           if (!name) { showToast('Name is required', 'error'); return; }
           var extra = document.getElementById('f-extra');
-          if (typeof DB[collection][0] === 'string') { DB[collection][idx] = name; }
-          else { DB[collection][idx].name = name; if (fieldKey === 'description') DB[collection][idx].description = extra ? extra.value.trim() : ''; if (fieldKey === 'category') DB[collection][idx].category = extra ? extra.value : ''; }
+          var status = document.getElementById('f-simple-status').value;
+          if (typeof DB[collection][0] === 'string') { DB[collection][idx] = { id: Date.now(), name: name, status: status }; }
+          else { DB[collection][idx].name = name; DB[collection][idx].status = status; if (fieldKey === 'description') DB[collection][idx].description = extra ? extra.value.trim() : ''; if (fieldKey === 'category') DB[collection][idx].category = extra ? extra.value : ''; }
           closeModal(); showToast('Updated successfully'); renderPage();
         });
       });
@@ -902,18 +918,19 @@ function bindProductEvents() {
   addBtn.addEventListener('click', function() {
     var catOpts = '', uomOpts = '';
     for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
-    for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k] + '</option>';
+    for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k].name + '</option';
     var html = '<div style="padding:24px;">' + modalHeader('Add New Product') + '<div style="padding-top:16px;">';
     html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name"></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
     html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+    html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-prod-status"><option>Active</option><option>Inactive</option></select></div>';
     html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
     html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Save</button></div></div>';
     openModal(html);
     document.getElementById('btn-save-prod').addEventListener('click', function() {
       var name = document.getElementById('f-prod-name').value.trim();
       if (!name) { showToast('Product name required', 'error'); return; }
-      DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: '', uom: document.getElementById('f-prod-uom').value, price: 0, status: 'Active' });
+      DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: '', uom: document.getElementById('f-prod-uom').value, price: 0, status: document.getElementById('f-prod-status').value });
       closeModal(); showToast('Product added'); renderPage();
     });
   });
@@ -925,18 +942,19 @@ function bindProductEvents() {
         if (!p) return;
         var catOpts = '', uomOpts = '';
         for (var i = 0; i < DB.categories.length; i++) catOpts += '<option' + (p.category === DB.categories[i].name ? ' selected' : '') + '>' + DB.categories[i].name + '</option>';
-        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k] ? ' selected' : '') + '>' + DB.uoms[k] + '</option>';
+        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k].name ? ' selected' : '') + '>' + DB.uoms[k].name + '</option';
         var html = '<div style="padding:24px;">' + modalHeader('Edit Product') + '<div style="padding-top:16px;">';
         html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name" value="' + p.name + '"></div>';
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
         html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+        html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-prod-status"><option' + (p.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (p.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
         html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-        html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Update</button></div></div>';
+        html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Update</button></div></div';
         openModal(html);
         document.getElementById('btn-save-prod').addEventListener('click', function() {
           var name = document.getElementById('f-prod-name').value.trim();
           if (!name) { showToast('Product name required', 'error'); return; }
-          p.name = name; p.category = document.getElementById('f-prod-cat').value; p.uom = document.getElementById('f-prod-uom').value;
+          p.name = name; p.category = document.getElementById('f-prod-cat').value; p.uom = document.getElementById('f-prod-uom').value; p.status = document.getElementById('f-prod-status').value;
           closeModal(); showToast('Product updated'); renderPage();
         });
       });

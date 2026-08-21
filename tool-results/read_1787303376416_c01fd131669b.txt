@@ -1,0 +1,582 @@
+   855→          var name = document.getElementById('f-simple-name').value.trim();
+   856→          if (!name) { showToast('Name is required', 'error'); return; }
+   857→          var extra = document.getElementById('f-extra');
+   858→          if (typeof DB[collection][0] === 'string') { DB[collection][idx] = name; }
+   859→          else { DB[collection][idx].name = name; if (fieldKey === 'description') DB[collection][idx].description = extra ? extra.value.trim() : ''; if (fieldKey === 'category') DB[collection][idx].category = extra ? extra.value : ''; }
+   860→          closeModal(); showToast('Updated successfully'); renderPage();
+   861→        });
+   862→      });
+   863→    })(editBtns[ei], parseInt(editBtns[ei].getAttribute('data-edit-simple')));
+   864→  }
+   865→  var delBtns = document.querySelectorAll('[data-del-simple]');
+   866→  for (var i = 0; i < delBtns.length; i++) {
+   867→    (function(btn, idx) {
+   868→      btn.addEventListener('click', function() {
+   869→        DB[collection].splice(idx, 1);
+   870→        showToast('Removed'); renderPage();
+   871→      });
+   872→    })(delBtns[i], parseInt(delBtns[i].getAttribute('data-del-simple')));
+   873→  }
+   874→}
+   875→
+   876→function renderDepartment() { return renderSimpleList('Department List', DB.departments, 'departments', 'Department name', null); }
+   877→function renderDesignation() { return renderSimpleList('Designation List', DB.designations, 'designations', 'Designation name', null); }
+   878→function renderUoM() { return renderSimpleList('Unit of Measurement', DB.uoms, 'uoms', 'UoM name', null); }
+   879→function renderCategories() { return renderSimpleList('Product Categories', DB.categories, 'categories', 'Category name', 'description'); }
+   880→function renderBrand() { return renderSimpleList('Brand List', DB.brands, 'brands', 'Brand name', null); }
+   881→
+   882→// ==================== PRODUCT LIST ====================
+   883→function renderProductList() {
+   884→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   885→  html += '<div style="font-size:20px;font-weight:800;">Product List</div>';
+   886→  html += '<div style="display:flex;gap:12px;align-items:center;">';
+   887→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search products..." oninput="filterTable(this.value)"></div>';
+   888→  html += '<button class="btn btn-primary" id="btn-add-product"><i class="fas fa-plus"></i> Add New</button>';
+   889→  html += '</div></div>';
+   890→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+   891→  html += '<table class="data-table" id="main-table"><thead><tr><th>Product Name</th><th>Category</th><th>UoM</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
+   892→  for (var i = 0; i < DB.products.length; i++) {
+   893→    var p = DB.products[i];
+   894→    html += '<tr><td style="font-weight:600;">' + p.name + '</td><td>' + p.category + '</td><td>' + p.uom + '</td><td>' + statusBadge(p.status) + '</td>';
+   895→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-prod="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+   896→    html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-prod="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+   897→  }
+   898→  html += '</tbody></table></div></div>';
+   899→  return html;
+   900→}
+   901→
+   902→function bindProductEvents() {
+   903→  var addBtn = document.getElementById('btn-add-product');
+   904→  if (!addBtn) return;
+   905→  addBtn.addEventListener('click', function() {
+   906→    var catOpts = '', uomOpts = '';
+   907→    for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
+   908→    for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k] + '</option>';
+   909→    var html = '<div style="padding:24px;">' + modalHeader('Add New Product') + '<div style="padding-top:16px;">';
+   910→    html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name"></div>';
+   911→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
+   912→    html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+   913→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+   914→    html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Save</button></div></div>';
+   915→    openModal(html);
+   916→    document.getElementById('btn-save-prod').addEventListener('click', function() {
+   917→      var name = document.getElementById('f-prod-name').value.trim();
+   918→      if (!name) { showToast('Product name required', 'error'); return; }
+   919→      DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: '', uom: document.getElementById('f-prod-uom').value, price: 0, status: 'Active' });
+   920→      closeModal(); showToast('Product added'); renderPage();
+   921→    });
+   922→  });
+   923→  var editBtns = document.querySelectorAll('[data-edit-prod]');
+   924→  for (var ei = 0; ei < editBtns.length; ei++) {
+   925→    (function(btn) {
+   926→      btn.addEventListener('click', function() {
+   927→        var p = DB.products.find(function(x){ return x.id === parseInt(btn.getAttribute('data-edit-prod')); });
+   928→        if (!p) return;
+   929→        var catOpts = '', uomOpts = '';
+   930→        for (var i = 0; i < DB.categories.length; i++) catOpts += '<option' + (p.category === DB.categories[i].name ? ' selected' : '') + '>' + DB.categories[i].name + '</option>';
+   931→        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k] ? ' selected' : '') + '>' + DB.uoms[k] + '</option>';
+   932→        var html = '<div style="padding:24px;">' + modalHeader('Edit Product') + '<div style="padding-top:16px;">';
+   933→        html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name" value="' + p.name + '"></div>';
+   934→        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
+   935→        html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+   936→        html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+   937→        html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Update</button></div></div>';
+   938→        openModal(html);
+   939→        document.getElementById('btn-save-prod').addEventListener('click', function() {
+   940→          var name = document.getElementById('f-prod-name').value.trim();
+   941→          if (!name) { showToast('Product name required', 'error'); return; }
+   942→          p.name = name; p.category = document.getElementById('f-prod-cat').value; p.uom = document.getElementById('f-prod-uom').value;
+   943→          closeModal(); showToast('Product updated'); renderPage();
+   944→        });
+   945→      });
+   946→    })(editBtns[ei]);
+   947→  }
+   948→  var delBtns = document.querySelectorAll('[data-del-prod]');
+   949→  for (var i = 0; i < delBtns.length; i++) {
+   950→    (function(btn) {
+   951→      btn.addEventListener('click', function() { deleteItem('products', parseInt(btn.getAttribute('data-del-prod')), 'product-list'); });
+   952→    })(delBtns[i]);
+   953→  }
+   954→}
+   955→
+   956→// ==================== READ-ONLY TABLE PAGES ====================
+   957→function renderReadOnlyTable(title, columns, rows) {
+   958→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   959→  html += '<div style="font-size:20px;font-weight:800;">' + title + '</div>';
+   960→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+   961→  html += '</div>';
+   962→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 200px);overflow-y:auto;">';
+   963→  html += '<table class="data-table" id="main-table"><thead><tr>';
+   964→  for (var i = 0; i < columns.length; i++) html += '<th>' + columns[i] + '</th>';
+   965→  html += '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+   966→  return html;
+   967→}
+   968→
+   969→function renderPurchaseList() {
+   970→  var rows = '';
+   971→  for (var i = 0; i < DB.purchases.length; i++) {
+   972→    var p = DB.purchases[i];
+   973→    rows += '<tr><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.date + '</td><td>' + p.supplier + '</td><td>' + p.product + '</td><td style="text-align:center;">' + p.qty + '</td><td style="font-weight:600;">' + fmt(p.total) + '</td><td>' + p.branch + '</td><td>' + statusBadge(p.status) + '</td></tr>';
+   974→  }
+   975→  return renderReadOnlyTable('Purchase List', ['Invoice', 'Date', 'Supplier', 'Product', 'Qty', 'Total', 'Branch', 'Status'], rows);
+   976→}
+   977→
+   978→function renderSupplier() {
+   979→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   980→  html += '<div style="font-size:20px;font-weight:800;">Supplier List</div>';
+   981→  html += '<button class="btn btn-primary" id="btn-add-supplier"><i class="fas fa-plus"></i> Add New</button></div>';
+   982→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+   983→  html += '<table class="data-table" id="main-table"><thead><tr><th>Name</th><th>Contact</th><th>Email</th><th>Address</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+   984→  for (var i = 0; i < DB.suppliers.length; i++) {
+   985→    var s = DB.suppliers[i];
+   986→    html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + s.contact + '</td><td>' + s.email + '</td><td>' + s.address + '</td>';
+   987→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-sup="' + s.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+   988→  }
+   989→  html += '</tbody></table></div></div>';
+   990→  return html;
+   991→}
+   992→
+   993→function bindSupplierEvents() {
+   994→  var addBtn = document.getElementById('btn-add-supplier');
+   995→  if (!addBtn) return;
+   996→  addBtn.addEventListener('click', function() {
+   997→    var html = '<div style="padding:24px;">' + modalHeader('Add Supplier') + '<div style="padding-top:16px;">';
+   998→    html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-sup-name"></div>';
+   999→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="f-sup-contact"></div>';
+  1000→    html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-sup-email"></div></div>';
+  1001→    html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address"></div>';
+  1002→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1003→    html += '<button class="btn btn-primary" id="btn-save-sup"><i class="fas fa-save"></i> Save</button></div></div>';
+  1004→    openModal(html);
+  1005→    document.getElementById('btn-save-sup').addEventListener('click', function() {
+  1006→      var name = document.getElementById('f-sup-name').value.trim();
+  1007→      if (!name) { showToast('Name required', 'error'); return; }
+  1008→      DB.suppliers.push({ id: Date.now(), name: name, contact: document.getElementById('f-sup-contact').value.trim(), email: document.getElementById('f-sup-email').value.trim(), address: document.getElementById('f-sup-address').value.trim() });
+  1009→      closeModal(); showToast('Supplier added'); renderPage();
+  1010→    });
+  1011→  });
+  1012→  var delBtns = document.querySelectorAll('[data-del-sup]');
+  1013→  for (var i = 0; i < delBtns.length; i++) {
+  1014→    (function(btn) {
+  1015→      btn.addEventListener('click', function() { deleteItem('suppliers', parseInt(btn.getAttribute('data-del-sup')), 'supplier'); });
+  1016→    })(delBtns[i]);
+  1017→  }
+  1018→}
+  1019→
+  1020→function renderDeliveryList() {
+  1021→  var rows = '';
+  1022→  for (var i = 0; i < DB.deliveries.length; i++) { var d = DB.deliveries[i]; rows += '<tr><td style="font-weight:600;">' + d.chalan + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.branch + '</td><td>' + d.receivedBy + '</td><td>' + statusBadge(d.status) + '</td></tr>'; }
+  1023→  return renderReadOnlyTable('Delivery List', ['Chalan No', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'], rows);
+  1024→}
+  1025→
+  1026→function renderAdjustmentList() {
+  1027→  var rows = '';
+  1028→  for (var i = 0; i < DB.adjustments.length; i++) { var a = DB.adjustments[i]; rows += '<tr><td style="font-weight:600;">' + a.ref + '</td><td>' + a.date + '</td><td>' + a.product + '</td><td>' + a.branch + '</td><td><span class="badge ' + (a.type==='Increase'?'badge-green':'badge-red') + '">' + a.type + '</span></td><td style="text-align:center;">' + a.qty + '</td><td>' + a.reason + '</td><td>' + statusBadge(a.status) + '</td></tr>'; }
+  1029→  return renderReadOnlyTable('Adjustment List', ['Reference', 'Date', 'Product', 'Branch', 'Type', 'Qty', 'Reason', 'Status'], rows);
+  1030→}
+  1031→
+  1032→function renderDamageList() {
+  1033→  var rows = '';
+  1034→  for (var i = 0; i < DB.damages.length; i++) { var d = DB.damages[i]; rows += '<tr><td style="font-weight:600;">' + d.ref + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td>' + d.branch + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.reason + '</td><td>' + statusBadge(d.status) + '</td></tr>'; }
+  1035→  return renderReadOnlyTable('Damage List', ['Reference', 'Date', 'Product', 'Branch', 'Qty', 'Reason', 'Status'], rows);
+  1036→}
+  1037→
+  1038→function renderTransferList() {
+  1039→  var rows = '';
+  1040→  for (var i = 0; i < DB.transfers.length; i++) { var t = DB.transfers[i]; rows += '<tr><td style="font-weight:600;">' + t.ref + '</td><td>' + t.date + '</td><td>' + t.product + '</td><td style="text-align:center;">' + t.qty + '</td><td>' + t.fromBranch + '</td><td>' + t.toBranch + '</td><td>' + statusBadge(t.status) + '</td></tr>'; }
+  1041→  return renderReadOnlyTable('Internal Transfer List', ['Reference', 'Date', 'Product', 'Qty', 'From Branch', 'To Branch', 'Status'], rows);
+  1042→}
+  1043→
+  1044→// ==================== CASH BOOK ====================
+  1045→function renderCashIn() {
+  1046→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1047→  html += '<div style="font-size:20px;font-weight:800;">Cash In</div>';
+  1048→  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  1049→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  1050→  html += '<button class="btn btn-primary" id="btn-add-cashin"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  1051→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  1052→  html += '<table class="data-table" id="main-table"><thead><tr><th>Voucher</th><th>Date</th><th>Amount</th><th>Description</th><th>Branch</th><th>Status</th></tr></thead><tbody>';
+  1053→  for (var i = 0; i < DB.cashIn.length; i++) { var c = DB.cashIn[i]; html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + c.date + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(c.amount) + '</td><td>' + c.description + '</td><td>' + c.branch + '</td><td>' + statusBadge(c.status) + '</td></tr>'; }
+  1054→  html += '</tbody></table></div></div>';
+  1055→  return html;
+  1056→}
+  1057→
+  1058→function bindCashInEvents() {
+  1059→  var btn = document.getElementById('btn-add-cashin');
+  1060→  if (!btn) return;
+  1061→  btn.addEventListener('click', function() {
+  1062→    var brOpts = '';
+  1063→    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
+  1064→    var html = '<div style="padding:24px;">' + modalHeader('Add Cash In') + '<div style="padding-top:16px;">';
+  1065→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-ci-date" type="date"></div>';
+  1066→    html += '<div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="f-ci-amount" type="number"></div></div>';
+  1067→    html += '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-ci-desc"></div>';
+  1068→    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-ci-branch">' + brOpts + '</select></div>';
+  1069→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1070→    html += '<button class="btn btn-primary" id="btn-save-ci"><i class="fas fa-save"></i> Save</button></div></div>';
+  1071→    openModal(html);
+  1072→    document.getElementById('btn-save-ci').addEventListener('click', function() {
+  1073→      var amount = Number(document.getElementById('f-ci-amount').value);
+  1074→      if (!amount) { showToast('Amount required', 'error'); return; }
+  1075→      DB.cashIn.push({ id: Date.now(), voucher: 'CI-' + Date.now(), date: document.getElementById('f-ci-date').value, amount: amount, description: document.getElementById('f-ci-desc').value.trim(), branch: document.getElementById('f-ci-branch').value, status: 'Pending' });
+  1076→      closeModal(); showToast('Cash In added'); renderPage();
+  1077→    });
+  1078→  });
+  1079→}
+  1080→
+  1081→function renderCashOut() {
+  1082→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1083→  html += '<div style="font-size:20px;font-weight:800;">Cash Out</div>';
+  1084→  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  1085→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  1086→  html += '<button class="btn btn-primary" id="btn-add-cashout"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  1087→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  1088→  html += '<table class="data-table" id="main-table"><thead><tr><th>Voucher</th><th>Date</th><th>Amount</th><th>Description</th><th>Branch</th><th>Status</th></tr></thead><tbody>';
+  1089→  for (var i = 0; i < DB.cashOut.length; i++) { var c = DB.cashOut[i]; html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + c.date + '</td><td style="font-weight:600;color:var(--danger);">' + fmt(c.amount) + '</td><td>' + c.description + '</td><td>' + c.branch + '</td><td>' + statusBadge(c.status) + '</td></tr>'; }
+  1090→  html += '</tbody></table></div></div>';
+  1091→  return html;
+  1092→}
+  1093→
+  1094→function bindCashOutEvents() {
+  1095→  var btn = document.getElementById('btn-add-cashout');
+  1096→  if (!btn) return;
+  1097→  btn.addEventListener('click', function() {
+  1098→    var brOpts = '';
+  1099→    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
+  1100→    var html = '<div style="padding:24px;">' + modalHeader('Add Cash Out') + '<div style="padding-top:16px;">';
+  1101→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-co-date" type="date"></div>';
+  1102→    html += '<div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="f-co-amount" type="number"></div></div>';
+  1103→    html += '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-co-desc"></div>';
+  1104→    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-co-branch">' + brOpts + '</select></div>';
+  1105→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1106→    html += '<button class="btn btn-primary" id="btn-save-co"><i class="fas fa-save"></i> Save</button></div></div>';
+  1107→    openModal(html);
+  1108→    document.getElementById('btn-save-co').addEventListener('click', function() {
+  1109→      var amount = Number(document.getElementById('f-co-amount').value);
+  1110→      if (!amount) { showToast('Amount required', 'error'); return; }
+  1111→      DB.cashOut.push({ id: Date.now(), voucher: 'CO-' + Date.now(), date: document.getElementById('f-co-date').value, amount: amount, description: document.getElementById('f-co-desc').value.trim(), branch: document.getElementById('f-co-branch').value, status: 'Pending' });
+  1112→      closeModal(); showToast('Cash Out added'); renderPage();
+  1113→    });
+  1114→  });
+  1115→}
+  1116→
+  1117→// ==================== APPROVAL PAGES ====================
+  1118→function renderApprovalList(type, data) {
+  1119→  var pending = data.filter(function(d){ return d.status === 'Pending'; });
+  1120→  var approved = data.filter(function(d){ return d.status === 'Approved'; });
+  1121→  var rejected = data.filter(function(d){ return d.status === 'Rejected'; });
+  1122→  var cols, labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
+  1123→  if (type === 'purchase') cols = ['Invoice', 'Date', 'Supplier', 'Product', 'Amount', 'Branch', 'Status'];
+  1124→  else if (type === 'delivery') cols = ['Chalan', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'];
+  1125→  else if (type === 'adjustment') cols = ['Reference', 'Date', 'Product', 'Branch', 'Type', 'Qty', 'Status'];
+  1126→  else cols = ['Reference', 'Date', 'Product', 'Branch', 'Qty', 'Reason', 'Status'];
+  1127→
+  1128→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1129→  html += '<div style="font-size:20px;font-weight:800;">' + labels[type] + ' Approval</div>';
+  1130→  html += '<div style="display:flex;gap:16px;align-items:center;">';
+  1131→  html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--warning);"></div><span style="font-weight:600;">' + pending.length + ' Pending</span></div>';
+  1132→  html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--accent);"></div><span style="font-weight:600;">' + approved.length + ' Approved</span></div>';
+  1133→  html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--danger);"></div><span style="font-weight:600;">' + rejected.length + ' Rejected</span></div>';
+  1134→  html += '</div></div>';
+  1135→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  1136→  html += '<table class="data-table" id="main-table"><thead><tr>';
+  1137→  for (var c = 0; c < cols.length; c++) html += '<th>' + cols[c] + '</th>';
+  1138→  html += '<th style="width:200px;">Action</th></tr></thead><tbody>';
+  1139→  for (var i = 0; i < data.length; i++) {
+  1140→    var item = data[i];
+  1141→    html += '<tr>';
+  1142→    if (type === 'purchase') html += '<td style="font-weight:600;">' + item.invoice + '</td><td>' + item.date + '</td><td>' + item.supplier + '</td><td>' + item.product + '</td><td style="font-weight:600;">' + fmt(item.total) + '</td><td>' + item.branch + '</td>';
+  1143→    else if (type === 'delivery') html += '<td style="font-weight:600;">' + item.chalan + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.branch + '</td><td>' + item.receivedBy + '</td>';
+  1144→    else if (type === 'adjustment') html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td><span class="badge ' + (item.type==='Increase'?'badge-green':'badge-red') + '">' + item.type + '</span></td><td style="text-align:center;">' + item.qty + '</td>';
+  1145→    else html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.reason + '</td>';
+  1146→
+  1147→    if (item.status === 'Pending') {
+  1148→      html += '<td><button class="btn btn-primary btn-sm" data-approve="' + type + '-' + item.id + '"><i class="fas fa-check"></i> Approve</button> <button class="btn btn-danger btn-sm" data-reject="' + type + '-' + item.id + '"><i class="fas fa-times"></i> Reject</button></td>';
+  1149→    } else {
+  1150→      html += '<td>' + statusBadge(item.status) + '</td>';
+  1151→    }
+  1152→    html += '</tr>';
+  1153→  }
+  1154→  html += '</tbody></table></div></div>';
+  1155→  return html;
+  1156→}
+  1157→
+  1158→function bindApprovalEvents() {
+  1159→  var approveBtns = document.querySelectorAll('[data-approve]');
+  1160→  for (var i = 0; i < approveBtns.length; i++) {
+  1161→    (function(btn) {
+  1162→      btn.addEventListener('click', function() {
+  1163→        var parts = btn.getAttribute('data-approve').split('-');
+  1164→        var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+  1165→        var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
+  1166→        var item = DB[map[type]].find(function(x){ return x.id === id; });
+  1167→        if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); }
+  1168→      });
+  1169→    })(approveBtns[i]);
+  1170→  }
+  1171→  var rejectBtns = document.querySelectorAll('[data-reject]');
+  1172→  for (var j = 0; j < rejectBtns.length; j++) {
+  1173→    (function(btn) {
+  1174→      btn.addEventListener('click', function() {
+  1175→        var parts = btn.getAttribute('data-reject').split('-');
+  1176→        var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+  1177→        var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
+  1178→        var item = DB[map[type]].find(function(x){ return x.id === id; });
+  1179→        if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); }
+  1180→      });
+  1181→    })(rejectBtns[j]);
+  1182→  }
+  1183→}
+  1184→
+  1185→// ==================== REPORT PAGES ====================
+  1186→function renderReport(type) {
+  1187→  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
+  1188→  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
+  1189→  var data = map[type];
+  1190→  var total = type === 'purchase' ? data.reduce(function(s,d){return s+d.total;}, 0) : data.reduce(function(s,d){return s+d.qty;}, 0);
+  1191→  var approved = data.filter(function(d){return d.status==='Approved';}).length;
+  1192→  var pending = data.filter(function(d){return d.status==='Pending';}).length;
+  1193→  var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
+  1194→
+  1195→  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
+  1196→  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">';
+  1197→  html += '<div class="stat-card green" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Total</div><div style="font-size:24px;font-weight:800;">' + (type==='purchase' ? fmt(total) : total) + '</div></div>';
+  1198→  html += '<div class="stat-card blue" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Approved</div><div style="font-size:24px;font-weight:800;color:var(--info);">' + approved + '</div></div>';
+  1199→  html += '<div class="stat-card amber" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Pending</div><div style="font-size:24px;font-weight:800;color:var(--warning);">' + pending + '</div></div>';
+  1200→  html += '<div class="stat-card red" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Rejected</div><div style="font-size:24px;font-weight:800;color:var(--danger);">' + rejected + '</div></div>';
+  1201→  html += '</div>';
+  1202→  html += '<div class="stat-card" style="padding:20px;margin-bottom:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Status Distribution</div><canvas id="reportPie" width="400" height="200"></canvas></div>';
+  1203→  html += '<div class="stat-card" style="padding:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Detailed Records</div>';
+  1204→  html += '<table class="data-table"><thead><tr><th>#</th><th>Reference</th><th>Date</th><th>' + (type==='purchase' ? 'Amount' : 'Qty') + '</th><th>Status</th></tr></thead><tbody>';
+  1205→  for (var i = 0; i < data.length; i++) {
+  1206→    var d = data[i];
+  1207→    html += '<tr><td>' + (i+1) + '</td><td style="font-weight:600;">' + (d.invoice || d.chalan || d.ref) + '</td><td>' + d.date + '</td><td style="font-weight:600;">' + (type==='purchase' ? fmt(d.total) : d.qty) + '</td><td>' + statusBadge(d.status) + '</td></tr>';
+  1208→  }
+  1209→  html += '</tbody></table></div>';
+  1210→  return html;
+  1211→}
+  1212→
+  1213→function drawReportPie() {
+  1214→  var canvas = document.getElementById('reportPie');
+  1215→  if (!canvas) return;
+  1216→  var ctx = canvas.getContext('2d');
+  1217→  var W = canvas.width, H = canvas.height;
+  1218→  var type = currentPage.replace('report-', '');
+  1219→  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
+  1220→  var data = map[type];
+  1221→  if (!data) return;
+  1222→  var vals = [
+  1223→    data.filter(function(d){return d.status==='Approved';}).length,
+  1224→    data.filter(function(d){return d.status==='Pending';}).length,
+  1225→    data.filter(function(d){return d.status==='Rejected';}).length,
+  1226→  ];
+  1227→  var colors = ['#2d8a4e', '#d97706', '#dc2626'];
+  1228→  var lbls = ['Approved', 'Pending', 'Rejected'];
+  1229→  var total = vals[0] + vals[1] + vals[2] || 1;
+  1230→  var cx = W * 0.35, cy = H / 2, r = Math.min(cx, cy) - 20;
+  1231→  var startAngle = -Math.PI / 2;
+  1232→  for (var i = 0; i < vals.length; i++) {
+  1233→    var sliceAngle = (vals[i] / total) * Math.PI * 2;
+  1234→    ctx.beginPath(); ctx.moveTo(cx, cy);
+  1235→    ctx.arc(cx, cy, Math.max(r, 1), startAngle, startAngle + sliceAngle);
+  1236→    ctx.closePath(); ctx.fillStyle = colors[i]; ctx.fill();
+  1237→    startAngle += sliceAngle;
+  1238→  }
+  1239→  ctx.beginPath(); ctx.arc(cx, cy, Math.max(r * 0.55, 1), 0, Math.PI * 2);
+  1240→  ctx.fillStyle = '#ffffff'; ctx.fill();
+  1241→  ctx.fillStyle = '#1a2e1a'; ctx.font = 'bold 22px Outfit'; ctx.textAlign = 'center';
+  1242→  ctx.fillText(total, cx, cy + 4);
+  1243→  ctx.font = '12px Outfit'; ctx.fillStyle = '#6b7c6b'; ctx.fillText('Total', cx, cy + 20);
+  1244→  var lx = W * 0.7;
+  1245→  for (var j = 0; j < lbls.length; j++) {
+  1246→    var ly = 50 + j * 40;
+  1247→    ctx.fillStyle = colors[j];
+  1248→    ctx.beginPath(); ctx.rect(lx, ly, 16, 16); ctx.fill();
+  1249→    ctx.fillStyle = '#1a2e1a'; ctx.font = '600 14px Outfit'; ctx.textAlign = 'left';
+  1250→    ctx.fillText(lbls[j], lx + 24, ly + 13);
+  1251→    ctx.fillStyle = '#6b7c6b'; ctx.font = '13px Outfit';
+  1252→    ctx.fillText(vals[j] + ' items', lx + 24, ly + 30);
+  1253→  }
+  1254→}
+  1255→
+  1256→// ==================== SETTINGS ====================
+  1257→function renderCompanyProfile() {
+  1258→  var c = DB.company;
+  1259→  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">Company Profile</div>';
+  1260→  html += '<div class="stat-card" style="padding:28px;max-width:700px;">';
+  1261→  html += '<div class="form-group"><label class="form-label">Company Name</label><input class="form-input" id="f-cname" value="' + c.name + '"></div>';
+  1262→  html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-caddress" value="' + c.address + '"></div>';
+  1263→  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-cphone" value="' + c.phone + '"></div>';
+  1264→  html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-cemail" value="' + c.email + '"></div></div>';
+  1265→  html += '<div class="form-group"><label class="form-label">Website</label><input class="form-input" id="f-cweb" value="' + c.website + '"></div>';
+  1266→  html += '<div style="margin-top:8px;"><button class="btn btn-primary" id="btn-save-company"><i class="fas fa-save"></i> Save Changes</button></div>';
+  1267→  html += '</div>';
+  1268→  return html;
+  1269→}
+  1270→
+  1271→function bindCompanyEvents() {
+  1272→  var btn = document.getElementById('btn-save-company');
+  1273→  if (!btn) return;
+  1274→  btn.addEventListener('click', function() {
+  1275→    DB.company.name = document.getElementById('f-cname').value;
+  1276→    DB.company.address = document.getElementById('f-caddress').value;
+  1277→    DB.company.phone = document.getElementById('f-cphone').value;
+  1278→    DB.company.email = document.getElementById('f-cemail').value;
+  1279→    DB.company.website = document.getElementById('f-cweb').value;
+  1280→    showToast('Company profile updated');
+  1281→  });
+  1282→}
+  1283→
+  1284→function renderUserList() {
+  1285→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1286→  html += '<div style="font-size:20px;font-weight:800;">User List</div>';
+  1287→  html += '<button class="btn btn-primary" id="btn-add-user"><i class="fas fa-plus"></i> Create User</button></div>';
+  1288→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+  1289→  html += '<table class="data-table" id="main-table"><thead><tr><th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  1290→  for (var i = 0; i < DB.users.length; i++) {
+  1291→    var u = DB.users[i];
+  1292→    html += '<tr><td style="font-weight:600;">' + u.name + '</td><td>' + u.username + '</td><td>' + u.email + '</td><td><span class="badge badge-blue">' + u.role + '</span></td><td>' + statusBadge(u.status) + '</td>';
+  1293→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-user="' + u.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  1294→  }
+  1295→  html += '</tbody></table></div></div>';
+  1296→  return html;
+  1297→}
+  1298→
+  1299→function bindUserEvents() {
+  1300→  var btn = document.getElementById('btn-add-user');
+  1301→  if (!btn) return;
+  1302→  btn.addEventListener('click', function() {
+  1303→    var roleOpts = '';
+  1304→    for (var i = 0; i < DB.roles.length; i++) roleOpts += '<option>' + DB.roles[i].name + '</option>';
+  1305→    var html = '<div style="padding:24px;">' + modalHeader('Create User') + '<div style="padding-top:16px;">';
+  1306→    html += '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-user-name"></div>';
+  1307→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Username</label><input class="form-input" id="f-user-uname"></div>';
+  1308→    html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-user-email"></div></div>';
+  1309→    html += '<div class="form-group"><label class="form-label">Role</label><select class="form-input" id="f-user-role">' + roleOpts + '</select></div>';
+  1310→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1311→    html += '<button class="btn btn-primary" id="btn-save-user"><i class="fas fa-save"></i> Create</button></div></div>';
+  1312→    openModal(html);
+  1313→    document.getElementById('btn-save-user').addEventListener('click', function() {
+  1314→      var name = document.getElementById('f-user-name').value.trim();
+  1315→      if (!name) { showToast('Name required', 'error'); return; }
+  1316→      DB.users.push({ id: Date.now(), name: name, username: document.getElementById('f-user-uname').value.trim(), email: document.getElementById('f-user-email').value.trim(), role: document.getElementById('f-user-role').value, status: 'Active' });
+  1317→      closeModal(); showToast('User created'); renderPage();
+  1318→    });
+  1319→  });
+  1320→  var delBtns = document.querySelectorAll('[data-del-user]');
+  1321→  for (var i = 0; i < delBtns.length; i++) {
+  1322→    (function(btn) { btn.addEventListener('click', function() { deleteItem('users', parseInt(btn.getAttribute('data-del-user')), 'user-list'); }); })(delBtns[i]);
+  1323→  }
+  1324→}
+  1325→
+  1326→function renderRoleList() {
+  1327→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1328→  html += '<div style="font-size:20px;font-weight:800;">Role List</div>';
+  1329→  html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button></div>';
+  1330→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+  1331→  html += '<table class="data-table" id="main-table"><thead><tr><th>Role Name</th><th>Permissions</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  1332→  for (var i = 0; i < DB.roles.length; i++) {
+  1333→    var r = DB.roles[i];
+  1334→    html += '<tr><td style="font-weight:600;">' + r.name + '</td><td>' + r.permissions + '</td>';
+  1335→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-role="' + r.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  1336→  }
+  1337→  html += '</tbody></table></div></div>';
+  1338→  return html;
+  1339→}
+  1340→
+  1341→function bindRoleEvents() {
+  1342→  var btn = document.getElementById('btn-add-role');
+  1343→  if (!btn) return;
+  1344→  btn.addEventListener('click', function() {
+  1345→    var html = '<div style="padding:24px;">' + modalHeader('Create Role') + '<div style="padding-top:16px;">';
+  1346→    html += '<div class="form-group"><label class="form-label">Role Name</label><input class="form-input" id="f-role-name"></div>';
+  1347→    html += '<div class="form-group"><label class="form-label">Permissions</label><input class="form-input" id="f-role-perm" placeholder="e.g. Dashboard, Inventory, Reports"></div>';
+  1348→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1349→    html += '<button class="btn btn-primary" id="btn-save-role"><i class="fas fa-save"></i> Create</button></div></div>';
+  1350→    openModal(html);
+  1351→    document.getElementById('btn-save-role').addEventListener('click', function() {
+  1352→      var name = document.getElementById('f-role-name').value.trim();
+  1353→      if (!name) { showToast('Role name required', 'error'); return; }
+  1354→      DB.roles.push({ id: Date.now(), name: name, permissions: document.getElementById('f-role-perm').value.trim() });
+  1355→      closeModal(); showToast('Role created'); renderPage();
+  1356→    });
+  1357→  });
+  1358→  var delBtns = document.querySelectorAll('[data-del-role]');
+  1359→  for (var i = 0; i < delBtns.length; i++) {
+  1360→    (function(btn) { btn.addEventListener('click', function() { deleteItem('roles', parseInt(btn.getAttribute('data-del-role')), 'role-list'); }); })(delBtns[i]);
+  1361→  }
+  1362→}
+  1363→
+  1364→// ==================== PAGE ROUTER ====================
+  1365→function renderPage() {
+  1366→  document.getElementById('breadcrumb').textContent = getBreadcrumb();
+  1367→  var pc = document.getElementById('page-content');
+  1368→  var pageMap = {
+  1369→    'dashboard': renderDashboard,
+  1370→    'branch-list': renderBranchList,
+  1371→    'employee-list': renderEmployeeList,
+  1372→    'department': renderDepartment,
+  1373→    'designation': renderDesignation,
+  1374→    'categories': renderCategories,
+  1375→    'brand': renderBrand,
+  1376→    'uom': renderUoM,
+  1377→    'product-list': renderProductList,
+  1378→    'purchase-list': renderPurchaseList,
+  1379→    'supplier': renderSupplier,
+  1380→    'delivery-list': renderDeliveryList,
+  1381→    'adjustment-list': renderAdjustmentList,
+  1382→    'damage-list': renderDamageList,
+  1383→    'transfer-list': renderTransferList,
+  1384→    'cash-in': renderCashIn,
+  1385→    'cash-out': renderCashOut,
+  1386→    'approval-purchase': function() { return renderApprovalList('purchase', DB.purchases); },
+  1387→    'approval-delivery': function() { return renderApprovalList('delivery', DB.deliveries); },
+  1388→    'approval-adjustment': function() { return renderApprovalList('adjustment', DB.adjustments); },
+  1389→    'approval-damage': function() { return renderApprovalList('damage', DB.damages); },
+  1390→    'report-purchase': function() { return renderReport('purchase'); },
+  1391→    'report-delivery': function() { return renderReport('delivery'); },
+  1392→    'report-adjustment': function() { return renderReport('adjustment'); },
+  1393→    'report-damage': function() { return renderReport('damage'); },
+  1394→    'company-profile': renderCompanyProfile,
+  1395→    'user-list': renderUserList,
+  1396→    'role-list': renderRoleList,
+  1397→  };
+  1398→
+  1399→  var renderFn = pageMap[currentPage] || renderDashboard;
+  1400→  pc.innerHTML = '<div class="page-content">' + renderFn() + '</div>';
+  1401→
+  1402→  // Bind events AFTER DOM is ready — this is the KEY FIX
+  1403→  var bindMap = {
+  1404→    'branch-list': bindBranchEvents,
+  1405→    'employee-list': bindEmployeeEvents,
+  1406→    'department': function() { bindSimpleListEvents('departments', 'Department name', null); },
+  1407→    'designation': function() { bindSimpleListEvents('designations', 'Designation name', null); },
+  1408→    'uom': function() { bindSimpleListEvents('uoms', 'UoM name', null); },
+  1409→    'categories': function() { bindSimpleListEvents('categories', 'Category name', 'description'); },
+  1410→    'brand': function() { bindSimpleListEvents('brands', 'Brand name', null); },
+  1411→    'product-list': bindProductEvents,
+  1412→    'supplier': bindSupplierEvents,
+  1413→    'cash-in': bindCashInEvents,
+  1414→    'cash-out': bindCashOutEvents,
+  1415→    'approval-purchase': bindApprovalEvents,
+  1416→    'approval-delivery': bindApprovalEvents,
+  1417→    'approval-adjustment': bindApprovalEvents,
+  1418→    'approval-damage': bindApprovalEvents,
+  1419→    'company-profile': bindCompanyEvents,
+  1420→    'user-list': bindUserEvents,
+  1421→    'role-list': bindRoleEvents,
+  1422→  };
+  1423→
+  1424→  if (currentPage === 'dashboard') initDashboardChart();
+  1425→  if (currentPage.indexOf('report-') === 0) drawReportPie();
+  1426→
+  1427→  var bindFn = bindMap[currentPage];
+  1428→  if (bindFn) bindFn();
+  1429→}
+  1430→
+  1431→// ==================== INIT ====================
+  1432→renderNav();
+  1433→renderPage();
+  1434→</script>
+  1435→</body>
+  1436→</html>
