@@ -1091,48 +1091,62 @@ function bindPurchaseEvents() {
     var prdOpts = '<option value="">Select</option>';
     for (var i = 0; i < DB.products.length; i++) prdOpts += '<option>' + DB.products[i].name + '</option>';
 
-    var html = '<div style="width:1200px;max-width:96vw;">';
-    html += '<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:18px;font-weight:700;">Add New Purchase</div>';
+    var lbl = 'style="background:#a8d08d;padding:7px 12px;font-size:13px;font-weight:600;border:1px solid #555;width:130px;"';
+    var inp = 'style="border:1px solid #555;padding:7px 10px;font-size:13px;flex:1;outline:none;background:#fff;"';
+    var tblH = 'style="background:#a8d08d;padding:7px 8px;font-size:12px;font-weight:600;border:1px solid #555;"';
+    var tblC = 'style="border:1px solid #555;padding:0;"';
+    var tblInp = 'style="border:none;padding:6px 8px;font-size:12px;width:100%;outline:none;background:transparent;"';
+
+    var html = '<div style="width:1100px;max-width:96vw;background:#fff;">';
+    html += '<div style="padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:18px;font-weight:700;">Add New Purchase</div>';
     html += '<button onclick="closeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted);padding:4px;"><i class="fas fa-times"></i></button></div>';
-    html += '<div style="padding:16px 24px 24px;">';
+    html += '<div style="padding:16px 20px 20px;">';
 
-    // Table header
-    html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;"><div style="overflow-x:auto;">';
-    html += '<table class="data-table" id="pur-entries-table"><thead><tr>';
-    html += '<th style="min-width:115px;">Date</th>';
-    html += '<th style="min-width:115px;">Invoice No</th>';
-    html += '<th style="min-width:120px;">Supplier</th>';
-    html += '<th style="min-width:120px;">Product</th>';
-    html += '<th style="min-width:95px;">Categories</th>';
-    html += '<th style="min-width:90px;">Brand</th>';
-    html += '<th style="min-width:100px;">Model</th>';
-    html += '<th style="min-width:110px;">Serial Number</th>';
-    html += '<th style="min-width:60px;">Quantity</th>';
-    html += '<th style="min-width:90px;">Price</th>';
-    html += '<th style="min-width:90px;">Total</th>';
-    html += '<th style="min-width:90px;">Condition</th>';
-    html += '<th style="min-width:90px;">Warranty</th>';
-    html += '<th style="min-width:100px;">Remarks</th>';
-    html += '<th style="width:45px;"></th>';
+    // Top fields - label on left (green bg), input on right (black border)
+    html += '<div style="margin-bottom:20px;">';
+    html += purFieldRow('Date', '<input type="date" ' + inp + ' data-top="date">', lbl);
+    html += purFieldRow('Invoice No', '<input ' + inp + ' data-top="invoice" placeholder="Enter Invoice No">', lbl);
+    html += purFieldRow('Supplier', '<select ' + inp + ' data-top="supplier">' + supOpts + '</select>', lbl);
+    html += purFieldRow('Attachment', '<input type="file" ' + inp + ' data-top="attach" style="padding:4px;">', lbl);
+    html += '</div>';
+
+    // Table
+    html += '<div style="border:1px solid #555;margin-bottom:8px;"><table style="width:100%;border-collapse:collapse;">';
+    html += '<thead><tr>';
+    html += '<th ' + tblH + '>Product</th>';
+    html += '<th ' + tblH + '>Categories</th>';
+    html += '<th ' + tblH + '>Brand</th>';
+    html += '<th ' + tblH + '>Model</th>';
+    html += '<th ' + tblH + '>Serial Number</th>';
+    html += '<th ' + tblH + '>Quantity</th>';
+    html += '<th ' + tblH + '>Price</th>';
+    html += '<th ' + tblH + '>Condition</th>';
+    html += '<th ' + tblH + '>Warranty</th>';
+    html += '<th ' + tblH + '>Remarks</th>';
+    html += '<th ' + tblH + ' style="width:40px;"></th>';
     html += '</tr></thead><tbody id="pur-entries-body">';
-    html += buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts);
-    html += '</tbody></table></div></div>';
+    html += purTableRowHTML(catOpts, brandOpts, prdOpts, tblC, tblInp);
+    html += '</tbody></table></div>';
 
-    // Add Row button
-    html += '<button type="button" id="btn-pur-addrow" class="btn btn-secondary" style="margin-bottom:16px;"><i class="fas fa-plus"></i> Add Row</button>';
+    // Add Row - plain text link
+    html += '<a href="javascript:void(0)" id="btn-pur-addrow" style="color:#333;font-size:13px;font-weight:600;text-decoration:underline;margin-bottom:20px;display:inline-block;">Add Row</a>';
 
     // Note
-    html += '<div class="form-group"><label class="form-label">Note</label><textarea class="form-input" id="f-pur-note" rows="2" placeholder="Enter note..." style="resize:vertical;"></textarea></div>';
+    html += '<div style="margin-bottom:16px;">';
+    html += purFieldRow('Note', '<textarea rows="2" ' + inp + ' id="f-pur-note" placeholder="Enter note..." style="resize:vertical;"></textarea>', lbl);
+    html += '</div>';
 
     // Status + Cancel/Save
-    html += '<div style="display:flex;align-items:flex-end;gap:12px;">';
-    html += '<div class="form-group" style="margin-bottom:0;"><label class="form-label">Status</label><select class="form-input" id="f-pur-status" style="min-width:150px;"><option>Draft</option><option>Submitted</option></select></div>';
+    html += '<div style="display:flex;align-items:center;gap:12px;">';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="font-size:13px;font-weight:600;">Status:</span>';
+    html += '<select ' + inp + ' id="f-pur-status" style="width:160px;"><option>Draft</option><option>Submitted</option></select>';
+    html += '</div>';
     html += '<div style="flex:1;"></div>';
-    html += '<div style="display:flex;gap:12px;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-    html += '<button class="btn btn-primary" id="btn-save-pur"><i class="fas fa-save"></i> Save</button></div>';
+    html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-pur"><i class="fas fa-save"></i> Save</button>';
     html += '</div></div></div>';
 
-    // Open modal wide
     var overlay = document.getElementById('modal-overlay');
     var box = document.getElementById('modal-box');
     box.innerHTML = html;
@@ -1140,20 +1154,23 @@ function bindPurchaseEvents() {
     box.style.maxWidth = '96vw';
     overlay.classList.add('show');
 
-    // Bind first row delete
     bindPurRowDel(document.querySelector('#pur-entries-body tr'));
 
-    // Add Row
     document.getElementById('btn-pur-addrow').addEventListener('click', function() {
       var tbody = document.getElementById('pur-entries-body');
       var tr = document.createElement('tr');
-      tr.innerHTML = buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts);
+      tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts, tblC, tblInp);
       tbody.appendChild(tr);
       bindPurRowDel(tr);
     });
 
-    // Save
     document.getElementById('btn-save-pur').addEventListener('click', function() {
+      var date = document.querySelector('[data-top="date"]').value;
+      var invoice = document.querySelector('[data-top="invoice"]').value.trim();
+      if (!invoice) { showToast('Invoice No required', 'error'); return; }
+      if (!date) { showToast('Date required', 'error'); return; }
+      var supplier = document.querySelector('[data-top="supplier"]').value;
+      var status = document.getElementById('f-pur-status').value;
       var rows = document.querySelectorAll('#pur-entries-body tr');
       var hasItem = false;
       for (var i = 0; i < rows.length; i++) {
@@ -1161,8 +1178,6 @@ function bindPurchaseEvents() {
         if (p && p.value) { hasItem = true; break; }
       }
       if (!hasItem) { showToast('Add at least one product', 'error'); return; }
-      var status = document.getElementById('f-pur-status').value;
-      var note = document.getElementById('f-pur-note').value.trim();
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var product = r.querySelector('[data-f="product"]').value;
@@ -1170,23 +1185,49 @@ function bindPurchaseEvents() {
         var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
         var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
         DB.purchases.push({
-          id: Date.now() + i,
-          invoice: r.querySelector('[data-f="invoice"]').value.trim() || 'N/A',
-          date: r.querySelector('[data-f="date"]').value,
-          supplier: r.querySelector('[data-f="supplier"]').value,
-          product: product,
-          qty: qty,
-          unitPrice: price,
-          total: qty * price,
-          status: status,
-          branch: 'Head Office'
+          id: Date.now() + i, invoice: invoice, date: date, supplier: supplier,
+          product: product, qty: qty, unitPrice: price, total: qty * price,
+          status: status, branch: 'Head Office'
         });
       }
-      closeModal();
-      showToast('Purchase saved successfully');
-      renderPage();
+      closeModal(); showToast('Purchase saved successfully'); renderPage();
     });
   });
+}
+
+function purFieldRow(label, inputHTML, lblStyle) {
+  return '<div style="display:flex;align-items:stretch;border:1px solid #555;border-top:none;">' +
+    '<div ' + lblStyle + '>' + label + '</div>' +
+    '<div style="flex:1;display:flex;align-items:center;">' + inputHTML + '</div></div>';
+}
+
+function purTableRowHTML(catOpts, brandOpts, prdOpts, tblC, tblInp) {
+  var h = '<tr>';
+  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="product">' + prdOpts + '</select></td>';
+  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="category">' + catOpts + '</select></td>';
+  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="brand">' + brandOpts + '</select></td>';
+  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="model" placeholder="Model"></td>';
+  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="serial" placeholder="Serial Number"></td>';
+  h += '<td ' + tblC + '><input type="number" ' + tblInp + ' data-f="qty" value="0" style="text-align:center;"></td>';
+  h += '<td ' + tblC + '><input type="number" ' + tblInp + ' data-f="price" value="0" style="text-align:right;"></td>';
+  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="warranty" placeholder="e.g. 1 Year"></td>';
+  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="remarks" placeholder="Remarks"></td>';
+  h += '<td ' + tblC + ' style="text-align:center;"><button type="button" class="btn-del-pur-row" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;padding:4px;"><i class="fas fa-trash"></i></button></td>';
+  h += '</tr>';
+  return h;
+}
+
+function bindPurRowDel(tr) {
+  if (!tr) return;
+  var delBtn = tr.querySelector('.btn-del-pur-row');
+  if (delBtn) {
+    delBtn.addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      if (tbody.rows.length > 1) { tr.remove(); }
+      else { showToast('At least one row required', 'error'); }
+    });
+  }
 }
 
 function buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts) {
@@ -1207,18 +1248,6 @@ function buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts) {
   h += '<td><input class="form-input pur-cell" data-f="remarks" style="padding:6px 8px;font-size:12px;" placeholder="Remarks"></td>';
   h += '<td style="text-align:center;"><button type="button" class="btn-del-pur-row" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;padding:4px;"><i class="fas fa-trash"></i></button></td>';
   return h;
-}
-
-function bindPurRowDel(tr) {
-  if (!tr) return;
-  var delBtn = tr.querySelector('.btn-del-pur-row');
-  if (delBtn) {
-    delBtn.addEventListener('click', function() {
-      var tbody = document.getElementById('pur-entries-body');
-      if (tbody.rows.length > 1) { tr.remove(); }
-      else { showToast('At least one row required', 'error'); }
-    });
-  }
 }
 
 window.purRowTotal = function(el) {
