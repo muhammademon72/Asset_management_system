@@ -986,7 +986,14 @@ function renderPurchaseList() {
     var p = DB.purchases[i];
     rows += '<tr><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.date + '</td><td>' + p.supplier + '</td><td>' + p.product + '</td><td style="text-align:center;">' + p.qty + '</td><td style="font-weight:600;">' + fmt(p.total) + '</td><td>' + p.branch + '</td><td>' + statusBadge(p.status) + '</td></tr>';
   }
-  return renderReadOnlyTable('Purchase List', ['Invoice', 'Date', 'Supplier', 'Product', 'Qty', 'Total', 'Branch', 'Status'], rows);
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Purchase List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-primary" id="btn-add-purchase"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Invoice</th><th>Date</th><th>Supplier</th><th>Product</th><th>Qty</th><th>Total</th><th>Branch</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
 }
 
 function renderSupplier() {
@@ -1067,6 +1074,42 @@ function renderCashIn() {
   for (var i = 0; i < DB.cashIn.length; i++) { var c = DB.cashIn[i]; html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + c.date + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(c.amount) + '</td><td>' + c.description + '</td><td>' + c.branch + '</td><td>' + statusBadge(c.status) + '</td></tr>'; }
   html += '</tbody></table></div></div>';
   return html;
+}
+
+function bindPurchaseEvents() {
+  var btn = document.getElementById('btn-add-purchase');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    var supOpts = '';
+    for (var i = 0; i < DB.suppliers.length; i++) supOpts += '<option>' + DB.suppliers[i].name + '</option>';
+    var brOpts = '';
+    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
+    var prdOpts = '';
+    for (var i = 0; i < DB.products.length; i++) prdOpts += '<option>' + DB.products[i].name + '</option>';
+    var html = '<div style="padding:24px;">' + modalHeader('Add New Purchase') + '<div style="padding-top:16px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Invoice No</label><input class="form-input" id="f-pur-invoice"></div>';
+    html += '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-pur-date" type="date"></div></div>';
+    html += '<div class="form-group"><label class="form-label">Supplier</label><select class="form-input" id="f-pur-supplier">' + supOpts + '</select></div>';
+    html += '<div class="form-group"><label class="form-label">Product</label><select class="form-input" id="f-pur-product">' + prdOpts + '</select></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Quantity</label><input class="form-input" id="f-pur-qty" type="number"></div>';
+    html += '<div class="form-group"><label class="form-label">Unit Price</label><input class="form-input" id="f-pur-price" type="number"></div></div>';
+    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-pur-branch">' + brOpts + '</select></div>';
+    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-pur"><i class="fas fa-save"></i> Save</button></div></div>';
+    openModal(html);
+    document.getElementById('btn-save-pur').addEventListener('click', function() {
+      var invoice = document.getElementById('f-pur-invoice').value.trim();
+      var date = document.getElementById('f-pur-date').value;
+      var qty = Number(document.getElementById('f-pur-qty').value);
+      var price = Number(document.getElementById('f-pur-price').value);
+      if (!invoice) { showToast('Invoice No required', 'error'); return; }
+      if (!date) { showToast('Date required', 'error'); return; }
+      if (!qty) { showToast('Quantity required', 'error'); return; }
+      if (!price) { showToast('Unit Price required', 'error'); return; }
+      DB.purchases.push({ id: Date.now(), invoice: invoice, date: date, supplier: document.getElementById('f-pur-supplier').value, product: document.getElementById('f-pur-product').value, qty: qty, unitPrice: price, total: qty * price, status: 'Pending', branch: document.getElementById('f-pur-branch').value });
+      closeModal(); showToast('Purchase added'); renderPage();
+    });
+  });
 }
 
 function bindCashInEvents() {
@@ -1423,6 +1466,7 @@ function renderPage() {
     'categories': function() { bindSimpleListEvents('categories', 'Category name', 'description'); },
     'brand': function() { bindSimpleListEvents('brands', 'Brand name', null); },
     'product-list': bindProductEvents,
+    'purchase-list': bindPurchaseEvents,
     'supplier': bindSupplierEvents,
     'cash-in': bindCashInEvents,
     'cash-out': bindCashOutEvents,
