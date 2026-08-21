@@ -785,12 +785,13 @@ function renderSimpleList(title, arr, collection, addPlaceholder, fieldKey) {
   html += '<button class="btn btn-primary" id="btn-add-simple"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>#</th><th>Name</th>' + (fieldKey === 'description' ? '<th>Description</th>' : '') + (fieldKey === 'category' ? '<th>Category</th>' : '') + '<th style="width:80px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>#</th><th>Name</th>' + (fieldKey === 'description' ? '<th>Description</th>' : '') + (fieldKey === 'category' ? '<th>Category</th>' : '') + '<th style="width:120px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < arr.length; i++) {
     html += '<tr><td style="font-weight:600;">' + (i+1) + '</td><td>' + (typeof arr[i] === 'string' ? arr[i] : arr[i].name) + '</td>';
     if (fieldKey === 'description') html += '<td>' + arr[i].description + '</td>';
     if (fieldKey === 'category') html += '<td>' + arr[i].category + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-simple="' + i + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-simple="' + i + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-simple="' + i + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
   return html;
@@ -828,15 +829,41 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
       closeModal(); showToast('Added successfully'); renderPage();
     });
   });
+  var editBtns = document.querySelectorAll('[data-edit-simple]');
+  for (var ei = 0; ei < editBtns.length; ei++) {
+    (function(btn, idx) {
+      btn.addEventListener('click', function() {
+        var item = DB[collection][idx];
+        var itemName = typeof item === 'string' ? item : item.name;
+        var extraField = '';
+        if (fieldKey === 'description') extraField = '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-extra" value="' + (item.description || '') + '"></div>';
+        if (fieldKey === 'category') {
+          var opts = '';
+          for (var ci = 0; ci < DB.categories.length; ci++) opts += '<option' + (item.category === DB.categories[ci].name ? ' selected' : '') + '>' + DB.categories[ci].name + '</option>';
+          extraField = '<div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-extra">' + opts + '</select></div>';
+        }
+        var html = '<div style="padding:24px;">' + modalHeader('Edit') + '<div style="padding-top:16px;">';
+        html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-simple-name" value="' + itemName + '"></div>';
+        html += extraField;
+        html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+        html += '<button class="btn btn-primary" id="btn-save-simple"><i class="fas fa-save"></i> Update</button></div></div>';
+        openModal(html);
+        document.getElementById('btn-save-simple').addEventListener('click', function() {
+          var name = document.getElementById('f-simple-name').value.trim();
+          if (!name) { showToast('Name is required', 'error'); return; }
+          var extra = document.getElementById('f-extra');
+          if (typeof DB[collection][0] === 'string') { DB[collection][idx] = name; }
+          else { DB[collection][idx].name = name; if (fieldKey === 'description') DB[collection][idx].description = extra ? extra.value.trim() : ''; if (fieldKey === 'category') DB[collection][idx].category = extra ? extra.value : ''; }
+          closeModal(); showToast('Updated successfully'); renderPage();
+        });
+      });
+    })(editBtns[ei], parseInt(editBtns[ei].getAttribute('data-edit-simple')));
+  }
   var delBtns = document.querySelectorAll('[data-del-simple]');
   for (var i = 0; i < delBtns.length; i++) {
     (function(btn, idx) {
       btn.addEventListener('click', function() {
-        if (Array.isArray(DB[collection]) && typeof DB[collection][0] === 'string') {
-          DB[collection].splice(idx, 1);
-        } else {
-          DB[collection].splice(idx, 1);
-        }
+        DB[collection].splice(idx, 1);
         showToast('Removed'); renderPage();
       });
     })(delBtns[i], parseInt(delBtns[i].getAttribute('data-del-simple')));
@@ -858,11 +885,12 @@ function renderProductList() {
   html += '<button class="btn btn-primary" id="btn-add-product"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Product Name</th><th>Category</th><th>UoM</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Product Name</th><th>Category</th><th>UoM</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.products.length; i++) {
     var p = DB.products[i];
     html += '<tr><td style="font-weight:600;">' + p.name + '</td><td>' + p.category + '</td><td>' + p.uom + '</td><td>' + statusBadge(p.status) + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-prod="' + p.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-prod="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-prod="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
   return html;
@@ -889,6 +917,31 @@ function bindProductEvents() {
       closeModal(); showToast('Product added'); renderPage();
     });
   });
+  var editBtns = document.querySelectorAll('[data-edit-prod]');
+  for (var ei = 0; ei < editBtns.length; ei++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var p = DB.products.find(function(x){ return x.id === parseInt(btn.getAttribute('data-edit-prod')); });
+        if (!p) return;
+        var catOpts = '', uomOpts = '';
+        for (var i = 0; i < DB.categories.length; i++) catOpts += '<option' + (p.category === DB.categories[i].name ? ' selected' : '') + '>' + DB.categories[i].name + '</option>';
+        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k] ? ' selected' : '') + '>' + DB.uoms[k] + '</option>';
+        var html = '<div style="padding:24px;">' + modalHeader('Edit Product') + '<div style="padding-top:16px;">';
+        html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name" value="' + p.name + '"></div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
+        html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+        html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+        html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Update</button></div></div>';
+        openModal(html);
+        document.getElementById('btn-save-prod').addEventListener('click', function() {
+          var name = document.getElementById('f-prod-name').value.trim();
+          if (!name) { showToast('Product name required', 'error'); return; }
+          p.name = name; p.category = document.getElementById('f-prod-cat').value; p.uom = document.getElementById('f-prod-uom').value;
+          closeModal(); showToast('Product updated'); renderPage();
+        });
+      });
+    })(editBtns[ei]);
+  }
   var delBtns = document.querySelectorAll('[data-del-prod]');
   for (var i = 0; i < delBtns.length; i++) {
     (function(btn) {
