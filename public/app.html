@@ -1117,6 +1117,7 @@ function bindPurchaseEvents() {
     html += '<th class="pur-th">Model</th>';
     html += '<th class="pur-th">Serial Number</th>';
     html += '<th class="pur-th">Quantity</th>';
+    html += '<th class="pur-th">Total</th>';
     html += '<th class="pur-th">Price</th>';
     html += '<th class="pur-th">Condition</th>';
     html += '<th class="pur-th">Warranty</th>';
@@ -1227,8 +1228,9 @@ function purTableRowHTML(catOpts, brandOpts, prdOpts) {
   h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
-  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
-  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
   h += '<td class="pur-td"><input data-f="warranty" placeholder="e.g. 1 Year"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
@@ -1269,7 +1271,7 @@ function buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts) {
   return h;
 }
 
-window.purRowTotal = function(el) {
+window.purCalcRowTotal = function(el) {
   var tr = el.closest('tr');
   var qty = parseFloat(tr.querySelector('[data-f="qty"]').value) || 0;
   var price = parseFloat(tr.querySelector('[data-f="price"]').value) || 0;
