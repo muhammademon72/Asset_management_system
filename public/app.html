@@ -762,12 +762,12 @@ function openEmployeeModal(editId) {
     branchOpts += '<option' + (e && e.branch === DB.branches[k].name ? ' selected' : '') + '>' + DB.branches[k].name + '</option>';
   }
   var html = '<div style="padding:24px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-emp-name" value="' + (e ? e.name : '') + '"></div>';
-  html += '<div class="form-group"><label class="form-label">Employee ID</label><input class="form-input" id="f-emp-id" value="' + (e ? e.empId : '') + '"></div></div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Department</label><select class="form-input" id="f-emp-dept">' + deptOpts + '</select></div>';
-  html += '<div class="form-group"><label class="form-label">Designation</label><select class="form-input" id="f-emp-desig">' + desigOpts + '</select></div></div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-emp-branch">' + branchOpts + '</select></div>';
-  html += '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-emp-phone" value="' + (e ? e.phone : '') + '"></div></div>';
+  html += '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-emp-name" value="' + (e ? e.name : '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">Employee ID</label><input class="form-input" id="f-emp-id" value="' + (e ? e.empId : '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">Department</label><select class="form-input" id="f-emp-dept">' + deptOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">Designation</label><select class="form-input" id="f-emp-desig">' + desigOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-emp-branch">' + branchOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-emp-phone" value="' + (e ? e.phone : '') + '"></div>';
   html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-emp-status"><option' + (e && e.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (e && e.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
   html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button';
   html += '<button class="btn btn-primary" id="btn-save-emp"><i class="fas fa-save"></i> ' + (e ? 'Update' : 'Save') + '</button></div></div>';
