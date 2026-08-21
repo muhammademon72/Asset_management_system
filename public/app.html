@@ -755,7 +755,7 @@ function openEmployeeModal(editId) {
   }
   var desigOpts = '';
   for (var j = 0; j < DB.designations.length; j++) {
-    desigOpts += '<option' + (e && e.designation === DB.designations[j].name ? ' selected' : '') + '>' + DB.designations[j].name + '</option';
+    desigOpts += '<option' + (e && e.designation === DB.designations[j].name ? ' selected' : '') + '>' + DB.designations[j].name + '</option>';
   }
   var branchOpts = '';
   for (var k = 0; k < DB.branches.length; k++) {
@@ -917,7 +917,7 @@ function bindProductEvents() {
   addBtn.addEventListener('click', function() {
     var catOpts = '', uomOpts = '';
     for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
-    for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k].name + '</option';
+    for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k].name + '</option>';
     var html = '<div style="padding:24px;">' + modalHeader('Add New Product') + '<div style="padding-top:16px;">';
     html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name"></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
@@ -941,7 +941,7 @@ function bindProductEvents() {
         if (!p) return;
         var catOpts = '', uomOpts = '';
         for (var i = 0; i < DB.categories.length; i++) catOpts += '<option' + (p.category === DB.categories[i].name ? ' selected' : '') + '>' + DB.categories[i].name + '</option>';
-        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k].name ? ' selected' : '') + '>' + DB.uoms[k].name + '</option';
+        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k].name ? ' selected' : '') + '>' + DB.uoms[k].name + '</option>';
         var html = '<div style="padding:24px;">' + modalHeader('Edit Product') + '<div style="padding-top:16px;">';
         html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name" value="' + p.name + '"></div>';
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
