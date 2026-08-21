@@ -847,7 +847,7 @@ function renderDepartment() { return renderSimpleList('Department List', DB.depa
 function renderDesignation() { return renderSimpleList('Designation List', DB.designations, 'designations', 'Designation name', null); }
 function renderUoM() { return renderSimpleList('Unit of Measurement', DB.uoms, 'uoms', 'UoM name', null); }
 function renderCategories() { return renderSimpleList('Product Categories', DB.categories, 'categories', 'Category name', 'description'); }
-function renderBrand() { return renderSimpleList('Brand List', DB.brands, 'brands', 'Brand name', 'category'); }
+function renderBrand() { return renderSimpleList('Brand List', DB.brands, 'brands', 'Brand name', null); }
 
 // ==================== PRODUCT LIST ====================
 function renderProductList() {
@@ -1354,7 +1354,7 @@ function renderPage() {
     'designation': function() { bindSimpleListEvents('designations', 'Designation name', null); },
     'uom': function() { bindSimpleListEvents('uoms', 'UoM name', null); },
     'categories': function() { bindSimpleListEvents('categories', 'Category name', 'description'); },
-    'brand': function() { bindSimpleListEvents('brands', 'Brand name', 'category'); },
+    'brand': function() { bindSimpleListEvents('brands', 'Brand name', null); },
     'product-list': bindProductEvents,
     'supplier': bindSupplierEvents,
     'cash-in': bindCashInEvents,
