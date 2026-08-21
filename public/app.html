@@ -1112,15 +1112,14 @@ function bindPurchaseEvents() {
     html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
     html += '<thead><tr>';
     html += '<th class="pur-th">Product</th>';
-    html += '<th class="pur-th">Categories</th>';
     html += '<th class="pur-th">Brand</th>';
     html += '<th class="pur-th">Model</th>';
     html += '<th class="pur-th">Serial Number</th>';
-    html += '<th class="pur-th">Quantity</th>';
-    html += '<th class="pur-th">Total</th>';
-    html += '<th class="pur-th">Price</th>';
     html += '<th class="pur-th">Condition</th>';
     html += '<th class="pur-th">Warranty</th>';
+    html += '<th class="pur-th">Quantity</th>';
+    html += '<th class="pur-th">Price</th>';
+    html += '<th class="pur-th">Total</th>';
     html += '<th class="pur-th">Remarks</th>';
     html += '<th class="pur-th" style="width:42px;"></th>';
     html += '</tr></thead><tbody id="pur-entries-body">';
@@ -1224,15 +1223,14 @@ function purFieldRow(label, inputHTML) {
 function purTableRowHTML(catOpts, brandOpts, prdOpts) {
   var h = '<tr>';
   h += '<td class="pur-td"><select data-f="product">' + prdOpts + '</select></td>';
-  h += '<td class="pur-td"><select data-f="category">' + catOpts + '</select></td>';
   h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
-  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
-  h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);"></td>';
-  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
   h += '<td class="pur-td"><input data-f="warranty" placeholder="e.g. 1 Year"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
   h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
   h += '</tr>';
