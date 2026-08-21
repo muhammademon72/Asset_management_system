@@ -1,0 +1,502 @@
+     1→<!DOCTYPE html>
+     2→<html lang="en">
+     3→<head>
+     4→<meta charset="UTF-8">
+     5→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→<title>IT Asset Management System</title>
+     7→<script src="https://cdn.tailwindcss.com"></script>
+     8→<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+     9→<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    10→<style>
+    11→  :root {
+    12→    --bg: #f1f5f0;
+    13→    --fg: #1a2e1a;
+    14→    --muted: #6b7c6b;
+    15→    --accent: #2d8a4e;
+    16→    --accent-light: #e8f5ec;
+    17→    --accent-dark: #1a5c30;
+    18→    --card: #ffffff;
+    19→    --border: #d4ddd4;
+    20→    --sidebar: #111a11;
+    21→    --sidebar-hover: #1c2e1c;
+    22→    --danger: #dc2626;
+    23→    --warning: #d97706;
+    24→    --info: #0284c7;
+    25→  }
+    26→  * { margin: 0; padding: 0; box-sizing: border-box; }
+    27→  body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--fg); overflow: hidden; height: 100vh; }
+    28→  ::-webkit-scrollbar { width: 6px; }
+    29→  ::-webkit-scrollbar-track { background: transparent; }
+    30→  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    31→  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+    32→
+    33→  .sidebar { width: 270px; min-width: 270px; background: var(--sidebar); height: 100vh; overflow-y: auto; transition: all 0.3s ease; }
+    34→  .sidebar.collapsed { width: 72px; min-width: 72px; }
+    35→  .sidebar.collapsed .nav-text,
+    36→  .sidebar.collapsed .logo-text,
+    37→  .sidebar.collapsed .menu-arrow,
+    38→  .sidebar.collapsed .submenu { display: none !important; }
+    39→  .sidebar.collapsed .nav-item { justify-content: center; padding: 12px; }
+    40→  .sidebar.collapsed .nav-item i { margin-right: 0; font-size: 18px; }
+    41→
+    42→  .nav-item {
+    43→    display: flex; align-items: center; padding: 10px 20px; color: #8fa88f;
+    44→    cursor: pointer; transition: all 0.2s ease; font-size: 14px; font-weight: 400;
+    45→    border-left: 3px solid transparent;
+    46→  }
+    47→  .nav-item:hover { background: var(--sidebar-hover); color: #c8e0c8; }
+    48→  .nav-item.active { background: rgba(45,138,78,0.15); color: #5eea7e; border-left-color: var(--accent); font-weight: 600; }
+    49→  .nav-item i.nav-icon { width: 20px; margin-right: 12px; text-align: center; font-size: 15px; }
+    50→  .menu-arrow { margin-left: auto; font-size: 11px; transition: transform 0.2s; }
+    51→  .menu-arrow.open { transform: rotate(90deg); }
+    52→  .submenu { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: rgba(0,0,0,0.15); }
+    53→  .submenu.open { max-height: 300px; }
+    54→  .submenu .nav-item { padding-left: 56px; font-size: 13px; border-left: none; }
+    55→
+    56→  .main-content { flex: 1; overflow-y: auto; height: 100vh; }
+    57→  .top-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    58→
+    59→  .stat-card {
+    60→    background: var(--card); border-radius: 14px; padding: 24px; border: 1px solid var(--border);
+    61→    transition: all 0.3s ease; position: relative; overflow: hidden;
+    62→  }
+    63→  .stat-card::before {
+    64→    content: ''; position: absolute; top: 0; right: 0; width: 100px; height: 100px;
+    65→    border-radius: 50%; opacity: 0.06; transform: translate(30px, -30px);
+    66→  }
+    67→  .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+    68→  .stat-card.green::before { background: var(--accent); }
+    69→  .stat-card.blue::before { background: var(--info); }
+    70→  .stat-card.amber::before { background: var(--warning); }
+    71→  .stat-card.red::before { background: var(--danger); }
+    72→
+    73→  .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    74→  .data-table thead th {
+    75→    background: #f6f8f6; padding: 12px 16px; text-align: left; font-size: 12px;
+    76→    font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+    77→    border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 5;
+    78→  }
+    79→  .data-table tbody td {
+    80→    padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); transition: background 0.15s;
+    81→  }
+    82→  .data-table tbody tr:hover td { background: var(--accent-light); }
+    83→  .data-table tbody tr:last-child td { border-bottom: none; }
+    84→
+    85→  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
+    86→  .badge-green { background: #dcfce7; color: #166534; }
+    87→  .badge-amber { background: #fef3c7; color: #92400e; }
+    88→  .badge-red { background: #fee2e2; color: #991b1b; }
+    89→  .badge-blue { background: #dbeafe; color: #1e40af; }
+    90→  .badge-gray { background: #f3f4f6; color: #374151; }
+    91→
+    92→  .btn {
+    93→    display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+    94→    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    95→    border: none; transition: all 0.2s ease; font-family: 'Outfit', sans-serif;
+    96→  }
+    97→  .btn-primary { background: var(--accent); color: white; }
+    98→  .btn-primary:hover { background: var(--accent-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,138,78,0.3); }
+    99→  .btn-secondary { background: var(--card); color: var(--fg); border: 1px solid var(--border); }
+   100→  .btn-secondary:hover { background: #f6f8f6; }
+   101→  .btn-danger { background: var(--danger); color: white; }
+   102→  .btn-danger:hover { background: #b91c1c; }
+   103→  .btn-sm { padding: 5px 12px; font-size: 12px; }
+   104→  .btn-icon { padding: 7px 9px; }
+   105→
+   106→  .form-group { margin-bottom: 16px; }
+   107→  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 6px; }
+   108→  .form-input {
+   109→    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+   110→    font-size: 14px; font-family: 'Outfit', sans-serif; color: var(--fg);
+   111→    background: var(--card); transition: all 0.2s; outline: none;
+   112→  }
+   113→  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,138,78,0.12); }
+   114→  select.form-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7c6b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+   115→
+   116→  .modal-overlay {
+   117→    position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+   118→    z-index: 1000; display: flex; align-items: center; justify-content: center;
+   119→    opacity: 0; pointer-events: none; transition: opacity 0.25s;
+   120→  }
+   121→  .modal-overlay.show { opacity: 1; pointer-events: all; }
+   122→  .modal-box {
+   123→    background: var(--card); border-radius: 16px; width: 520px; max-width: 95vw;
+   124→    max-height: 85vh; overflow-y: auto; transform: scale(0.92) translateY(20px);
+   125→    transition: transform 0.25s ease; box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+   126→  }
+   127→  .modal-overlay.show .modal-box { transform: scale(1) translateY(0); }
+   128→
+   129→  .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+   130→  .toast {
+   131→    padding: 14px 20px; border-radius: 10px; color: white; font-size: 13px; font-weight: 500;
+   132→    display: flex; align-items: center; gap: 10px; min-width: 280px;
+   133→    animation: toastIn 0.35s ease, toastOut 0.35s ease 2.6s forwards;
+   134→    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+   135→  }
+   136→  .toast-success { background: #166534; }
+   137→  .toast-error { background: #991b1b; }
+   138→  .toast-info { background: #1e40af; }
+   139→  @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+   140→  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
+   141→  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+   142→  .fade-up { animation: fadeUp 0.5s ease forwards; }
+   143→  .fade-up-1 { animation-delay: 0.05s; opacity: 0; }
+   144→  .fade-up-2 { animation-delay: 0.1s; opacity: 0; }
+   145→  .fade-up-3 { animation-delay: 0.15s; opacity: 0; }
+   146→  .fade-up-4 { animation-delay: 0.2s; opacity: 0; }
+   147→  .pulse-dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+   148→  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+   149→  .page-content { animation: pageIn 0.3s ease; }
+   150→  @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+   151→  .search-box { position: relative; }
+   152→  .search-box input { padding-left: 38px; }
+   153→  .search-box i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; }
+   154→  @media (max-width: 768px) {
+   155→    .sidebar { position: fixed; z-index: 100; transform: translateX(-100%); }
+   156→    .sidebar.mobile-open { transform: translateX(0); }
+   157→    .stat-grid { grid-template-columns: 1fr !important; }
+   158→  }
+   159→</style>
+   160→</head>
+   161→<body>
+   162→<div id="app" style="display:flex; height:100vh;">
+   163→  <aside class="sidebar" id="sidebar">
+   164→    <div style="padding:20px 20px 10px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:18px; margin-bottom:8px;">
+   165→      <div style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;">
+   166→        <i class="fas fa-microchip" style="color:white;font-size:18px;"></i>
+   167→      </div>
+   168→      <div class="logo-text">
+   169→        <div style="color:white;font-size:16px;font-weight:700;line-height:1.2;">IT Assets</div>
+   170→        <div style="color:#5eea7e;font-size:11px;font-weight:500;letter-spacing:1px;">MANAGEMENT</div>
+   171→      </div>
+   172→    </div>
+   173→    <nav id="nav-container"></nav>
+   174→  </aside>
+   175→  <div class="main-content" id="main-content">
+   176→    <div class="top-bar">
+   177→      <div style="display:flex;align-items:center;gap:16px;">
+   178→        <button onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px;">
+   179→          <i class="fas fa-bars"></i>
+   180→        </button>
+   181→        <div id="breadcrumb" style="font-size:15px;font-weight:600;color:var(--fg);"></div>
+   182→      </div>
+   183→      <div style="display:flex;align-items:center;gap:16px;">
+   184→        <div style="position:relative;cursor:pointer;" onclick="showToast('No new notifications','info')">
+   185→          <i class="fas fa-bell" style="color:var(--muted);font-size:17px;"></i>
+   186→          <span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid var(--card);"></span>
+   187→        </div>
+   188→        <div style="width:1px;height:28px;background:var(--border);"></div>
+   189→        <div style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+   190→          <div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;">
+   191→            <span style="color:white;font-size:13px;font-weight:700;">AD</span>
+   192→          </div>
+   193→          <div>
+   194→            <div style="font-size:13px;font-weight:600;">Admin User</div>
+   195→            <div style="font-size:11px;color:var(--muted);">Super Admin</div>
+   196→          </div>
+   197→        </div>
+   198→      </div>
+   199→    </div>
+   200→    <div id="page-content" style="padding:28px;"></div>
+   201→  </div>
+   202→</div>
+   203→<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+   204→  <div class="modal-box" id="modal-box"></div>
+   205→</div>
+   206→<div class="toast-container" id="toast-container"></div>
+   207→
+   208→<script>
+   209→// ==================== DATABASE ====================
+   210→const DB = {
+   211→  branches: [
+   212→    { id: 1, name: 'Head Office', address: '45 Tech Park, Dhaka', phone: '01711234567', manager: 'Rafiq Ahmed', status: 'Active' },
+   213→    { id: 2, name: 'Chittagong Branch', address: '12 Agrabad C/A, Chittagong', phone: '01811234567', manager: 'Karim Uddin', status: 'Active' },
+   214→    { id: 3, name: 'Sylhet Branch', address: '78 Zindabazar, Sylhet', phone: '01911234567', manager: 'Tanvir Hasan', status: 'Active' },
+   215→    { id: 4, name: 'Rajshahi Branch', address: '23 Serniabat, Rajshahi', phone: '01611234567', manager: 'Nasir Hossain', status: 'Inactive' },
+   216→    { id: 5, name: 'Khulna Branch', address: '56 KDA Ave, Khulna', phone: '01511234567', manager: 'Mizanur Rahman', status: 'Active' },
+   217→  ],
+   218→  employees: [
+   219→    { id: 1, name: 'Rafiq Ahmed', empId: 'EMP-001', department: 'IT', designation: 'Manager', branch: 'Head Office', phone: '01711234567', email: 'rafiq@itassets.com', status: 'Active' },
+   220→    { id: 2, name: 'Karim Uddin', empId: 'EMP-002', department: 'IT', designation: 'Senior Officer', branch: 'Chittagong Branch', phone: '01811234567', email: 'karim@itassets.com', status: 'Active' },
+   221→    { id: 3, name: 'Tanvir Hasan', empId: 'EMP-003', department: 'Finance', designation: 'Officer', branch: 'Sylhet Branch', phone: '01911234567', email: 'tanvir@itassets.com', status: 'Active' },
+   222→    { id: 4, name: 'Nasir Hossain', empId: 'EMP-004', department: 'HR', designation: 'Executive', branch: 'Rajshahi Branch', phone: '01611234567', email: 'nasir@itassets.com', status: 'Inactive' },
+   223→    { id: 5, name: 'Mizanur Rahman', empId: 'EMP-005', department: 'IT', designation: 'Technician', branch: 'Khulna Branch', phone: '01511234567', email: 'mizan@itassets.com', status: 'Active' },
+   224→    { id: 6, name: 'Fahmida Akter', empId: 'EMP-006', department: 'Admin', designation: 'Assistant', branch: 'Head Office', phone: '01411234567', email: 'fahmida@itassets.com', status: 'Active' },
+   225→  ],
+   226→  departments: ['IT', 'Finance', 'HR', 'Admin', 'Operations', 'Marketing'],
+   227→  designations: ['Manager', 'Senior Officer', 'Officer', 'Executive', 'Assistant', 'Technician'],
+   228→  categories: [
+   229→    { id: 1, name: 'Laptop', description: 'All laptop devices' },
+   230→    { id: 2, name: 'Desktop', description: 'Desktop computers and workstations' },
+   231→    { id: 3, name: 'Printer', description: 'Printers and scanners' },
+   232→    { id: 4, name: 'Networking', description: 'Switches, routers, access points' },
+   233→    { id: 5, name: 'Server', description: 'Server hardware and components' },
+   234→    { id: 6, name: 'UPS', description: 'Uninterruptible power supplies' },
+   235→  ],
+   236→  brands: [
+   237→    { id: 1, name: 'Dell', category: 'Laptop' },
+   238→    { id: 2, name: 'HP', category: 'Laptop' },
+   239→    { id: 3, name: 'Lenovo', category: 'Laptop' },
+   240→    { id: 4, name: 'Cisco', category: 'Networking' },
+   241→    { id: 5, name: 'HP Printer', category: 'Printer' },
+   242→    { id: 6, name: 'APC', category: 'UPS' },
+   243→  ],
+   244→  uoms: ['Piece', 'Set', 'Pair', 'Box', 'Pack'],
+   245→  products: [
+   246→    { id: 1, name: 'Dell Latitude 5540', category: 'Laptop', brand: 'Dell', uom: 'Piece', price: 85000, status: 'Active' },
+   247→    { id: 2, name: 'HP ProBook 450 G10', category: 'Laptop', brand: 'HP', uom: 'Piece', price: 78000, status: 'Active' },
+   248→    { id: 3, name: 'Lenovo ThinkPad T14', category: 'Laptop', brand: 'Lenovo', uom: 'Piece', price: 92000, status: 'Active' },
+   249→    { id: 4, name: 'Cisco Catalyst 2960', category: 'Networking', brand: 'Cisco', uom: 'Piece', price: 45000, status: 'Active' },
+   250→    { id: 5, name: 'HP LaserJet Pro M404', category: 'Printer', brand: 'HP Printer', uom: 'Piece', price: 38000, status: 'Active' },
+   251→    { id: 6, name: 'APC Smart-UPS 1500VA', category: 'UPS', brand: 'APC', uom: 'Piece', price: 55000, status: 'Inactive' },
+   252→  ],
+   253→  suppliers: [
+   254→    { id: 1, name: 'TechVista Ltd', contact: '01711234567', email: 'info@techvista.com', address: 'Gulshan-2, Dhaka' },
+   255→    { id: 2, name: 'CompuWorld', contact: '01811234567', email: 'sales@compuworld.com', address: 'Elephant Road, Dhaka' },
+   256→    { id: 3, name: 'Network Solutions BD', contact: '01911234567', email: 'info@netsolbd.com', address: 'Motijheel, Dhaka' },
+   257→  ],
+   258→  purchases: [
+   259→    { id: 1, invoice: 'PUR-2024-001', date: '2024-01-15', supplier: 'TechVista Ltd', product: 'Dell Latitude 5540', qty: 10, unitPrice: 85000, total: 850000, status: 'Approved', branch: 'Head Office' },
+   260→    { id: 2, invoice: 'PUR-2024-002', date: '2024-01-20', supplier: 'CompuWorld', product: 'HP ProBook 450 G10', qty: 5, unitPrice: 78000, total: 390000, status: 'Approved', branch: 'Chittagong Branch' },
+   261→    { id: 3, invoice: 'PUR-2024-003', date: '2024-02-05', supplier: 'TechVista Ltd', product: 'Cisco Catalyst 2960', qty: 3, unitPrice: 45000, total: 135000, status: 'Pending', branch: 'Head Office' },
+   262→    { id: 4, invoice: 'PUR-2024-004', date: '2024-02-10', supplier: 'Network Solutions BD', product: 'APC Smart-UPS 1500VA', qty: 4, unitPrice: 55000, total: 220000, status: 'Pending', branch: 'Sylhet Branch' },
+   263→    { id: 5, invoice: 'PUR-2024-005', date: '2024-02-15', supplier: 'CompuWorld', product: 'HP LaserJet Pro M404', qty: 6, unitPrice: 38000, total: 228000, status: 'Rejected', branch: 'Khulna Branch' },
+   264→  ],
+   265→  deliveries: [
+   266→    { id: 1, chalan: 'DEL-2024-001', date: '2024-01-18', product: 'Dell Latitude 5540', qty: 10, branch: 'Head Office', receivedBy: 'Rafiq Ahmed', status: 'Received' },
+   267→    { id: 2, chalan: 'DEL-2024-002', date: '2024-01-22', product: 'HP ProBook 450 G10', qty: 5, branch: 'Chittagong Branch', receivedBy: 'Karim Uddin', status: 'Received' },
+   268→    { id: 3, chalan: 'DEL-2024-003', date: '2024-02-08', product: 'Cisco Catalyst 2960', qty: 3, branch: 'Head Office', receivedBy: 'Mizanur Rahman', status: 'In Transit' },
+   269→  ],
+   270→  adjustments: [
+   271→    { id: 1, ref: 'ADJ-2024-001', date: '2024-02-01', product: 'Dell Latitude 5540', branch: 'Head Office', type: 'Increase', qty: 2, reason: 'Found in stock audit', status: 'Approved' },
+   272→    { id: 2, ref: 'ADJ-2024-002', date: '2024-02-12', product: 'HP LaserJet Pro M404', branch: 'Chittagong Branch', type: 'Decrease', qty: 1, reason: 'Defective unit removed', status: 'Pending' },
+   273→  ],
+   274→  damages: [
+   275→    { id: 1, ref: 'DMG-2024-001', date: '2024-01-25', product: 'Dell Latitude 5540', branch: 'Head Office', qty: 1, reason: 'Screen cracked during transport', status: 'Approved' },
+   276→    { id: 2, ref: 'DMG-2024-002', date: '2024-02-14', product: 'APC Smart-UPS 1500VA', branch: 'Sylhet Branch', qty: 1, reason: 'Power surge damage', status: 'Pending' },
+   277→  ],
+   278→  transfers: [
+   279→    { id: 1, ref: 'TRF-2024-001', date: '2024-02-10', product: 'Dell Latitude 5540', qty: 2, fromBranch: 'Head Office', toBranch: 'Sylhet Branch', status: 'Completed' },
+   280→    { id: 2, ref: 'TRF-2024-002', date: '2024-02-18', product: 'HP ProBook 450 G10', qty: 1, fromBranch: 'Chittagong Branch', toBranch: 'Khulna Branch', status: 'In Transit' },
+   281→  ],
+   282→  cashIn: [
+   283→    { id: 1, voucher: 'CI-2024-001', date: '2024-01-15', amount: 850000, description: 'Payment for PUR-2024-001', branch: 'Head Office', status: 'Approved' },
+   284→    { id: 2, voucher: 'CI-2024-002', date: '2024-01-22', amount: 390000, description: 'Payment for PUR-2024-002', branch: 'Chittagong Branch', status: 'Approved' },
+   285→    { id: 3, voucher: 'CI-2024-003', date: '2024-02-05', amount: 200000, description: 'Advance for IT services', branch: 'Head Office', status: 'Pending' },
+   286→  ],
+   287→  cashOut: [
+   288→    { id: 1, voucher: 'CO-2024-001', date: '2024-01-15', amount: 850000, description: 'Payment to TechVista Ltd', branch: 'Head Office', status: 'Approved' },
+   289→    { id: 2, voucher: 'CO-2024-002', date: '2024-01-20', amount: 390000, description: 'Payment to CompuWorld', branch: 'Chittagong Branch', status: 'Approved' },
+   290→    { id: 3, voucher: 'CO-2024-003', date: '2024-02-01', amount: 45000, description: 'Maintenance - Networking', branch: 'Head Office', status: 'Pending' },
+   291→  ],
+   292→  users: [
+   293→    { id: 1, name: 'Admin User', username: 'admin', email: 'admin@itassets.com', role: 'Super Admin', status: 'Active' },
+   294→    { id: 2, name: 'Rafiq Ahmed', username: 'rafiq', email: 'rafiq@itassets.com', role: 'Branch Manager', status: 'Active' },
+   295→    { id: 3, name: 'Karim Uddin', username: 'karim', email: 'karim@itassets.com', role: 'Inventory Officer', status: 'Active' },
+   296→  ],
+   297→  roles: [
+   298→    { id: 1, name: 'Super Admin', permissions: 'Full Access' },
+   299→    { id: 2, name: 'Branch Manager', permissions: 'Dashboard, Inventory, Reports (Own Branch)' },
+   300→    { id: 3, name: 'Inventory Officer', permissions: 'Inventory, Delivery, Adjustment' },
+   301→    { id: 4, name: 'Finance Officer', permissions: 'Cash Book, Reports' },
+   302→    { id: 5, name: 'Viewer', permissions: 'Dashboard, Reports (Read Only)' },
+   303→  ],
+   304→  company: { name: 'IT Asset Management Ltd', address: '45 Tech Park, Gulshan-2, Dhaka 1212', phone: '01711234567', email: 'info@itassets.com', website: 'www.itassets.com' }
+   305→};
+   306→
+   307→// ==================== NAVIGATION ====================
+   308→const NAV = [
+   309→  { id: 'dashboard', label: 'Dashboard', icon: 'fa-grid-2' },
+   310→  { id: 'branch', label: 'Manage Branch', icon: 'fa-building', children: [
+   311→    { id: 'branch-list', label: 'Branch List' }
+   312→  ]},
+   313→  { id: 'employee', label: 'Manage Employee', icon: 'fa-users', children: [
+   314→    { id: 'employee-list', label: 'Employee' },
+   315→    { id: 'department', label: 'Department' },
+   316→    { id: 'designation', label: 'Designation' },
+   317→  ]},
+   318→  { id: 'product', label: 'Manage Product', icon: 'fa-box-open', children: [
+   319→    { id: 'categories', label: 'Categories' },
+   320→    { id: 'brand', label: 'Brand' },
+   321→    { id: 'uom', label: 'UoM' },
+   322→    { id: 'product-list', label: 'Product' },
+   323→  ]},
+   324→  { id: 'purchase', label: 'Manage Purchase', icon: 'fa-cart-shopping', children: [
+   325→    { id: 'purchase-list', label: 'Purchase List' },
+   326→    { id: 'supplier', label: 'Supplier' },
+   327→  ]},
+   328→  { id: 'inventory', label: 'Manage Inventory', icon: 'fa-warehouse', children: [
+   329→    { id: 'delivery-list', label: 'Delivery List' },
+   330→    { id: 'adjustment-list', label: 'Adjustment List' },
+   331→    { id: 'damage-list', label: 'Damage List' },
+   332→    { id: 'transfer-list', label: 'Internal Transfer List' },
+   333→  ]},
+   334→  { id: 'cashbook', label: 'Manage Cash Book', icon: 'fa-money-bill-wave', children: [
+   335→    { id: 'cash-in', label: 'Cash In' },
+   336→    { id: 'cash-out', label: 'Cash Out' },
+   337→  ]},
+   338→  { id: 'approval', label: 'Manage Approval', icon: 'fa-clipboard-check', children: [
+   339→    { id: 'approval-purchase', label: 'Purchase List' },
+   340→    { id: 'approval-delivery', label: 'Delivery List' },
+   341→    { id: 'approval-adjustment', label: 'Adjustment List' },
+   342→    { id: 'approval-damage', label: 'Damage List' },
+   343→  ]},
+   344→  { id: 'report', label: 'Manage Report', icon: 'fa-chart-pie', children: [
+   345→    { id: 'report-purchase', label: 'Purchase' },
+   346→    { id: 'report-delivery', label: 'Delivery' },
+   347→    { id: 'report-adjustment', label: 'Adjustment' },
+   348→    { id: 'report-damage', label: 'Damage' },
+   349→  ]},
+   350→  { id: 'settings', label: 'Manage Settings', icon: 'fa-gear', children: [
+   351→    { id: 'company-profile', label: 'Company Profile' },
+   352→    { id: 'user-list', label: 'User Create List' },
+   353→    { id: 'role-list', label: 'Role Create List' },
+   354→  ]},
+   355→];
+   356→
+   357→let currentPage = 'dashboard';
+   358→let openMenus = {};
+   359→
+   360→function renderNav() {
+   361→  const c = document.getElementById('nav-container');
+   362→  let html = '';
+   363→  NAV.forEach(item => {
+   364→    const hasChildren = item.children && item.children.length;
+   365→    const isOpen = openMenus[item.id];
+   366→    const isActive = !hasChildren && currentPage === item.id;
+   367→    const isChildActive = hasChildren && item.children.some(function(ch){ return ch.id === currentPage; });
+   368→    html += '<div class="nav-item ' + (isActive || isChildActive ? 'active' : '') + '" onclick="' + (hasChildren ? "toggleMenu('" + item.id + "')" : "navigate('" + item.id + "')") + '">';
+   369→    html += '<i class="fas ' + item.icon + ' nav-icon"></i>';
+   370→    html += '<span class="nav-text">' + item.label + '</span>';
+   371→    if (hasChildren) html += '<i class="fas fa-chevron-right menu-arrow ' + (isOpen ? 'open' : '') + '"></i>';
+   372→    html += '</div>';
+   373→    if (hasChildren) {
+   374→      html += '<div class="submenu ' + (isOpen ? 'open' : '') + '">';
+   375→      item.children.forEach(function(ch) {
+   376→        html += '<div class="nav-item ' + (currentPage === ch.id ? 'active' : '') + '" onclick="event.stopPropagation();navigate(\'' + ch.id + '\')">';
+   377→        html += '<i class="fas fa-circle" style="font-size:5px;margin-right:12px;"></i>';
+   378→        html += '<span class="nav-text">' + ch.label + '</span>';
+   379→        html += '</div>';
+   380→      });
+   381→      html += '</div>';
+   382→    }
+   383→  });
+   384→  c.innerHTML = html;
+   385→}
+   386→
+   387→function toggleMenu(id) { openMenus[id] = !openMenus[id]; renderNav(); }
+   388→
+   389→function navigate(page) {
+   390→  currentPage = page;
+   391→  NAV.forEach(function(item) {
+   392→    if (item.children) {
+   393→      item.children.forEach(function(ch) {
+   394→        if (ch.id === page) openMenus[item.id] = true;
+   395→      });
+   396→    }
+   397→  });
+   398→  renderNav();
+   399→  renderPage();
+   400→}
+   401→
+   402→function toggleSidebar() {
+   403→  document.getElementById('sidebar').classList.toggle('collapsed');
+   404→  document.getElementById('sidebar').classList.toggle('mobile-open');
+   405→}
+   406→
+   407→// ==================== TOAST ====================
+   408→function showToast(msg, type) {
+   409→  type = type || 'success';
+   410→  var c = document.getElementById('toast-container');
+   411→  var icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+   412→  var t = document.createElement('div');
+   413→  t.className = 'toast toast-' + type;
+   414→  t.innerHTML = '<i class="fas ' + icons[type] + '"></i><span>' + msg + '</span>';
+   415→  c.appendChild(t);
+   416→  setTimeout(function() { if (t.parentNode) t.remove(); }, 3000);
+   417→}
+   418→
+   419→// ==================== MODAL ====================
+   420→function openModal(html) {
+   421→  document.getElementById('modal-box').innerHTML = html;
+   422→  document.getElementById('modal-overlay').classList.add('show');
+   423→}
+   424→function closeModal() {
+   425→  document.getElementById('modal-overlay').classList.remove('show');
+   426→}
+   427→
+   428→// ==================== HELPERS ====================
+   429→function fmt(n) { return '\u09F3' + Number(n).toLocaleString('en-IN'); }
+   430→function statusBadge(s) {
+   431→  var m = { Active: 'green', Approved: 'green', Received: 'green', Completed: 'green', Inactive: 'red', Rejected: 'red', Pending: 'amber', 'In Transit': 'blue' };
+   432→  return '<span class="badge badge-' + (m[s] || 'gray') + '">' + s + '</span>';
+   433→}
+   434→function getBreadcrumb() {
+   435→  for (var i = 0; i < NAV.length; i++) {
+   436→    var item = NAV[i];
+   437→    if (item.id === currentPage) return item.label;
+   438→    if (item.children) {
+   439→      for (var j = 0; j < item.children.length; j++) {
+   440→        if (item.children[j].id === currentPage) return item.label + ' / ' + item.children[j].label;
+   441→      }
+   442→    }
+   443→  }
+   444→  return '';
+   445→}
+   446→
+   447→function filterTable(q) {
+   448→  var table = document.getElementById('main-table');
+   449→  if (!table) return;
+   450→  q = q.toLowerCase();
+   451→  var rows = table.querySelectorAll('tbody tr');
+   452→  for (var i = 0; i < rows.length; i++) {
+   453→    rows[i].style.display = rows[i].textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+   454→  }
+   455→}
+   456→
+   457→function deleteItem(collection, id, page) {
+   458→  openModal(
+   459→    '<div style="padding:24px;text-align:center;">' +
+   460→    '<div style="width:56px;height:56px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-trash" style="color:var(--danger);font-size:22px;"></i></div>' +
+   461→    '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Confirm Delete</div>' +
+   462→    '<div style="color:var(--muted);font-size:14px;margin-bottom:24px;">Are you sure? This cannot be undone.</div>' +
+   463→    '<div style="display:flex;gap:12px;justify-content:center;">' +
+   464→    '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>' +
+   465→    '<button class="btn btn-danger" onclick="confirmDelete(\'' + collection + '\',' + id + ',\'' + page + '\')">Delete</button>' +
+   466→    '</div></div>'
+   467→  );
+   468→}
+   469→
+   470→function confirmDelete(collection, id, page) {
+   471→  DB[collection] = DB[collection].filter(function(x) { return x.id !== id; });
+   472→  closeModal(); showToast('Item deleted successfully'); navigate(page);
+   473→}
+   474→
+   475→function modalHeader(title) {
+   476→  return '<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;">' +
+   477→    '<div style="font-size:18px;font-weight:700;">' + title + '</div>' +
+   478→    '<button onclick="closeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted);padding:4px;"><i class="fas fa-times"></i></button>' +
+   479→    '</div>';
+   480→}
+   481→function modalFooter(saveFn) {
+   482→  return '<div style="padding:0 24px 20px;display:flex;gap:12px;justify-content:flex-end;margin-top:8px;">' +
+   483→    '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>' +
+   484→    '<button class="btn btn-primary" onclick="' + saveFn + '"><i class="fas fa-save"></i> Save</button>' +
+   485→    '</div>';
+   486→}
+   487→
+   488→// ==================== DASHBOARD ====================
+   489→function renderDashboard() {
+   490→  var totalPurchase = DB.purchases.filter(function(p){return p.status==='Approved';}).reduce(function(s,p){return s+p.total;}, 0);
+   491→  var totalDelivery = DB.deliveries.length;
+   492→  var totalCashIn = DB.cashIn.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
+   493→  var totalCashOut = DB.cashOut.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
+   494→  var pendingCount = DB.purchases.filter(function(p){return p.status==='Pending';}).length + DB.adjustments.filter(function(a){return a.status==='Pending';}).length + DB.damages.filter(function(d){return d.status==='Pending';}).length;
+   495→
+   496→  var quickActions = [
+   497→    { label: 'New Purchase', icon: 'fa-cart-plus', color: 'var(--accent)', page: 'purchase-list' },
+   498→    { label: 'Add Delivery', icon: 'fa-truck-fast', color: 'var(--info)', page: 'delivery-list' },
+   499→    { label: 'Cash Entry', icon: 'fa-plus-circle', color: 'var(--warning)', page: 'cash-in' },
+   500→    { label: 'Pending Approvals', icon: 'fa-clock', color: 'var(--danger)', page: 'approval-purchase', badge: pendingCount },
+
+[showing lines 1-500 of 1383; use offset=501 with limit to continue reading]
