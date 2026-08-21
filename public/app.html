@@ -1082,70 +1082,91 @@ function bindPurchaseEvents() {
   var btn = document.getElementById('btn-add-purchase');
   if (!btn) return;
   btn.addEventListener('click', function() {
-    var supOpts = '<option value="">Select</option>';
+    var supOpts = '<option value="">Select Supplier</option>';
     for (var i = 0; i < DB.suppliers.length; i++) supOpts += '<option>' + DB.suppliers[i].name + '</option>';
     var catOpts = '<option value="">Select</option>';
     for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
     var brandOpts = '<option value="">Select</option>';
     for (var i = 0; i < DB.brands.length; i++) brandOpts += '<option>' + DB.brands[i].name + '</option>';
-    var prdOpts = '<option value="">Select</option>';
+    var prdOpts = '<option value="">Select Product</option>';
     for (var i = 0; i < DB.products.length; i++) prdOpts += '<option>' + DB.products[i].name + '</option>';
 
-    var lbl = 'style="background:#a8d08d;padding:7px 12px;font-size:13px;font-weight:600;border:1px solid #555;width:130px;"';
-    var inp = 'style="border:1px solid #555;padding:7px 10px;font-size:13px;flex:1;outline:none;background:#fff;"';
-    var tblH = 'style="background:#a8d08d;padding:7px 8px;font-size:12px;font-weight:600;border:1px solid #555;"';
-    var tblC = 'style="border:1px solid #555;padding:0;"';
-    var tblInp = 'style="border:none;padding:6px 8px;font-size:12px;width:100%;outline:none;background:transparent;"';
+    var html = '<div style="width:1120px;max-width:96vw;">';
+    // Header
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+    html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">Add New Purchase</div>';
+    html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;transition:all 0.2s;"><i class="fas fa-times"></i></button>';
+    html += '</div>';
+    html += '<div style="padding:20px 24px 24px;">';
 
-    var html = '<div style="width:1100px;max-width:96vw;background:#fff;">';
-    html += '<div style="padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:18px;font-weight:700;">Add New Purchase</div>';
-    html += '<button onclick="closeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted);padding:4px;"><i class="fas fa-times"></i></button></div>';
-    html += '<div style="padding:16px 20px 20px;">';
-
-    // Top fields - label on left (green bg), input on right (black border)
-    html += '<div style="margin-bottom:20px;">';
-    html += purFieldRow('Date', '<input type="date" ' + inp + ' data-top="date">', lbl);
-    html += purFieldRow('Invoice No', '<input ' + inp + ' data-top="invoice" placeholder="Enter Invoice No">', lbl);
-    html += purFieldRow('Supplier', '<select ' + inp + ' data-top="supplier">' + supOpts + '</select>', lbl);
-    html += purFieldRow('Attachment', '<input type="file" ' + inp + ' data-top="attach" style="padding:4px;">', lbl);
+    // Top fields section
+    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date">');
+    html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" placeholder="Enter Invoice No">');
+    html += purFieldRow('Supplier', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="supplier">' + supOpts + '</select>');
+    html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
     html += '</div>';
 
-    // Table
-    html += '<div style="border:1px solid #555;margin-bottom:8px;"><table style="width:100%;border-collapse:collapse;">';
+    // Table section
+    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
+    html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
     html += '<thead><tr>';
-    html += '<th ' + tblH + '>Product</th>';
-    html += '<th ' + tblH + '>Categories</th>';
-    html += '<th ' + tblH + '>Brand</th>';
-    html += '<th ' + tblH + '>Model</th>';
-    html += '<th ' + tblH + '>Serial Number</th>';
-    html += '<th ' + tblH + '>Quantity</th>';
-    html += '<th ' + tblH + '>Price</th>';
-    html += '<th ' + tblH + '>Condition</th>';
-    html += '<th ' + tblH + '>Warranty</th>';
-    html += '<th ' + tblH + '>Remarks</th>';
-    html += '<th ' + tblH + ' style="width:40px;"></th>';
+    html += '<th class="pur-th">Product</th>';
+    html += '<th class="pur-th">Categories</th>';
+    html += '<th class="pur-th">Brand</th>';
+    html += '<th class="pur-th">Model</th>';
+    html += '<th class="pur-th">Serial Number</th>';
+    html += '<th class="pur-th">Quantity</th>';
+    html += '<th class="pur-th">Price</th>';
+    html += '<th class="pur-th">Condition</th>';
+    html += '<th class="pur-th">Warranty</th>';
+    html += '<th class="pur-th">Remarks</th>';
+    html += '<th class="pur-th" style="width:42px;"></th>';
     html += '</tr></thead><tbody id="pur-entries-body">';
-    html += purTableRowHTML(catOpts, brandOpts, prdOpts, tblC, tblInp);
-    html += '</tbody></table></div>';
+    html += purTableRowHTML(catOpts, brandOpts, prdOpts);
+    html += '</tbody></table></div></div>';
 
-    // Add Row - plain text link
-    html += '<a href="javascript:void(0)" id="btn-pur-addrow" style="color:#333;font-size:13px;font-weight:600;text-decoration:underline;margin-bottom:20px;display:inline-block;">Add Row</a>';
+    // Add Row
+    html += '<button type="button" id="btn-pur-addrow" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:Outfit,sans-serif;padding:6px 0;margin-bottom:18px;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><i class="fas fa-plus-circle"></i> Add Row</button>';
 
     // Note
-    html += '<div style="margin-bottom:16px;">';
-    html += purFieldRow('Note', '<textarea rows="2" ' + inp + ' id="f-pur-note" placeholder="Enter note..." style="resize:vertical;"></textarea>', lbl);
+    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-pur-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note..."></textarea>');
     html += '</div>';
 
-    // Status + Cancel/Save
-    html += '<div style="display:flex;align-items:center;gap:12px;">';
-    html += '<div style="display:flex;align-items:center;gap:8px;">';
-    html += '<span style="font-size:13px;font-weight:600;">Status:</span>';
-    html += '<select ' + inp + ' id="f-pur-status" style="width:160px;"><option>Draft</option><option>Submitted</option></select>';
+    // Bottom bar: Status + Cancel/Save
+    html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+    html += '<div style="display:flex;align-items:center;gap:10px;">';
+    html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
+    html += '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option>Draft</option><option>Submitted</option></select>';
     html += '</div>';
     html += '<div style="flex:1;"></div>';
-    html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-    html += '<button class="btn btn-primary" id="btn-save-pur"><i class="fas fa-save"></i> Save</button>';
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-pur" style="border-radius:8px;"><i class="fas fa-check"></i> Save</button>';
     html += '</div></div></div>';
+
+    // Inject styles
+    if (!document.getElementById('pur-form-style')) {
+      var st = document.createElement('style');
+      st.id = 'pur-form-style';
+      st.textContent =
+        '.pur-field{display:flex;border-bottom:1px solid var(--border);}' +
+        '.pur-field:last-child{border-bottom:none;}' +
+        '.pur-lbl{background:var(--accent-light);padding:11px 16px;font-size:13px;font-weight:600;color:var(--accent-dark);width:140px;min-width:140px;display:flex;align-items:center;border-right:1px solid var(--border);}' +
+        '.pur-val{flex:1;display:flex;align-items:center;padding:4px 14px;}' +
+        '.pur-val input,.pur-val select,.pur-val textarea{width:100%;}' +
+        '.pur-th{background:var(--accent-light);padding:10px 10px;font-size:11px;font-weight:700;color:var(--accent-dark);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}' +
+        '.pur-th:last-child{border-right:none;}' +
+        '.pur-td{padding:0;border-bottom:1px solid var(--border);border-right:1px solid var(--border);transition:background 0.15s;}' +
+        '.pur-td:last-child{border-right:none;}' +
+        'tr:hover .pur-td{background:var(--accent-light);}' +
+        '.pur-td select,.pur-td input{width:100%;border:none;padding:9px 10px;font-size:13px;outline:none;background:transparent;font-family:Outfit,sans-serif;color:var(--fg);}' +
+        '.pur-td select:focus,.pur-td input:focus{background:rgba(45,138,78,0.04);}' +
+        '.btn-del-pur{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:6px;border-radius:6px;transition:all 0.2s;}' +
+        '.btn-del-pur:hover{color:var(--danger);background:rgba(220,38,38,0.08);}' +
+        '.pur-td select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 fill=%27%236b7c6b%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M8 11L3 6h10z%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px;}';
+      document.head.appendChild(st);
+    }
 
     var overlay = document.getElementById('modal-overlay');
     var box = document.getElementById('modal-box');
@@ -1159,7 +1180,7 @@ function bindPurchaseEvents() {
     document.getElementById('btn-pur-addrow').addEventListener('click', function() {
       var tbody = document.getElementById('pur-entries-body');
       var tr = document.createElement('tr');
-      tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts, tblC, tblInp);
+      tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts);
       tbody.appendChild(tr);
       bindPurRowDel(tr);
     });
@@ -1195,25 +1216,23 @@ function bindPurchaseEvents() {
   });
 }
 
-function purFieldRow(label, inputHTML, lblStyle) {
-  return '<div style="display:flex;align-items:stretch;border:1px solid #555;border-top:none;">' +
-    '<div ' + lblStyle + '>' + label + '</div>' +
-    '<div style="flex:1;display:flex;align-items:center;">' + inputHTML + '</div></div>';
+function purFieldRow(label, inputHTML) {
+  return '<div class="pur-field"><div class="pur-lbl">' + label + '</div><div class="pur-val">' + inputHTML + '</div></div>';
 }
 
-function purTableRowHTML(catOpts, brandOpts, prdOpts, tblC, tblInp) {
+function purTableRowHTML(catOpts, brandOpts, prdOpts) {
   var h = '<tr>';
-  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="product">' + prdOpts + '</select></td>';
-  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="category">' + catOpts + '</select></td>';
-  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="brand">' + brandOpts + '</select></td>';
-  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="model" placeholder="Model"></td>';
-  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="serial" placeholder="Serial Number"></td>';
-  h += '<td ' + tblC + '><input type="number" ' + tblInp + ' data-f="qty" value="0" style="text-align:center;"></td>';
-  h += '<td ' + tblC + '><input type="number" ' + tblInp + ' data-f="price" value="0" style="text-align:right;"></td>';
-  h += '<td ' + tblC + '><select ' + tblInp + ' data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
-  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="warranty" placeholder="e.g. 1 Year"></td>';
-  h += '<td ' + tblC + '><input ' + tblInp + ' data-f="remarks" placeholder="Remarks"></td>';
-  h += '<td ' + tblC + ' style="text-align:center;"><button type="button" class="btn-del-pur-row" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;padding:4px;"><i class="fas fa-trash"></i></button></td>';
+  h += '<td class="pur-td"><select data-f="product">' + prdOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="category">' + catOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;"></td>';
+  h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td class="pur-td"><input data-f="warranty" placeholder="e.g. 1 Year"></td>';
+  h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
+  h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
   h += '</tr>';
   return h;
 }
