@@ -872,23 +872,20 @@ function bindProductEvents() {
   var addBtn = document.getElementById('btn-add-product');
   if (!addBtn) return;
   addBtn.addEventListener('click', function() {
-    var catOpts = '', brOpts = '', uomOpts = '';
+    var catOpts = '', uomOpts = '';
     for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
-    for (var j = 0; j < DB.brands.length; j++) brOpts += '<option>' + DB.brands[j].name + '</option>';
     for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k] + '</option>';
     var html = '<div style="padding:24px;">' + modalHeader('Add New Product') + '<div style="padding-top:16px;">';
     html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name"></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
-    html += '<div class="form-group"><label class="form-label">Brand</label><select class="form-input" id="f-prod-brand">' + brOpts + '</select></div></div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div>';
-    html += '<div class="form-group"><label class="form-label">Price</label><input class="form-input" id="f-prod-price" type="number"></div></div>';
+    html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
     html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
     html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Save</button></div></div>';
     openModal(html);
     document.getElementById('btn-save-prod').addEventListener('click', function() {
       var name = document.getElementById('f-prod-name').value.trim();
       if (!name) { showToast('Product name required', 'error'); return; }
-      DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: document.getElementById('f-prod-brand').value, uom: document.getElementById('f-prod-uom').value, price: Number(document.getElementById('f-prod-price').value) || 0, status: 'Active' });
+      DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: '', uom: document.getElementById('f-prod-uom').value, price: 0, status: 'Active' });
       closeModal(); showToast('Product added'); renderPage();
     });
   });
