@@ -1082,37 +1082,151 @@ function bindPurchaseEvents() {
   var btn = document.getElementById('btn-add-purchase');
   if (!btn) return;
   btn.addEventListener('click', function() {
-    var supOpts = '';
+    var supOpts = '<option value="">Select</option>';
     for (var i = 0; i < DB.suppliers.length; i++) supOpts += '<option>' + DB.suppliers[i].name + '</option>';
-    var brOpts = '';
-    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
-    var prdOpts = '';
+    var catOpts = '<option value="">Select</option>';
+    for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
+    var brandOpts = '<option value="">Select</option>';
+    for (var i = 0; i < DB.brands.length; i++) brandOpts += '<option>' + DB.brands[i].name + '</option>';
+    var prdOpts = '<option value="">Select</option>';
     for (var i = 0; i < DB.products.length; i++) prdOpts += '<option>' + DB.products[i].name + '</option>';
-    var html = '<div style="padding:24px;">' + modalHeader('Add New Purchase') + '<div style="padding-top:16px;">';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Invoice No</label><input class="form-input" id="f-pur-invoice"></div>';
-    html += '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-pur-date" type="date"></div></div>';
-    html += '<div class="form-group"><label class="form-label">Supplier</label><select class="form-input" id="f-pur-supplier">' + supOpts + '</select></div>';
-    html += '<div class="form-group"><label class="form-label">Product</label><select class="form-input" id="f-pur-product">' + prdOpts + '</select></div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Quantity</label><input class="form-input" id="f-pur-qty" type="number"></div>';
-    html += '<div class="form-group"><label class="form-label">Unit Price</label><input class="form-input" id="f-pur-price" type="number"></div></div>';
-    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-pur-branch">' + brOpts + '</select></div>';
-    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-    html += '<button class="btn btn-primary" id="btn-save-pur"><i class="fas fa-save"></i> Save</button></div></div>';
-    openModal(html);
+
+    var html = '<div style="width:1200px;max-width:96vw;">';
+    html += '<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:18px;font-weight:700;">Add New Purchase</div>';
+    html += '<button onclick="closeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted);padding:4px;"><i class="fas fa-times"></i></button></div>';
+    html += '<div style="padding:16px 24px 24px;">';
+
+    // Table header
+    html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;"><div style="overflow-x:auto;">';
+    html += '<table class="data-table" id="pur-entries-table"><thead><tr>';
+    html += '<th style="min-width:115px;">Date</th>';
+    html += '<th style="min-width:115px;">Invoice No</th>';
+    html += '<th style="min-width:120px;">Supplier</th>';
+    html += '<th style="min-width:120px;">Product</th>';
+    html += '<th style="min-width:95px;">Categories</th>';
+    html += '<th style="min-width:90px;">Brand</th>';
+    html += '<th style="min-width:100px;">Model</th>';
+    html += '<th style="min-width:110px;">Serial Number</th>';
+    html += '<th style="min-width:60px;">Quantity</th>';
+    html += '<th style="min-width:90px;">Price</th>';
+    html += '<th style="min-width:90px;">Total</th>';
+    html += '<th style="min-width:90px;">Condition</th>';
+    html += '<th style="min-width:90px;">Warranty</th>';
+    html += '<th style="min-width:100px;">Remarks</th>';
+    html += '<th style="width:45px;"></th>';
+    html += '</tr></thead><tbody id="pur-entries-body">';
+    html += buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts);
+    html += '</tbody></table></div></div>';
+
+    // Add Row button
+    html += '<button type="button" id="btn-pur-addrow" class="btn btn-secondary" style="margin-bottom:16px;"><i class="fas fa-plus"></i> Add Row</button>';
+
+    // Note
+    html += '<div class="form-group"><label class="form-label">Note</label><textarea class="form-input" id="f-pur-note" rows="2" placeholder="Enter note..." style="resize:vertical;"></textarea></div>';
+
+    // Status + Cancel/Save
+    html += '<div style="display:flex;align-items:flex-end;gap:12px;">';
+    html += '<div class="form-group" style="margin-bottom:0;"><label class="form-label">Status</label><select class="form-input" id="f-pur-status" style="min-width:150px;"><option>Draft</option><option>Submitted</option></select></div>';
+    html += '<div style="flex:1;"></div>';
+    html += '<div style="display:flex;gap:12px;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-pur"><i class="fas fa-save"></i> Save</button></div>';
+    html += '</div></div></div>';
+
+    // Open modal wide
+    var overlay = document.getElementById('modal-overlay');
+    var box = document.getElementById('modal-box');
+    box.innerHTML = html;
+    box.style.width = 'auto';
+    box.style.maxWidth = '96vw';
+    overlay.classList.add('show');
+
+    // Bind first row delete
+    bindPurRowDel(document.querySelector('#pur-entries-body tr'));
+
+    // Add Row
+    document.getElementById('btn-pur-addrow').addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      var tr = document.createElement('tr');
+      tr.innerHTML = buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts);
+      tbody.appendChild(tr);
+      bindPurRowDel(tr);
+    });
+
+    // Save
     document.getElementById('btn-save-pur').addEventListener('click', function() {
-      var invoice = document.getElementById('f-pur-invoice').value.trim();
-      var date = document.getElementById('f-pur-date').value;
-      var qty = Number(document.getElementById('f-pur-qty').value);
-      var price = Number(document.getElementById('f-pur-price').value);
-      if (!invoice) { showToast('Invoice No required', 'error'); return; }
-      if (!date) { showToast('Date required', 'error'); return; }
-      if (!qty) { showToast('Quantity required', 'error'); return; }
-      if (!price) { showToast('Unit Price required', 'error'); return; }
-      DB.purchases.push({ id: Date.now(), invoice: invoice, date: date, supplier: document.getElementById('f-pur-supplier').value, product: document.getElementById('f-pur-product').value, qty: qty, unitPrice: price, total: qty * price, status: 'Pending', branch: document.getElementById('f-pur-branch').value });
-      closeModal(); showToast('Purchase added'); renderPage();
+      var rows = document.querySelectorAll('#pur-entries-body tr');
+      var hasItem = false;
+      for (var i = 0; i < rows.length; i++) {
+        var p = rows[i].querySelector('[data-f="product"]');
+        if (p && p.value) { hasItem = true; break; }
+      }
+      if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+      var status = document.getElementById('f-pur-status').value;
+      var note = document.getElementById('f-pur-note').value.trim();
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var product = r.querySelector('[data-f="product"]').value;
+        if (!product) continue;
+        var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
+        var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+        DB.purchases.push({
+          id: Date.now() + i,
+          invoice: r.querySelector('[data-f="invoice"]').value.trim() || 'N/A',
+          date: r.querySelector('[data-f="date"]').value,
+          supplier: r.querySelector('[data-f="supplier"]').value,
+          product: product,
+          qty: qty,
+          unitPrice: price,
+          total: qty * price,
+          status: status,
+          branch: 'Head Office'
+        });
+      }
+      closeModal();
+      showToast('Purchase saved successfully');
+      renderPage();
     });
   });
 }
+
+function buildPurRowHTML(catOpts, brandOpts, prdOpts, supOpts) {
+  var h = '';
+  h += '<td><input class="form-input pur-cell" data-f="date" type="date" style="padding:6px 8px;font-size:12px;"></td>';
+  h += '<td><input class="form-input pur-cell" data-f="invoice" style="padding:6px 8px;font-size:12px;" placeholder="Invoice"></td>';
+  h += '<td><select class="form-input pur-cell" data-f="supplier" style="padding:6px 8px;font-size:12px;">' + supOpts + '</select></td>';
+  h += '<td><select class="form-input pur-cell" data-f="product" style="padding:6px 8px;font-size:12px;">' + prdOpts + '</select></td>';
+  h += '<td><select class="form-input pur-cell" data-f="category" style="padding:6px 8px;font-size:12px;">' + catOpts + '</select></td>';
+  h += '<td><select class="form-input pur-cell" data-f="brand" style="padding:6px 8px;font-size:12px;">' + brandOpts + '</select></td>';
+  h += '<td><input class="form-input pur-cell" data-f="model" style="padding:6px 8px;font-size:12px;" placeholder="Model"></td>';
+  h += '<td><input class="form-input pur-cell" data-f="serial" style="padding:6px 8px;font-size:12px;" placeholder="Serial"></td>';
+  h += '<td><input class="form-input pur-cell" data-f="qty" type="number" style="padding:6px 8px;font-size:12px;text-align:center;" value="0" oninput="purRowTotal(this)"></td>';
+  h += '<td><input class="form-input pur-cell" data-f="price" type="number" style="padding:6px 8px;font-size:12px;text-align:right;" value="0" oninput="purRowTotal(this)"></td>';
+  h += '<td><input class="form-input pur-cell" data-f="total" type="text" readonly style="padding:6px 8px;font-size:12px;text-align:right;background:#f5f5f5;font-weight:600;" value="0"></td>';
+  h += '<td><select class="form-input pur-cell" data-f="condition" style="padding:6px 8px;font-size:12px;"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td><input class="form-input pur-cell" data-f="warranty" type="text" style="padding:6px 8px;font-size:12px;" placeholder="e.g. 1 Year"></td>';
+  h += '<td><input class="form-input pur-cell" data-f="remarks" style="padding:6px 8px;font-size:12px;" placeholder="Remarks"></td>';
+  h += '<td style="text-align:center;"><button type="button" class="btn-del-pur-row" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;padding:4px;"><i class="fas fa-trash"></i></button></td>';
+  return h;
+}
+
+function bindPurRowDel(tr) {
+  if (!tr) return;
+  var delBtn = tr.querySelector('.btn-del-pur-row');
+  if (delBtn) {
+    delBtn.addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      if (tbody.rows.length > 1) { tr.remove(); }
+      else { showToast('At least one row required', 'error'); }
+    });
+  }
+}
+
+window.purRowTotal = function(el) {
+  var tr = el.closest('tr');
+  var qty = parseFloat(tr.querySelector('[data-f="qty"]').value) || 0;
+  var price = parseFloat(tr.querySelector('[data-f="price"]').value) || 0;
+  tr.querySelector('[data-f="total"]').value = fmt(qty * price);
+};
 
 function bindCashInEvents() {
   var btn = document.getElementById('btn-add-cashin');
