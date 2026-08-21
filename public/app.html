@@ -751,7 +751,7 @@ function openEmployeeModal(editId) {
   }
   var deptOpts = '';
   for (var i = 0; i < DB.departments.length; i++) {
-    deptOpts += '<option' + (e && e.department === DB.departments[i].name ? ' selected' : '') + '>' + DB.departments[i].name + '</option';
+    deptOpts += '<option' + (e && e.department === DB.departments[i].name ? ' selected' : '') + '>' + DB.departments[i].name + '</option>';
   }
   var desigOpts = '';
   for (var j = 0; j < DB.designations.length; j++) {
@@ -768,7 +768,6 @@ function openEmployeeModal(editId) {
   html += '<div class="form-group"><label class="form-label">Designation</label><select class="form-input" id="f-emp-desig">' + desigOpts + '</select></div></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-emp-branch">' + branchOpts + '</select></div>';
   html += '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-emp-phone" value="' + (e ? e.phone : '') + '"></div></div>';
-  html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-emp-email" value="' + (e ? e.email : '') + '"></div>';
   html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-emp-status"><option' + (e && e.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (e && e.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
   html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button';
   html += '<button class="btn btn-primary" id="btn-save-emp"><i class="fas fa-save"></i> ' + (e ? 'Update' : 'Save') + '</button></div></div>';
@@ -778,7 +777,7 @@ function openEmployeeModal(editId) {
     var name = document.getElementById('f-emp-name').value.trim();
     var empId = document.getElementById('f-emp-id').value.trim();
     if (!name || !empId) { showToast('Name and Employee ID required', 'error'); return; }
-    var data = { name: name, empId: empId, department: document.getElementById('f-emp-dept').value, designation: document.getElementById('f-emp-desig').value, branch: document.getElementById('f-emp-branch').value, phone: document.getElementById('f-emp-phone').value.trim(), email: document.getElementById('f-emp-email').value.trim(), status: document.getElementById('f-emp-status').value };
+    var data = { name: name, empId: empId, department: document.getElementById('f-emp-dept').value, designation: document.getElementById('f-emp-desig').value, branch: document.getElementById('f-emp-branch').value, phone: document.getElementById('f-emp-phone').value.trim(), status: document.getElementById('f-emp-status').value };
     if (e) { Object.assign(e, data); showToast('Employee updated'); }
     else { data.id = Date.now(); DB.employees.push(data); showToast('Employee added'); }
     closeModal(); renderPage();

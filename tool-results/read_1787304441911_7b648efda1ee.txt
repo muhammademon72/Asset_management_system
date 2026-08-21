@@ -1,0 +1,702 @@
+   750→    if (e) title = 'Edit Employee';
+   751→  }
+   752→  var deptOpts = '';
+   753→  for (var i = 0; i < DB.departments.length; i++) {
+   754→    deptOpts += '<option' + (e && e.department === DB.departments[i].name ? ' selected' : '') + '>' + DB.departments[i].name + '</option';
+   755→  }
+   756→  var desigOpts = '';
+   757→  for (var j = 0; j < DB.designations.length; j++) {
+   758→    desigOpts += '<option' + (e && e.designation === DB.designations[j].name ? ' selected' : '') + '>' + DB.designations[j].name + '</option';
+   759→  }
+   760→  var branchOpts = '';
+   761→  for (var k = 0; k < DB.branches.length; k++) {
+   762→    branchOpts += '<option' + (e && e.branch === DB.branches[k].name ? ' selected' : '') + '>' + DB.branches[k].name + '</option>';
+   763→  }
+   764→  var html = '<div style="padding:24px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+   765→  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-emp-name" value="' + (e ? e.name : '') + '"></div>';
+   766→  html += '<div class="form-group"><label class="form-label">Employee ID</label><input class="form-input" id="f-emp-id" value="' + (e ? e.empId : '') + '"></div></div>';
+   767→  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Department</label><select class="form-input" id="f-emp-dept">' + deptOpts + '</select></div>';
+   768→  html += '<div class="form-group"><label class="form-label">Designation</label><select class="form-input" id="f-emp-desig">' + desigOpts + '</select></div></div>';
+   769→  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-emp-branch">' + branchOpts + '</select></div>';
+   770→  html += '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-emp-phone" value="' + (e ? e.phone : '') + '"></div></div>';
+   771→  html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-emp-email" value="' + (e ? e.email : '') + '"></div>';
+   772→  html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-emp-status"><option' + (e && e.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (e && e.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
+   773→  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button';
+   774→  html += '<button class="btn btn-primary" id="btn-save-emp"><i class="fas fa-save"></i> ' + (e ? 'Update' : 'Save') + '</button></div></div>';
+   775→  openModal(html);
+   776→
+   777→  document.getElementById('btn-save-emp').addEventListener('click', function() {
+   778→    var name = document.getElementById('f-emp-name').value.trim();
+   779→    var empId = document.getElementById('f-emp-id').value.trim();
+   780→    if (!name || !empId) { showToast('Name and Employee ID required', 'error'); return; }
+   781→    var data = { name: name, empId: empId, department: document.getElementById('f-emp-dept').value, designation: document.getElementById('f-emp-desig').value, branch: document.getElementById('f-emp-branch').value, phone: document.getElementById('f-emp-phone').value.trim(), email: document.getElementById('f-emp-email').value.trim(), status: document.getElementById('f-emp-status').value };
+   782→    if (e) { Object.assign(e, data); showToast('Employee updated'); }
+   783→    else { data.id = Date.now(); DB.employees.push(data); showToast('Employee added'); }
+   784→    closeModal(); renderPage();
+   785→  });
+   786→}
+   787→
+   788→// ==================== SIMPLE LIST PAGES (Dept, Desig, UoM, Categories, Brands) ====================
+   789→function renderSimpleList(title, arr, collection, addPlaceholder, fieldKey) {
+   790→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   791→  html += '<div style="font-size:20px;font-weight:800;">' + title + '</div>';
+   792→  html += '<button class="btn btn-primary" id="btn-add-simple"><i class="fas fa-plus"></i> Add New</button>';
+   793→  html += '</div>';
+   794→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+   795→  html += '<table class="data-table" id="main-table"><thead><tr><th>#</th><th>Name</th>' + (fieldKey === 'description' ? '<th>Description</th>' : '') + (fieldKey === 'category' ? '<th>Category</th>' : '') + '<th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
+   796→  for (var i = 0; i < arr.length; i++) {
+   797→    var itemStatus = (typeof arr[i] === 'string' ? 'Active' : (arr[i].status || 'Active'));
+   798→    html += '<tr><td style="font-weight:600;">' + (i+1) + '</td><td>' + (typeof arr[i] === 'string' ? arr[i] : arr[i].name) + '</td>';
+   799→    if (fieldKey === 'description') html += '<td>' + arr[i].description + '</td>';
+   800→    if (fieldKey === 'category') html += '<td>' + arr[i].category + '</td>';
+   801→    html += '<td>' + statusBadge(itemStatus) + '</td>';
+   802→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-simple="' + i + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+   803→    html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-simple="' + i + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+   804→  }
+   805→  html += '</tbody></table></div></div>';
+   806→  return html;
+   807→}
+   808→
+   809→function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
+   810→  var addBtn = document.getElementById('btn-add-simple');
+   811→  if (!addBtn) return;
+   812→  addBtn.addEventListener('click', function() {
+   813→    var extraField = '';
+   814→    if (fieldKey === 'description') extraField = '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-extra"></div>';
+   815→    if (fieldKey === 'category') {
+   816→      var opts = '';
+   817→      for (var i = 0; i < DB.categories.length; i++) opts += '<option>' + DB.categories[i].name + '</option>';
+   818→      extraField = '<div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-extra">' + opts + '</select></div>';
+   819→    }
+   820→    var statusField = '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-simple-status"><option>Active</option><option>Inactive</option></select></div>';
+   821→    var html = '<div style="padding:24px;">' + modalHeader('Add New') + '<div style="padding-top:16px;">';
+   822→    html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-simple-name" placeholder="' + addPlaceholder + '"></div>';
+   823→    html += extraField;
+   824→    html += statusField;
+   825→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+   826→    html += '<button class="btn btn-primary" id="btn-save-simple"><i class="fas fa-save"></i> Save</button></div></div>';
+   827→    openModal(html);
+   828→    document.getElementById('btn-save-simple').addEventListener('click', function() {
+   829→      var name = document.getElementById('f-simple-name').value.trim();
+   830→      if (!name) { showToast('Name is required', 'error'); return; }
+   831→      var extra = document.getElementById('f-extra');
+   832→      var status = document.getElementById('f-simple-status').value;
+   833→      if (collection === 'departments' || collection === 'designations' || collection === 'uoms') {
+   834→        DB[collection].push({ id: Date.now(), name: name, status: status });
+   835→      } else {
+   836→        var obj = { id: Date.now(), name: name, status: status };
+   837→        if (fieldKey === 'description') obj.description = extra ? extra.value.trim() : '';
+   838→        if (fieldKey === 'category') obj.category = extra ? extra.value : '';
+   839→        DB[collection].push(obj);
+   840→      }
+   841→      closeModal(); showToast('Added successfully'); renderPage();
+   842→    });
+   843→  });
+   844→  var editBtns = document.querySelectorAll('[data-edit-simple]');
+   845→  for (var ei = 0; ei < editBtns.length; ei++) {
+   846→    (function(btn, idx) {
+   847→      btn.addEventListener('click', function() {
+   848→        var item = DB[collection][idx];
+   849→        var itemName = typeof item === 'string' ? item : item.name;
+   850→        var extraField = '';
+   851→        if (fieldKey === 'description') extraField = '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-extra" value="' + (item.description || '') + '"></div>';
+   852→        if (fieldKey === 'category') {
+   853→          var opts = '';
+   854→          for (var ci = 0; ci < DB.categories.length; ci++) opts += '<option' + (item.category === DB.categories[ci].name ? ' selected' : '') + '>' + DB.categories[ci].name + '</option>';
+   855→          extraField = '<div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-extra">' + opts + '</select></div>';
+   856→        }
+   857→        var itemStatus = (typeof item === 'string' ? 'Active' : (item.status || 'Active'));
+   858→        var statusField = '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-simple-status"><option' + (itemStatus === 'Active' ? ' selected' : '') + '>Active</option><option' + (itemStatus === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
+   859→        var html = '<div style="padding:24px;">' + modalHeader('Edit') + '<div style="padding-top:16px;">';
+   860→        html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-simple-name" value="' + itemName + '"></div>';
+   861→        html += extraField;
+   862→        html += statusField;
+   863→        html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+   864→        html += '<button class="btn btn-primary" id="btn-save-simple"><i class="fas fa-save"></i> Update</button></div></div>';
+   865→        openModal(html);
+   866→        document.getElementById('btn-save-simple').addEventListener('click', function() {
+   867→          var name = document.getElementById('f-simple-name').value.trim();
+   868→          if (!name) { showToast('Name is required', 'error'); return; }
+   869→          var extra = document.getElementById('f-extra');
+   870→          var status = document.getElementById('f-simple-status').value;
+   871→          if (typeof DB[collection][0] === 'string') { DB[collection][idx] = { id: Date.now(), name: name, status: status }; }
+   872→          else { DB[collection][idx].name = name; DB[collection][idx].status = status; if (fieldKey === 'description') DB[collection][idx].description = extra ? extra.value.trim() : ''; if (fieldKey === 'category') DB[collection][idx].category = extra ? extra.value : ''; }
+   873→          closeModal(); showToast('Updated successfully'); renderPage();
+   874→        });
+   875→      });
+   876→    })(editBtns[ei], parseInt(editBtns[ei].getAttribute('data-edit-simple')));
+   877→  }
+   878→  var delBtns = document.querySelectorAll('[data-del-simple]');
+   879→  for (var i = 0; i < delBtns.length; i++) {
+   880→    (function(btn, idx) {
+   881→      btn.addEventListener('click', function() {
+   882→        DB[collection].splice(idx, 1);
+   883→        showToast('Removed'); renderPage();
+   884→      });
+   885→    })(delBtns[i], parseInt(delBtns[i].getAttribute('data-del-simple')));
+   886→  }
+   887→}
+   888→
+   889→function renderDepartment() { return renderSimpleList('Department List', DB.departments, 'departments', 'Department name', null); }
+   890→function renderDesignation() { return renderSimpleList('Designation List', DB.designations, 'designations', 'Designation name', null); }
+   891→function renderUoM() { return renderSimpleList('Unit of Measurement', DB.uoms, 'uoms', 'UoM name', null); }
+   892→function renderCategories() { return renderSimpleList('Product Categories', DB.categories, 'categories', 'Category name', 'description'); }
+   893→function renderBrand() { return renderSimpleList('Brand List', DB.brands, 'brands', 'Brand name', null); }
+   894→
+   895→// ==================== PRODUCT LIST ====================
+   896→function renderProductList() {
+   897→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   898→  html += '<div style="font-size:20px;font-weight:800;">Product List</div>';
+   899→  html += '<div style="display:flex;gap:12px;align-items:center;">';
+   900→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search products..." oninput="filterTable(this.value)"></div>';
+   901→  html += '<button class="btn btn-primary" id="btn-add-product"><i class="fas fa-plus"></i> Add New</button>';
+   902→  html += '</div></div>';
+   903→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+   904→  html += '<table class="data-table" id="main-table"><thead><tr><th>Product Name</th><th>Category</th><th>UoM</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
+   905→  for (var i = 0; i < DB.products.length; i++) {
+   906→    var p = DB.products[i];
+   907→    html += '<tr><td style="font-weight:600;">' + p.name + '</td><td>' + p.category + '</td><td>' + p.uom + '</td><td>' + statusBadge(p.status) + '</td>';
+   908→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-prod="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+   909→    html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-prod="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+   910→  }
+   911→  html += '</tbody></table></div></div>';
+   912→  return html;
+   913→}
+   914→
+   915→function bindProductEvents() {
+   916→  var addBtn = document.getElementById('btn-add-product');
+   917→  if (!addBtn) return;
+   918→  addBtn.addEventListener('click', function() {
+   919→    var catOpts = '', uomOpts = '';
+   920→    for (var i = 0; i < DB.categories.length; i++) catOpts += '<option>' + DB.categories[i].name + '</option>';
+   921→    for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option>' + DB.uoms[k].name + '</option';
+   922→    var html = '<div style="padding:24px;">' + modalHeader('Add New Product') + '<div style="padding-top:16px;">';
+   923→    html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name"></div>';
+   924→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
+   925→    html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+   926→    html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-prod-status"><option>Active</option><option>Inactive</option></select></div>';
+   927→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+   928→    html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Save</button></div></div>';
+   929→    openModal(html);
+   930→    document.getElementById('btn-save-prod').addEventListener('click', function() {
+   931→      var name = document.getElementById('f-prod-name').value.trim();
+   932→      if (!name) { showToast('Product name required', 'error'); return; }
+   933→      DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: '', uom: document.getElementById('f-prod-uom').value, price: 0, status: document.getElementById('f-prod-status').value });
+   934→      closeModal(); showToast('Product added'); renderPage();
+   935→    });
+   936→  });
+   937→  var editBtns = document.querySelectorAll('[data-edit-prod]');
+   938→  for (var ei = 0; ei < editBtns.length; ei++) {
+   939→    (function(btn) {
+   940→      btn.addEventListener('click', function() {
+   941→        var p = DB.products.find(function(x){ return x.id === parseInt(btn.getAttribute('data-edit-prod')); });
+   942→        if (!p) return;
+   943→        var catOpts = '', uomOpts = '';
+   944→        for (var i = 0; i < DB.categories.length; i++) catOpts += '<option' + (p.category === DB.categories[i].name ? ' selected' : '') + '>' + DB.categories[i].name + '</option>';
+   945→        for (var k = 0; k < DB.uoms.length; k++) uomOpts += '<option' + (p.uom === DB.uoms[k].name ? ' selected' : '') + '>' + DB.uoms[k].name + '</option';
+   946→        var html = '<div style="padding:24px;">' + modalHeader('Edit Product') + '<div style="padding-top:16px;">';
+   947→        html += '<div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="f-prod-name" value="' + p.name + '"></div>';
+   948→        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="f-prod-cat">' + catOpts + '</select></div>';
+   949→        html += '<div class="form-group"><label class="form-label">UoM</label><select class="form-input" id="f-prod-uom">' + uomOpts + '</select></div></div>';
+   950→        html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-prod-status"><option' + (p.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (p.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
+   951→        html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+   952→        html += '<button class="btn btn-primary" id="btn-save-prod"><i class="fas fa-save"></i> Update</button></div></div';
+   953→        openModal(html);
+   954→        document.getElementById('btn-save-prod').addEventListener('click', function() {
+   955→          var name = document.getElementById('f-prod-name').value.trim();
+   956→          if (!name) { showToast('Product name required', 'error'); return; }
+   957→          p.name = name; p.category = document.getElementById('f-prod-cat').value; p.uom = document.getElementById('f-prod-uom').value; p.status = document.getElementById('f-prod-status').value;
+   958→          closeModal(); showToast('Product updated'); renderPage();
+   959→        });
+   960→      });
+   961→    })(editBtns[ei]);
+   962→  }
+   963→  var delBtns = document.querySelectorAll('[data-del-prod]');
+   964→  for (var i = 0; i < delBtns.length; i++) {
+   965→    (function(btn) {
+   966→      btn.addEventListener('click', function() { deleteItem('products', parseInt(btn.getAttribute('data-del-prod')), 'product-list'); });
+   967→    })(delBtns[i]);
+   968→  }
+   969→}
+   970→
+   971→// ==================== READ-ONLY TABLE PAGES ====================
+   972→function renderReadOnlyTable(title, columns, rows) {
+   973→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   974→  html += '<div style="font-size:20px;font-weight:800;">' + title + '</div>';
+   975→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+   976→  html += '</div>';
+   977→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 200px);overflow-y:auto;">';
+   978→  html += '<table class="data-table" id="main-table"><thead><tr>';
+   979→  for (var i = 0; i < columns.length; i++) html += '<th>' + columns[i] + '</th>';
+   980→  html += '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+   981→  return html;
+   982→}
+   983→
+   984→function renderPurchaseList() {
+   985→  var rows = '';
+   986→  for (var i = 0; i < DB.purchases.length; i++) {
+   987→    var p = DB.purchases[i];
+   988→    rows += '<tr><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.date + '</td><td>' + p.supplier + '</td><td>' + p.product + '</td><td style="text-align:center;">' + p.qty + '</td><td style="font-weight:600;">' + fmt(p.total) + '</td><td>' + p.branch + '</td><td>' + statusBadge(p.status) + '</td></tr>';
+   989→  }
+   990→  return renderReadOnlyTable('Purchase List', ['Invoice', 'Date', 'Supplier', 'Product', 'Qty', 'Total', 'Branch', 'Status'], rows);
+   991→}
+   992→
+   993→function renderSupplier() {
+   994→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+   995→  html += '<div style="font-size:20px;font-weight:800;">Supplier List</div>';
+   996→  html += '<button class="btn btn-primary" id="btn-add-supplier"><i class="fas fa-plus"></i> Add New</button></div>';
+   997→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+   998→  html += '<table class="data-table" id="main-table"><thead><tr><th>Name</th><th>Contact</th><th>Email</th><th>Address</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+   999→  for (var i = 0; i < DB.suppliers.length; i++) {
+  1000→    var s = DB.suppliers[i];
+  1001→    html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + s.contact + '</td><td>' + s.email + '</td><td>' + s.address + '</td>';
+  1002→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-sup="' + s.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  1003→  }
+  1004→  html += '</tbody></table></div></div>';
+  1005→  return html;
+  1006→}
+  1007→
+  1008→function bindSupplierEvents() {
+  1009→  var addBtn = document.getElementById('btn-add-supplier');
+  1010→  if (!addBtn) return;
+  1011→  addBtn.addEventListener('click', function() {
+  1012→    var html = '<div style="padding:24px;">' + modalHeader('Add Supplier') + '<div style="padding-top:16px;">';
+  1013→    html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-sup-name"></div>';
+  1014→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="f-sup-contact"></div>';
+  1015→    html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-sup-email"></div></div>';
+  1016→    html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address"></div>';
+  1017→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1018→    html += '<button class="btn btn-primary" id="btn-save-sup"><i class="fas fa-save"></i> Save</button></div></div>';
+  1019→    openModal(html);
+  1020→    document.getElementById('btn-save-sup').addEventListener('click', function() {
+  1021→      var name = document.getElementById('f-sup-name').value.trim();
+  1022→      if (!name) { showToast('Name required', 'error'); return; }
+  1023→      DB.suppliers.push({ id: Date.now(), name: name, contact: document.getElementById('f-sup-contact').value.trim(), email: document.getElementById('f-sup-email').value.trim(), address: document.getElementById('f-sup-address').value.trim() });
+  1024→      closeModal(); showToast('Supplier added'); renderPage();
+  1025→    });
+  1026→  });
+  1027→  var delBtns = document.querySelectorAll('[data-del-sup]');
+  1028→  for (var i = 0; i < delBtns.length; i++) {
+  1029→    (function(btn) {
+  1030→      btn.addEventListener('click', function() { deleteItem('suppliers', parseInt(btn.getAttribute('data-del-sup')), 'supplier'); });
+  1031→    })(delBtns[i]);
+  1032→  }
+  1033→}
+  1034→
+  1035→function renderDeliveryList() {
+  1036→  var rows = '';
+  1037→  for (var i = 0; i < DB.deliveries.length; i++) { var d = DB.deliveries[i]; rows += '<tr><td style="font-weight:600;">' + d.chalan + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.branch + '</td><td>' + d.receivedBy + '</td><td>' + statusBadge(d.status) + '</td></tr>'; }
+  1038→  return renderReadOnlyTable('Delivery List', ['Chalan No', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'], rows);
+  1039→}
+  1040→
+  1041→function renderAdjustmentList() {
+  1042→  var rows = '';
+  1043→  for (var i = 0; i < DB.adjustments.length; i++) { var a = DB.adjustments[i]; rows += '<tr><td style="font-weight:600;">' + a.ref + '</td><td>' + a.date + '</td><td>' + a.product + '</td><td>' + a.branch + '</td><td><span class="badge ' + (a.type==='Increase'?'badge-green':'badge-red') + '">' + a.type + '</span></td><td style="text-align:center;">' + a.qty + '</td><td>' + a.reason + '</td><td>' + statusBadge(a.status) + '</td></tr>'; }
+  1044→  return renderReadOnlyTable('Adjustment List', ['Reference', 'Date', 'Product', 'Branch', 'Type', 'Qty', 'Reason', 'Status'], rows);
+  1045→}
+  1046→
+  1047→function renderDamageList() {
+  1048→  var rows = '';
+  1049→  for (var i = 0; i < DB.damages.length; i++) { var d = DB.damages[i]; rows += '<tr><td style="font-weight:600;">' + d.ref + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td>' + d.branch + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.reason + '</td><td>' + statusBadge(d.status) + '</td></tr>'; }
+  1050→  return renderReadOnlyTable('Damage List', ['Reference', 'Date', 'Product', 'Branch', 'Qty', 'Reason', 'Status'], rows);
+  1051→}
+  1052→
+  1053→function renderTransferList() {
+  1054→  var rows = '';
+  1055→  for (var i = 0; i < DB.transfers.length; i++) { var t = DB.transfers[i]; rows += '<tr><td style="font-weight:600;">' + t.ref + '</td><td>' + t.date + '</td><td>' + t.product + '</td><td style="text-align:center;">' + t.qty + '</td><td>' + t.fromBranch + '</td><td>' + t.toBranch + '</td><td>' + statusBadge(t.status) + '</td></tr>'; }
+  1056→  return renderReadOnlyTable('Internal Transfer List', ['Reference', 'Date', 'Product', 'Qty', 'From Branch', 'To Branch', 'Status'], rows);
+  1057→}
+  1058→
+  1059→// ==================== CASH BOOK ====================
+  1060→function renderCashIn() {
+  1061→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1062→  html += '<div style="font-size:20px;font-weight:800;">Cash In</div>';
+  1063→  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  1064→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  1065→  html += '<button class="btn btn-primary" id="btn-add-cashin"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  1066→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  1067→  html += '<table class="data-table" id="main-table"><thead><tr><th>Voucher</th><th>Date</th><th>Amount</th><th>Description</th><th>Branch</th><th>Status</th></tr></thead><tbody>';
+  1068→  for (var i = 0; i < DB.cashIn.length; i++) { var c = DB.cashIn[i]; html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + c.date + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(c.amount) + '</td><td>' + c.description + '</td><td>' + c.branch + '</td><td>' + statusBadge(c.status) + '</td></tr>'; }
+  1069→  html += '</tbody></table></div></div>';
+  1070→  return html;
+  1071→}
+  1072→
+  1073→function bindCashInEvents() {
+  1074→  var btn = document.getElementById('btn-add-cashin');
+  1075→  if (!btn) return;
+  1076→  btn.addEventListener('click', function() {
+  1077→    var brOpts = '';
+  1078→    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
+  1079→    var html = '<div style="padding:24px;">' + modalHeader('Add Cash In') + '<div style="padding-top:16px;">';
+  1080→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-ci-date" type="date"></div>';
+  1081→    html += '<div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="f-ci-amount" type="number"></div></div>';
+  1082→    html += '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-ci-desc"></div>';
+  1083→    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-ci-branch">' + brOpts + '</select></div>';
+  1084→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1085→    html += '<button class="btn btn-primary" id="btn-save-ci"><i class="fas fa-save"></i> Save</button></div></div>';
+  1086→    openModal(html);
+  1087→    document.getElementById('btn-save-ci').addEventListener('click', function() {
+  1088→      var amount = Number(document.getElementById('f-ci-amount').value);
+  1089→      if (!amount) { showToast('Amount required', 'error'); return; }
+  1090→      DB.cashIn.push({ id: Date.now(), voucher: 'CI-' + Date.now(), date: document.getElementById('f-ci-date').value, amount: amount, description: document.getElementById('f-ci-desc').value.trim(), branch: document.getElementById('f-ci-branch').value, status: 'Pending' });
+  1091→      closeModal(); showToast('Cash In added'); renderPage();
+  1092→    });
+  1093→  });
+  1094→}
+  1095→
+  1096→function renderCashOut() {
+  1097→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1098→  html += '<div style="font-size:20px;font-weight:800;">Cash Out</div>';
+  1099→  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  1100→  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  1101→  html += '<button class="btn btn-primary" id="btn-add-cashout"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  1102→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  1103→  html += '<table class="data-table" id="main-table"><thead><tr><th>Voucher</th><th>Date</th><th>Amount</th><th>Description</th><th>Branch</th><th>Status</th></tr></thead><tbody>';
+  1104→  for (var i = 0; i < DB.cashOut.length; i++) { var c = DB.cashOut[i]; html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + c.date + '</td><td style="font-weight:600;color:var(--danger);">' + fmt(c.amount) + '</td><td>' + c.description + '</td><td>' + c.branch + '</td><td>' + statusBadge(c.status) + '</td></tr>'; }
+  1105→  html += '</tbody></table></div></div>';
+  1106→  return html;
+  1107→}
+  1108→
+  1109→function bindCashOutEvents() {
+  1110→  var btn = document.getElementById('btn-add-cashout');
+  1111→  if (!btn) return;
+  1112→  btn.addEventListener('click', function() {
+  1113→    var brOpts = '';
+  1114→    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
+  1115→    var html = '<div style="padding:24px;">' + modalHeader('Add Cash Out') + '<div style="padding-top:16px;">';
+  1116→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-co-date" type="date"></div>';
+  1117→    html += '<div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="f-co-amount" type="number"></div></div>';
+  1118→    html += '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-co-desc"></div>';
+  1119→    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-co-branch">' + brOpts + '</select></div>';
+  1120→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1121→    html += '<button class="btn btn-primary" id="btn-save-co"><i class="fas fa-save"></i> Save</button></div></div>';
+  1122→    openModal(html);
+  1123→    document.getElementById('btn-save-co').addEventListener('click', function() {
+  1124→      var amount = Number(document.getElementById('f-co-amount').value);
+  1125→      if (!amount) { showToast('Amount required', 'error'); return; }
+  1126→      DB.cashOut.push({ id: Date.now(), voucher: 'CO-' + Date.now(), date: document.getElementById('f-co-date').value, amount: amount, description: document.getElementById('f-co-desc').value.trim(), branch: document.getElementById('f-co-branch').value, status: 'Pending' });
+  1127→      closeModal(); showToast('Cash Out added'); renderPage();
+  1128→    });
+  1129→  });
+  1130→}
+  1131→
+  1132→// ==================== APPROVAL PAGES ====================
+  1133→function renderApprovalList(type, data) {
+  1134→  var pending = data.filter(function(d){ return d.status === 'Pending'; });
+  1135→  var approved = data.filter(function(d){ return d.status === 'Approved'; });
+  1136→  var rejected = data.filter(function(d){ return d.status === 'Rejected'; });
+  1137→  var cols, labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
+  1138→  if (type === 'purchase') cols = ['Invoice', 'Date', 'Supplier', 'Product', 'Amount', 'Branch', 'Status'];
+  1139→  else if (type === 'delivery') cols = ['Chalan', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'];
+  1140→  else if (type === 'adjustment') cols = ['Reference', 'Date', 'Product', 'Branch', 'Type', 'Qty', 'Status'];
+  1141→  else cols = ['Reference', 'Date', 'Product', 'Branch', 'Qty', 'Reason', 'Status'];
+  1142→
+  1143→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1144→  html += '<div style="font-size:20px;font-weight:800;">' + labels[type] + ' Approval</div>';
+  1145→  html += '<div style="display:flex;gap:16px;align-items:center;">';
+  1146→  html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--warning);"></div><span style="font-weight:600;">' + pending.length + ' Pending</span></div>';
+  1147→  html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--accent);"></div><span style="font-weight:600;">' + approved.length + ' Approved</span></div>';
+  1148→  html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--danger);"></div><span style="font-weight:600;">' + rejected.length + ' Rejected</span></div>';
+  1149→  html += '</div></div>';
+  1150→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  1151→  html += '<table class="data-table" id="main-table"><thead><tr>';
+  1152→  for (var c = 0; c < cols.length; c++) html += '<th>' + cols[c] + '</th>';
+  1153→  html += '<th style="width:200px;">Action</th></tr></thead><tbody>';
+  1154→  for (var i = 0; i < data.length; i++) {
+  1155→    var item = data[i];
+  1156→    html += '<tr>';
+  1157→    if (type === 'purchase') html += '<td style="font-weight:600;">' + item.invoice + '</td><td>' + item.date + '</td><td>' + item.supplier + '</td><td>' + item.product + '</td><td style="font-weight:600;">' + fmt(item.total) + '</td><td>' + item.branch + '</td>';
+  1158→    else if (type === 'delivery') html += '<td style="font-weight:600;">' + item.chalan + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.branch + '</td><td>' + item.receivedBy + '</td>';
+  1159→    else if (type === 'adjustment') html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td><span class="badge ' + (item.type==='Increase'?'badge-green':'badge-red') + '">' + item.type + '</span></td><td style="text-align:center;">' + item.qty + '</td>';
+  1160→    else html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.reason + '</td>';
+  1161→
+  1162→    if (item.status === 'Pending') {
+  1163→      html += '<td><button class="btn btn-primary btn-sm" data-approve="' + type + '-' + item.id + '"><i class="fas fa-check"></i> Approve</button> <button class="btn btn-danger btn-sm" data-reject="' + type + '-' + item.id + '"><i class="fas fa-times"></i> Reject</button></td>';
+  1164→    } else {
+  1165→      html += '<td>' + statusBadge(item.status) + '</td>';
+  1166→    }
+  1167→    html += '</tr>';
+  1168→  }
+  1169→  html += '</tbody></table></div></div>';
+  1170→  return html;
+  1171→}
+  1172→
+  1173→function bindApprovalEvents() {
+  1174→  var approveBtns = document.querySelectorAll('[data-approve]');
+  1175→  for (var i = 0; i < approveBtns.length; i++) {
+  1176→    (function(btn) {
+  1177→      btn.addEventListener('click', function() {
+  1178→        var parts = btn.getAttribute('data-approve').split('-');
+  1179→        var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+  1180→        var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
+  1181→        var item = DB[map[type]].find(function(x){ return x.id === id; });
+  1182→        if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); }
+  1183→      });
+  1184→    })(approveBtns[i]);
+  1185→  }
+  1186→  var rejectBtns = document.querySelectorAll('[data-reject]');
+  1187→  for (var j = 0; j < rejectBtns.length; j++) {
+  1188→    (function(btn) {
+  1189→      btn.addEventListener('click', function() {
+  1190→        var parts = btn.getAttribute('data-reject').split('-');
+  1191→        var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+  1192→        var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
+  1193→        var item = DB[map[type]].find(function(x){ return x.id === id; });
+  1194→        if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); }
+  1195→      });
+  1196→    })(rejectBtns[j]);
+  1197→  }
+  1198→}
+  1199→
+  1200→// ==================== REPORT PAGES ====================
+  1201→function renderReport(type) {
+  1202→  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
+  1203→  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
+  1204→  var data = map[type];
+  1205→  var total = type === 'purchase' ? data.reduce(function(s,d){return s+d.total;}, 0) : data.reduce(function(s,d){return s+d.qty;}, 0);
+  1206→  var approved = data.filter(function(d){return d.status==='Approved';}).length;
+  1207→  var pending = data.filter(function(d){return d.status==='Pending';}).length;
+  1208→  var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
+  1209→
+  1210→  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
+  1211→  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">';
+  1212→  html += '<div class="stat-card green" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Total</div><div style="font-size:24px;font-weight:800;">' + (type==='purchase' ? fmt(total) : total) + '</div></div>';
+  1213→  html += '<div class="stat-card blue" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Approved</div><div style="font-size:24px;font-weight:800;color:var(--info);">' + approved + '</div></div>';
+  1214→  html += '<div class="stat-card amber" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Pending</div><div style="font-size:24px;font-weight:800;color:var(--warning);">' + pending + '</div></div>';
+  1215→  html += '<div class="stat-card red" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Rejected</div><div style="font-size:24px;font-weight:800;color:var(--danger);">' + rejected + '</div></div>';
+  1216→  html += '</div>';
+  1217→  html += '<div class="stat-card" style="padding:20px;margin-bottom:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Status Distribution</div><canvas id="reportPie" width="400" height="200"></canvas></div>';
+  1218→  html += '<div class="stat-card" style="padding:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Detailed Records</div>';
+  1219→  html += '<table class="data-table"><thead><tr><th>#</th><th>Reference</th><th>Date</th><th>' + (type==='purchase' ? 'Amount' : 'Qty') + '</th><th>Status</th></tr></thead><tbody>';
+  1220→  for (var i = 0; i < data.length; i++) {
+  1221→    var d = data[i];
+  1222→    html += '<tr><td>' + (i+1) + '</td><td style="font-weight:600;">' + (d.invoice || d.chalan || d.ref) + '</td><td>' + d.date + '</td><td style="font-weight:600;">' + (type==='purchase' ? fmt(d.total) : d.qty) + '</td><td>' + statusBadge(d.status) + '</td></tr>';
+  1223→  }
+  1224→  html += '</tbody></table></div>';
+  1225→  return html;
+  1226→}
+  1227→
+  1228→function drawReportPie() {
+  1229→  var canvas = document.getElementById('reportPie');
+  1230→  if (!canvas) return;
+  1231→  var ctx = canvas.getContext('2d');
+  1232→  var W = canvas.width, H = canvas.height;
+  1233→  var type = currentPage.replace('report-', '');
+  1234→  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
+  1235→  var data = map[type];
+  1236→  if (!data) return;
+  1237→  var vals = [
+  1238→    data.filter(function(d){return d.status==='Approved';}).length,
+  1239→    data.filter(function(d){return d.status==='Pending';}).length,
+  1240→    data.filter(function(d){return d.status==='Rejected';}).length,
+  1241→  ];
+  1242→  var colors = ['#2d8a4e', '#d97706', '#dc2626'];
+  1243→  var lbls = ['Approved', 'Pending', 'Rejected'];
+  1244→  var total = vals[0] + vals[1] + vals[2] || 1;
+  1245→  var cx = W * 0.35, cy = H / 2, r = Math.min(cx, cy) - 20;
+  1246→  var startAngle = -Math.PI / 2;
+  1247→  for (var i = 0; i < vals.length; i++) {
+  1248→    var sliceAngle = (vals[i] / total) * Math.PI * 2;
+  1249→    ctx.beginPath(); ctx.moveTo(cx, cy);
+  1250→    ctx.arc(cx, cy, Math.max(r, 1), startAngle, startAngle + sliceAngle);
+  1251→    ctx.closePath(); ctx.fillStyle = colors[i]; ctx.fill();
+  1252→    startAngle += sliceAngle;
+  1253→  }
+  1254→  ctx.beginPath(); ctx.arc(cx, cy, Math.max(r * 0.55, 1), 0, Math.PI * 2);
+  1255→  ctx.fillStyle = '#ffffff'; ctx.fill();
+  1256→  ctx.fillStyle = '#1a2e1a'; ctx.font = 'bold 22px Outfit'; ctx.textAlign = 'center';
+  1257→  ctx.fillText(total, cx, cy + 4);
+  1258→  ctx.font = '12px Outfit'; ctx.fillStyle = '#6b7c6b'; ctx.fillText('Total', cx, cy + 20);
+  1259→  var lx = W * 0.7;
+  1260→  for (var j = 0; j < lbls.length; j++) {
+  1261→    var ly = 50 + j * 40;
+  1262→    ctx.fillStyle = colors[j];
+  1263→    ctx.beginPath(); ctx.rect(lx, ly, 16, 16); ctx.fill();
+  1264→    ctx.fillStyle = '#1a2e1a'; ctx.font = '600 14px Outfit'; ctx.textAlign = 'left';
+  1265→    ctx.fillText(lbls[j], lx + 24, ly + 13);
+  1266→    ctx.fillStyle = '#6b7c6b'; ctx.font = '13px Outfit';
+  1267→    ctx.fillText(vals[j] + ' items', lx + 24, ly + 30);
+  1268→  }
+  1269→}
+  1270→
+  1271→// ==================== SETTINGS ====================
+  1272→function renderCompanyProfile() {
+  1273→  var c = DB.company;
+  1274→  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">Company Profile</div>';
+  1275→  html += '<div class="stat-card" style="padding:28px;max-width:700px;">';
+  1276→  html += '<div class="form-group"><label class="form-label">Company Name</label><input class="form-input" id="f-cname" value="' + c.name + '"></div>';
+  1277→  html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-caddress" value="' + c.address + '"></div>';
+  1278→  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-cphone" value="' + c.phone + '"></div>';
+  1279→  html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-cemail" value="' + c.email + '"></div></div>';
+  1280→  html += '<div class="form-group"><label class="form-label">Website</label><input class="form-input" id="f-cweb" value="' + c.website + '"></div>';
+  1281→  html += '<div style="margin-top:8px;"><button class="btn btn-primary" id="btn-save-company"><i class="fas fa-save"></i> Save Changes</button></div>';
+  1282→  html += '</div>';
+  1283→  return html;
+  1284→}
+  1285→
+  1286→function bindCompanyEvents() {
+  1287→  var btn = document.getElementById('btn-save-company');
+  1288→  if (!btn) return;
+  1289→  btn.addEventListener('click', function() {
+  1290→    DB.company.name = document.getElementById('f-cname').value;
+  1291→    DB.company.address = document.getElementById('f-caddress').value;
+  1292→    DB.company.phone = document.getElementById('f-cphone').value;
+  1293→    DB.company.email = document.getElementById('f-cemail').value;
+  1294→    DB.company.website = document.getElementById('f-cweb').value;
+  1295→    showToast('Company profile updated');
+  1296→  });
+  1297→}
+  1298→
+  1299→function renderUserList() {
+  1300→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1301→  html += '<div style="font-size:20px;font-weight:800;">User List</div>';
+  1302→  html += '<button class="btn btn-primary" id="btn-add-user"><i class="fas fa-plus"></i> Create User</button></div>';
+  1303→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+  1304→  html += '<table class="data-table" id="main-table"><thead><tr><th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  1305→  for (var i = 0; i < DB.users.length; i++) {
+  1306→    var u = DB.users[i];
+  1307→    html += '<tr><td style="font-weight:600;">' + u.name + '</td><td>' + u.username + '</td><td>' + u.email + '</td><td><span class="badge badge-blue">' + u.role + '</span></td><td>' + statusBadge(u.status) + '</td>';
+  1308→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-user="' + u.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  1309→  }
+  1310→  html += '</tbody></table></div></div>';
+  1311→  return html;
+  1312→}
+  1313→
+  1314→function bindUserEvents() {
+  1315→  var btn = document.getElementById('btn-add-user');
+  1316→  if (!btn) return;
+  1317→  btn.addEventListener('click', function() {
+  1318→    var roleOpts = '';
+  1319→    for (var i = 0; i < DB.roles.length; i++) roleOpts += '<option>' + DB.roles[i].name + '</option>';
+  1320→    var html = '<div style="padding:24px;">' + modalHeader('Create User') + '<div style="padding-top:16px;">';
+  1321→    html += '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-user-name"></div>';
+  1322→    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Username</label><input class="form-input" id="f-user-uname"></div>';
+  1323→    html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-user-email"></div></div>';
+  1324→    html += '<div class="form-group"><label class="form-label">Role</label><select class="form-input" id="f-user-role">' + roleOpts + '</select></div>';
+  1325→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1326→    html += '<button class="btn btn-primary" id="btn-save-user"><i class="fas fa-save"></i> Create</button></div></div>';
+  1327→    openModal(html);
+  1328→    document.getElementById('btn-save-user').addEventListener('click', function() {
+  1329→      var name = document.getElementById('f-user-name').value.trim();
+  1330→      if (!name) { showToast('Name required', 'error'); return; }
+  1331→      DB.users.push({ id: Date.now(), name: name, username: document.getElementById('f-user-uname').value.trim(), email: document.getElementById('f-user-email').value.trim(), role: document.getElementById('f-user-role').value, status: 'Active' });
+  1332→      closeModal(); showToast('User created'); renderPage();
+  1333→    });
+  1334→  });
+  1335→  var delBtns = document.querySelectorAll('[data-del-user]');
+  1336→  for (var i = 0; i < delBtns.length; i++) {
+  1337→    (function(btn) { btn.addEventListener('click', function() { deleteItem('users', parseInt(btn.getAttribute('data-del-user')), 'user-list'); }); })(delBtns[i]);
+  1338→  }
+  1339→}
+  1340→
+  1341→function renderRoleList() {
+  1342→  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  1343→  html += '<div style="font-size:20px;font-weight:800;">Role List</div>';
+  1344→  html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button></div>';
+  1345→  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
+  1346→  html += '<table class="data-table" id="main-table"><thead><tr><th>Role Name</th><th>Permissions</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  1347→  for (var i = 0; i < DB.roles.length; i++) {
+  1348→    var r = DB.roles[i];
+  1349→    html += '<tr><td style="font-weight:600;">' + r.name + '</td><td>' + r.permissions + '</td>';
+  1350→    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-role="' + r.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  1351→  }
+  1352→  html += '</tbody></table></div></div>';
+  1353→  return html;
+  1354→}
+  1355→
+  1356→function bindRoleEvents() {
+  1357→  var btn = document.getElementById('btn-add-role');
+  1358→  if (!btn) return;
+  1359→  btn.addEventListener('click', function() {
+  1360→    var html = '<div style="padding:24px;">' + modalHeader('Create Role') + '<div style="padding-top:16px;">';
+  1361→    html += '<div class="form-group"><label class="form-label">Role Name</label><input class="form-input" id="f-role-name"></div>';
+  1362→    html += '<div class="form-group"><label class="form-label">Permissions</label><input class="form-input" id="f-role-perm" placeholder="e.g. Dashboard, Inventory, Reports"></div>';
+  1363→    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  1364→    html += '<button class="btn btn-primary" id="btn-save-role"><i class="fas fa-save"></i> Create</button></div></div>';
+  1365→    openModal(html);
+  1366→    document.getElementById('btn-save-role').addEventListener('click', function() {
+  1367→      var name = document.getElementById('f-role-name').value.trim();
+  1368→      if (!name) { showToast('Role name required', 'error'); return; }
+  1369→      DB.roles.push({ id: Date.now(), name: name, permissions: document.getElementById('f-role-perm').value.trim() });
+  1370→      closeModal(); showToast('Role created'); renderPage();
+  1371→    });
+  1372→  });
+  1373→  var delBtns = document.querySelectorAll('[data-del-role]');
+  1374→  for (var i = 0; i < delBtns.length; i++) {
+  1375→    (function(btn) { btn.addEventListener('click', function() { deleteItem('roles', parseInt(btn.getAttribute('data-del-role')), 'role-list'); }); })(delBtns[i]);
+  1376→  }
+  1377→}
+  1378→
+  1379→// ==================== PAGE ROUTER ====================
+  1380→function renderPage() {
+  1381→  document.getElementById('breadcrumb').textContent = getBreadcrumb();
+  1382→  var pc = document.getElementById('page-content');
+  1383→  var pageMap = {
+  1384→    'dashboard': renderDashboard,
+  1385→    'branch-list': renderBranchList,
+  1386→    'employee-list': renderEmployeeList,
+  1387→    'department': renderDepartment,
+  1388→    'designation': renderDesignation,
+  1389→    'categories': renderCategories,
+  1390→    'brand': renderBrand,
+  1391→    'uom': renderUoM,
+  1392→    'product-list': renderProductList,
+  1393→    'purchase-list': renderPurchaseList,
+  1394→    'supplier': renderSupplier,
+  1395→    'delivery-list': renderDeliveryList,
+  1396→    'adjustment-list': renderAdjustmentList,
+  1397→    'damage-list': renderDamageList,
+  1398→    'transfer-list': renderTransferList,
+  1399→    'cash-in': renderCashIn,
+  1400→    'cash-out': renderCashOut,
+  1401→    'approval-purchase': function() { return renderApprovalList('purchase', DB.purchases); },
+  1402→    'approval-delivery': function() { return renderApprovalList('delivery', DB.deliveries); },
+  1403→    'approval-adjustment': function() { return renderApprovalList('adjustment', DB.adjustments); },
+  1404→    'approval-damage': function() { return renderApprovalList('damage', DB.damages); },
+  1405→    'report-purchase': function() { return renderReport('purchase'); },
+  1406→    'report-delivery': function() { return renderReport('delivery'); },
+  1407→    'report-adjustment': function() { return renderReport('adjustment'); },
+  1408→    'report-damage': function() { return renderReport('damage'); },
+  1409→    'company-profile': renderCompanyProfile,
+  1410→    'user-list': renderUserList,
+  1411→    'role-list': renderRoleList,
+  1412→  };
+  1413→
+  1414→  var renderFn = pageMap[currentPage] || renderDashboard;
+  1415→  pc.innerHTML = '<div class="page-content">' + renderFn() + '</div>';
+  1416→
+  1417→  // Bind events AFTER DOM is ready — this is the KEY FIX
+  1418→  var bindMap = {
+  1419→    'branch-list': bindBranchEvents,
+  1420→    'employee-list': bindEmployeeEvents,
+  1421→    'department': function() { bindSimpleListEvents('departments', 'Department name', null); },
+  1422→    'designation': function() { bindSimpleListEvents('designations', 'Designation name', null); },
+  1423→    'uom': function() { bindSimpleListEvents('uoms', 'UoM name', null); },
+  1424→    'categories': function() { bindSimpleListEvents('categories', 'Category name', 'description'); },
+  1425→    'brand': function() { bindSimpleListEvents('brands', 'Brand name', null); },
+  1426→    'product-list': bindProductEvents,
+  1427→    'supplier': bindSupplierEvents,
+  1428→    'cash-in': bindCashInEvents,
+  1429→    'cash-out': bindCashOutEvents,
+  1430→    'approval-purchase': bindApprovalEvents,
+  1431→    'approval-delivery': bindApprovalEvents,
+  1432→    'approval-adjustment': bindApprovalEvents,
+  1433→    'approval-damage': bindApprovalEvents,
+  1434→    'company-profile': bindCompanyEvents,
+  1435→    'user-list': bindUserEvents,
+  1436→    'role-list': bindRoleEvents,
+  1437→  };
+  1438→
+  1439→  if (currentPage === 'dashboard') initDashboardChart();
+  1440→  if (currentPage.indexOf('report-') === 0) drawReportPie();
+  1441→
+  1442→  var bindFn = bindMap[currentPage];
+  1443→  if (bindFn) bindFn();
+  1444→}
+  1445→
+  1446→// ==================== INIT ====================
+  1447→renderNav();
+  1448→renderPage();
+  1449→</script>
+  1450→</body>
+  1451→</html>
