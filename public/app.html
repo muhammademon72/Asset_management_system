@@ -987,7 +987,7 @@ function renderPurchaseList() {
   for (var i = 0; i < DB.purchases.length; i++) {
     var p = DB.purchases[i];
     rows += '<tr><td>' + p.date + '</td><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.supplier + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(p.total) + '</td><td style="text-align:center;"><i class="fas fa-paperclip" style="color:var(--muted);font-size:14px;cursor:pointer;" title="Attachment"></i></td><td>' + statusBadge(p.status) + '</td>';
-    rows += '<td style="width:100px;"><button class="btn btn-secondary btn-sm btn-icon" data-edit-pur="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-pur="' + p.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-pur="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Purchase List</div>';
@@ -995,7 +995,7 @@ function renderPurchaseList() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-primary" id="btn-add-purchase"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Invoice</th><th>Supplier</th><th>Total</th><th style="width:60px;text-align:center;">Attach</th><th>Status</th><th style="width:100px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Invoice</th><th>Supplier</th><th>Total</th><th style="width:60px;text-align:center;">Attach</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -1008,31 +1008,49 @@ function renderSupplier() {
   for (var i = 0; i < DB.suppliers.length; i++) {
     var s = DB.suppliers[i];
     html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + s.contact + '</td><td>' + s.email + '</td><td>' + s.address + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-sup="' + s.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    html += '<td style="width:80px;"><button class="btn btn-secondary btn-sm btn-icon" data-edit-sup="' + s.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-sup="' + s.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
   return html;
 }
 
-function bindSupplierEvents() {
-  var addBtn = document.getElementById('btn-add-supplier');
-  if (!addBtn) return;
-  addBtn.addEventListener('click', function() {
-    var html = '<div style="padding:24px;">' + modalHeader('Add Supplier') + '<div style="padding-top:16px;">';
-    html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-sup-name"></div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="f-sup-contact"></div>';
-    html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-sup-email"></div></div>';
-    html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address"></div>';
-    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-    html += '<button class="btn btn-primary" id="btn-save-sup"><i class="fas fa-save"></i> Save</button></div></div>';
-    openModal(html);
-    document.getElementById('btn-save-sup').addEventListener('click', function() {
-      var name = document.getElementById('f-sup-name').value.trim();
-      if (!name) { showToast('Name required', 'error'); return; }
+function openSupplierModal(supId) {
+  var sup = null;
+  if (supId) { for (var i = 0; i < DB.suppliers.length; i++) { if (DB.suppliers[i].id === supId) { sup = DB.suppliers[i]; break; } } }
+  var title = sup ? 'Edit Supplier' : 'Add Supplier';
+  var html = '<div style="padding:24px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+  html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-sup-name" value="' + (sup ? sup.name : '') + '"></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="f-sup-contact" value="' + (sup ? sup.contact : '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-sup-email" value="' + (sup ? sup.email : '') + '"></div></div>';
+  html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address" value="' + (sup ? sup.address : '') + '"></div>';
+  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<button class="btn btn-primary" id="btn-save-sup"><i class="fas fa-save"></i> Save</button></div></div>';
+  openModal(html);
+  document.getElementById('btn-save-sup').addEventListener('click', function() {
+    var name = document.getElementById('f-sup-name').value.trim();
+    if (!name) { showToast('Name required', 'error'); return; }
+    if (sup) {
+      sup.name = name;
+      sup.contact = document.getElementById('f-sup-contact').value.trim();
+      sup.email = document.getElementById('f-sup-email').value.trim();
+      sup.address = document.getElementById('f-sup-address').value.trim();
+      closeModal(); showToast('Supplier updated'); renderPage();
+    } else {
       DB.suppliers.push({ id: Date.now(), name: name, contact: document.getElementById('f-sup-contact').value.trim(), email: document.getElementById('f-sup-email').value.trim(), address: document.getElementById('f-sup-address').value.trim() });
       closeModal(); showToast('Supplier added'); renderPage();
-    });
+    }
   });
+}
+
+function bindSupplierEvents() {
+  var addBtn = document.getElementById('btn-add-supplier');
+  if (addBtn) addBtn.addEventListener('click', function() { openSupplierModal(null); });
+  var editBtns = document.querySelectorAll('[data-edit-sup]');
+  for (var i = 0; i < editBtns.length; i++) {
+    (function(btn) {
+      btn.addEventListener('click', function() { openSupplierModal(parseInt(btn.getAttribute('data-edit-sup'))); });
+    })(editBtns[i]);
+  }
   var delBtns = document.querySelectorAll('[data-del-sup]');
   for (var i = 0; i < delBtns.length; i++) {
     (function(btn) {
@@ -1081,8 +1099,7 @@ function renderCashIn() {
 
 function bindPurchaseEvents() {
   var btn = document.getElementById('btn-add-purchase');
-  if (!btn) return;
-  btn.addEventListener('click', function() {
+  if (btn) btn.addEventListener('click', function() {
     var supOpts = '<option value="">Select Supplier</option>';
     for (var i = 0; i < DB.suppliers.length; i++) supOpts += '<option>' + DB.suppliers[i].name + '</option>';
     var catOpts = '<option value="">Select</option>';
@@ -1215,12 +1232,131 @@ function bindPurchaseEvents() {
       closeModal(); showToast('Purchase saved successfully'); renderPage();
     });
 
-    // Delete buttons on list
-    var delBtns = document.querySelectorAll('[data-del-pur]');
-    for (var d = 0; d < delBtns.length; d++) {
-      (function(b) { b.addEventListener('click', function() { deleteItem('purchases', parseInt(b.getAttribute('data-del-pur')), 'purchase'); }); })(delBtns[d]);
-    }
   });
+
+  // View buttons
+  var viewBtns = document.querySelectorAll('[data-view-pur]');
+  for (var v = 0; v < viewBtns.length; v++) {
+    (function(b) {
+      b.addEventListener('click', function() {
+        var purId = parseInt(b.getAttribute('data-view-pur'));
+        var pur = null;
+        for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
+        if (!pur) return;
+        var html = '<div style="width:560px;max-width:96vw;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+        html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">Purchase Details</div>';
+        html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
+        html += '</div><div style="padding:20px 24px 24px;">';
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+        html += purFieldRow('Date', '<span style="font-size:14px;color:var(--fg);">' + (pur.date || '-') + '</span>');
+        html += purFieldRow('Invoice No', '<span style="font-size:14px;font-weight:600;color:var(--fg);">' + (pur.invoice || '-') + '</span>');
+        html += purFieldRow('Supplier', '<span style="font-size:14px;color:var(--fg);">' + (pur.supplier || '-') + '</span>');
+        html += '</div>';
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+        html += purFieldRow('Product', '<span style="font-size:14px;color:var(--fg);">' + (pur.product || '-') + '</span>');
+        html += purFieldRow('Quantity', '<span style="font-size:14px;color:var(--fg);">' + (pur.qty || 0) + '</span>');
+        html += purFieldRow('Unit Price', '<span style="font-size:14px;color:var(--fg);">' + fmt(pur.unitPrice || 0) + '</span>');
+        html += purFieldRow('Total', '<span style="font-size:14px;font-weight:600;color:var(--accent);">' + fmt(pur.total || 0) + '</span>');
+        html += '</div>';
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">';
+        html += purFieldRow('Status', statusBadge(pur.status));
+        html += purFieldRow('Branch', '<span style="font-size:14px;color:var(--fg);">' + (pur.branch || '-') + '</span>');
+        html += '</div>';
+        html += '<div style="padding-top:20px;display:flex;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button></div>';
+        html += '</div></div>';
+        var overlay = document.getElementById('modal-overlay');
+        var box = document.getElementById('modal-box');
+        box.innerHTML = html;
+        box.style.width = 'auto';
+        box.style.maxWidth = '96vw';
+        overlay.classList.add('show');
+      });
+    })(viewBtns[v]);
+  }
+
+  // Edit buttons
+  var editBtns = document.querySelectorAll('[data-edit-pur]');
+  for (var e = 0; e < editBtns.length; e++) {
+    (function(b) {
+      b.addEventListener('click', function() {
+        var purId = parseInt(b.getAttribute('data-edit-pur'));
+        var pur = null;
+        for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
+        if (!pur) return;
+        var supOpts = '<option value="">Select Supplier</option>';
+        for (var k = 0; k < DB.suppliers.length; k++) supOpts += '<option' + (DB.suppliers[k].name === pur.supplier ? ' selected' : '') + '>' + DB.suppliers[k].name + '</option>';
+        var html = '<div style="width:560px;max-width:96vw;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+        html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">Edit Purchase</div>';
+        html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
+        html += '</div><div style="padding:20px 24px 24px;">';
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+        html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date" value="' + (pur.date || '') + '">');
+        html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" value="' + (pur.invoice || '') + '">');
+        html += purFieldRow('Supplier', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="supplier">' + supOpts + '</select>');
+        html += '</div>';
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+        html += purFieldRow('Product', '<span style="font-size:14px;color:var(--fg);">' + (pur.product || '-') + '</span>');
+        html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-pur-edit-qty" value="' + (pur.qty || 0) + '">');
+        html += purFieldRow('Unit Price', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-pur-edit-price" value="' + (pur.unitPrice || 0) + '">');
+        html += purFieldRow('Total', '<span style="font-size:14px;font-weight:600;color:var(--accent);" id="f-pur-edit-total">' + fmt(pur.total || 0) + '</span>');
+        html += '</div>';
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+        html += purFieldRow('Status', '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option' + (pur.status === 'Draft' ? ' selected' : '') + '>Draft</option><option' + (pur.status === 'Submitted' ? ' selected' : '') + '>Submitted</option><option' + (pur.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (pur.status === 'Approved' ? ' selected' : '') + '>Approved</option></select>');
+        html += purFieldRow('Branch', '<span style="font-size:14px;color:var(--fg);">' + (pur.branch || '-') + '</span>');
+        html += '</div>';
+        html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+        html += '<div style="flex:1;"></div>';
+        html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
+        html += '<button class="btn btn-primary" id="btn-update-pur" style="border-radius:8px;"><i class="fas fa-check"></i> Update</button>';
+        html += '</div></div></div>';
+
+        if (!document.getElementById('pur-form-style')) {
+          var st = document.createElement('style');
+          st.id = 'pur-form-style';
+          st.textContent = '.pur-field{display:flex;border-bottom:1px solid var(--border);}.pur-field:last-child{border-bottom:none;}.pur-lbl{background:var(--accent-light);padding:11px 16px;font-size:13px;font-weight:600;color:var(--accent-dark);width:140px;min-width:140px;display:flex;align-items:center;border-right:1px solid var(--border);}.pur-val{flex:1;display:flex;align-items:center;padding:4px 14px;}.pur-val input,.pur-val select,.pur-val textarea{width:100%;}';
+          document.head.appendChild(st);
+        }
+
+        var overlay = document.getElementById('modal-overlay');
+        var box = document.getElementById('modal-box');
+        box.innerHTML = html;
+        box.style.width = 'auto';
+        box.style.maxWidth = '96vw';
+        overlay.classList.add('show');
+
+        // Auto-calc total on edit
+        var qtyInput = document.getElementById('f-pur-edit-qty');
+        var priceInput = document.getElementById('f-pur-edit-price');
+        var totalSpan = document.getElementById('f-pur-edit-total');
+        function calcEditTotal() {
+          var q = parseFloat(qtyInput.value) || 0;
+          var pr = parseFloat(priceInput.value) || 0;
+          totalSpan.textContent = fmt(q * pr);
+        }
+        qtyInput.addEventListener('input', calcEditTotal);
+        priceInput.addEventListener('input', calcEditTotal);
+
+        document.getElementById('btn-update-pur').addEventListener('click', function() {
+          pur.date = document.querySelector('[data-top="date"]').value;
+          pur.invoice = document.querySelector('[data-top="invoice"]').value.trim();
+          pur.supplier = document.querySelector('[data-top="supplier"]').value;
+          pur.qty = parseFloat(qtyInput.value) || 0;
+          pur.unitPrice = parseFloat(priceInput.value) || 0;
+          pur.total = pur.qty * pur.unitPrice;
+          pur.status = document.getElementById('f-pur-status').value;
+          closeModal(); showToast('Purchase updated'); renderPage();
+        });
+      });
+    })(editBtns[e]);
+  }
+
+  // Delete buttons on list
+  var delBtns = document.querySelectorAll('[data-del-pur]');
+  for (var d = 0; d < delBtns.length; d++) {
+    (function(b) { b.addEventListener('click', function() { deleteItem('purchases', parseInt(b.getAttribute('data-del-pur')), 'purchase-list'); }); })(delBtns[d]);
+  }
 }
 
 function purFieldRow(label, inputHTML) {
