@@ -1061,8 +1061,126 @@ function bindSupplierEvents() {
 
 function renderDeliveryList() {
   var rows = '';
-  for (var i = 0; i < DB.deliveries.length; i++) { var d = DB.deliveries[i]; rows += '<tr><td style="font-weight:600;">' + d.chalan + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.branch + '</td><td>' + d.receivedBy + '</td><td>' + statusBadge(d.status) + '</td></tr>'; }
-  return renderReadOnlyTable('Delivery List', ['Chalan No', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'], rows);
+  for (var i = 0; i < DB.deliveries.length; i++) {
+    var d = DB.deliveries[i];
+    rows += '<tr><td style="font-weight:600;">' + d.chalan + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.branch + '</td><td>' + d.receivedBy + '</td><td>' + statusBadge(d.status) + '</td>';
+    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-del="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Delivery List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-primary" id="btn-add-delivery"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindDeliveryEvents() {
+  // Add New
+  var addBtn = document.getElementById('btn-add-delivery');
+  if (addBtn) addBtn.addEventListener('click', function() { openDeliveryModal(null); });
+
+  // View
+  var viewBtns = document.querySelectorAll('[data-view-del]');
+  for (var v = 0; v < viewBtns.length; v++) {
+    (function(b) {
+      b.addEventListener('click', function() { openDeliveryModal(parseInt(b.getAttribute('data-view-del')), true); });
+    })(viewBtns[v]);
+  }
+
+  // Edit
+  var editBtns = document.querySelectorAll('[data-edit-del]');
+  for (var e = 0; e < editBtns.length; e++) {
+    (function(b) {
+      b.addEventListener('click', function() { openDeliveryModal(parseInt(b.getAttribute('data-edit-del')), false); });
+    })(editBtns[e]);
+  }
+
+  // Delete
+  var delBtns = document.querySelectorAll('[data-del-del]');
+  for (var d = 0; d < delBtns.length; d++) {
+    (function(b) {
+      b.addEventListener('click', function() { deleteItem('deliveries', parseInt(b.getAttribute('data-del-del')), 'delivery-list'); });
+    })(delBtns[d]);
+  }
+}
+
+function openDeliveryModal(delId, readOnly) {
+  var del = null;
+  if (delId) { for (var i = 0; i < DB.deliveries.length; i++) { if (DB.deliveries[i].id === delId) { del = DB.deliveries[i]; break; } } }
+  var title = del ? (readOnly ? 'Delivery Details' : 'Edit Delivery') : 'Add New Delivery';
+  var prdOpts = '<option value="">Select Product</option>';
+  for (var i = 0; i < DB.products.length; i++) prdOpts += '<option' + (del && DB.products[i].name === del.product ? ' selected' : '') + '>' + DB.products[i].name + '</option>';
+  var brOpts = '<option value="">Select Branch</option>';
+  for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (del && DB.branches[i].name === del.branch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
+
+  var html = '<div style="padding:24px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+  // Chalan No
+  html += '<div class="form-group"><label class="form-label">Chalan No</label>';
+  html += readOnly ? '<span style="font-size:14px;font-weight:600;color:var(--fg);">' + (del ? del.chalan : '-') + '</span>' : '<input class="form-input" id="f-del-chalan" value="' + (del ? del.chalan : '') + '" placeholder="e.g. DEL-2024-004">';
+  html += '</div>';
+  // Date
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  html += '<div class="form-group"><label class="form-label">Date</label>';
+  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.date : '-') + '</span>' : '<input type="date" class="form-input" id="f-del-date" value="' + (del ? del.date : '') + '">';
+  html += '</div>';
+  // Product
+  html += '<div class="form-group"><label class="form-label">Product</label>';
+  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.product : '-') + '</span>' : '<select class="form-input" id="f-del-product">' + prdOpts + '</select>';
+  html += '</div></div>';
+  // Qty + Branch
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  html += '<div class="form-group"><label class="form-label">Quantity</label>';
+  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.qty : 0) + '</span>' : '<input type="number" class="form-input" id="f-del-qty" value="' + (del ? del.qty : 0) + '">';
+  html += '</div>';
+  html += '<div class="form-group"><label class="form-label">Branch</label>';
+  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.branch : '-') + '</span>' : '<select class="form-input" id="f-del-branch">' + brOpts + '</select>';
+  html += '</div></div>';
+  // Received By
+  html += '<div class="form-group"><label class="form-label">Received By</label>';
+  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.receivedBy : '-') + '</span>' : '<input class="form-input" id="f-del-received" value="' + (del ? del.receivedBy : '') + '" placeholder="Receiver name">';
+  html += '</div>';
+  // Status
+  html += '<div class="form-group"><label class="form-label">Status</label>';
+  if (readOnly) {
+    html += statusBadge(del ? del.status : 'Pending');
+  } else {
+    html += '<select class="form-input" id="f-del-status"><option' + (del && del.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (del && del.status === 'In Transit' ? ' selected' : '') + '>In Transit</option><option' + (del && del.status === 'Received' ? ' selected' : '') + '>Received</option></select>';
+  }
+  html += '</div>';
+  // Buttons
+  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;">';
+  if (readOnly) {
+    html += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+  } else {
+    html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-del"><i class="fas fa-save"></i> ' + (del ? 'Update' : 'Save') + '</button>';
+  }
+  html += '</div></div>';
+  openModal(html);
+
+  if (!readOnly) {
+    document.getElementById('btn-save-del').addEventListener('click', function() {
+      var chalan = document.getElementById('f-del-chalan').value.trim();
+      var date = document.getElementById('f-del-date').value;
+      if (!chalan) { showToast('Chalan No required', 'error'); return; }
+      if (!date) { showToast('Date required', 'error'); return; }
+      var product = document.getElementById('f-del-product').value;
+      var qty = parseInt(document.getElementById('f-del-qty').value) || 0;
+      var branch = document.getElementById('f-del-branch').value;
+      var receivedBy = document.getElementById('f-del-received').value.trim();
+      var status = document.getElementById('f-del-status').value;
+      if (del) {
+        del.chalan = chalan; del.date = date; del.product = product;
+        del.qty = qty; del.branch = branch; del.receivedBy = receivedBy; del.status = status;
+        closeModal(); showToast('Delivery updated'); renderPage();
+      } else {
+        DB.deliveries.push({ id: Date.now(), chalan: chalan, date: date, product: product, qty: qty, branch: branch, receivedBy: receivedBy, status: status });
+        closeModal(); showToast('Delivery added'); renderPage();
+      }
+    });
+  }
 }
 
 function renderAdjustmentList() {
@@ -1859,6 +1977,7 @@ function renderPage() {
     'product-list': bindProductEvents,
     'purchase-list': bindPurchaseEvents,
     'supplier': bindSupplierEvents,
+    'delivery-list': bindDeliveryEvents,
     'cash-in': bindCashInEvents,
     'cash-out': bindCashOutEvents,
     'approval-purchase': bindApprovalEvents,
