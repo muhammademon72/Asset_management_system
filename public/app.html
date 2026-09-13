@@ -1163,28 +1163,7 @@ function bindPurchaseEvents() {
     html += '<button class="btn btn-primary" id="btn-save-pur" style="border-radius:8px;"><i class="fas fa-check"></i> Save</button>';
     html += '</div></div></div>';
 
-    // Inject styles
-    if (!document.getElementById('pur-form-style')) {
-      var st = document.createElement('style');
-      st.id = 'pur-form-style';
-      st.textContent =
-        '.pur-field{display:flex;border-bottom:1px solid var(--border);}' +
-        '.pur-field:last-child{border-bottom:none;}' +
-        '.pur-lbl{background:var(--accent-light);padding:11px 16px;font-size:13px;font-weight:600;color:var(--accent-dark);width:140px;min-width:140px;display:flex;align-items:center;border-right:1px solid var(--border);}' +
-        '.pur-val{flex:1;display:flex;align-items:center;padding:4px 14px;}' +
-        '.pur-val input,.pur-val select,.pur-val textarea{width:100%;}' +
-        '.pur-th{background:var(--accent-light);padding:10px 10px;font-size:11px;font-weight:700;color:var(--accent-dark);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}' +
-        '.pur-th:last-child{border-right:none;}' +
-        '.pur-td{padding:0;border-bottom:1px solid var(--border);border-right:1px solid var(--border);transition:background 0.15s;}' +
-        '.pur-td:last-child{border-right:none;}' +
-        'tr:hover .pur-td{background:var(--accent-light);}' +
-        '.pur-td select,.pur-td input{width:100%;border:none;padding:9px 10px;font-size:13px;outline:none;background:transparent;font-family:Outfit,sans-serif;color:var(--fg);}' +
-        '.pur-td select:focus,.pur-td input:focus{background:rgba(45,138,78,0.04);}' +
-        '.btn-del-pur{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:6px;border-radius:6px;transition:all 0.2s;}' +
-        '.btn-del-pur:hover{color:var(--danger);background:rgba(220,38,38,0.08);}' +
-        '.pur-td select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 fill=%27%236b7c6b%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M8 11L3 6h10z%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px;}';
-      document.head.appendChild(st);
-    }
+    injectPurStyles();
 
     var overlay = document.getElementById('modal-overlay');
     var box = document.getElementById('modal-box');
@@ -1234,7 +1213,7 @@ function bindPurchaseEvents() {
 
   });
 
-  // View buttons
+  // View buttons — same layout as Add New, but read-only
   var viewBtns = document.querySelectorAll('[data-view-pur]');
   for (var v = 0; v < viewBtns.length; v++) {
     (function(b) {
@@ -1243,28 +1222,60 @@ function bindPurchaseEvents() {
         var pur = null;
         for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
         if (!pur) return;
-        var html = '<div style="width:560px;max-width:96vw;">';
+
+        var html = '<div style="width:1120px;max-width:96vw;">';
+        // Header
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
         html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">Purchase Details</div>';
         html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
-        html += '</div><div style="padding:20px 24px 24px;">';
+        html += '</div>';
+        html += '<div style="padding:20px 24px 24px;">';
+
+        // Top fields — read-only
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-        html += purFieldRow('Date', '<span style="font-size:14px;color:var(--fg);">' + (pur.date || '-') + '</span>');
-        html += purFieldRow('Invoice No', '<span style="font-size:14px;font-weight:600;color:var(--fg);">' + (pur.invoice || '-') + '</span>');
-        html += purFieldRow('Supplier', '<span style="font-size:14px;color:var(--fg);">' + (pur.supplier || '-') + '</span>');
+        html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (pur.date || '-') + '</span>');
+        html += purFieldRow('Invoice No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (pur.invoice || '-') + '</span>');
+        html += purFieldRow('Supplier', '<span style="font-size:13px;color:var(--fg);">' + (pur.supplier || '-') + '</span>');
+        html += purFieldRow('Attachment', '<span style="font-size:13px;color:var(--muted);">—</span>');
         html += '</div>';
+
+        // Product table — read-only
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-        html += purFieldRow('Product', '<span style="font-size:14px;color:var(--fg);">' + (pur.product || '-') + '</span>');
-        html += purFieldRow('Quantity', '<span style="font-size:14px;color:var(--fg);">' + (pur.qty || 0) + '</span>');
-        html += purFieldRow('Unit Price', '<span style="font-size:14px;color:var(--fg);">' + fmt(pur.unitPrice || 0) + '</span>');
-        html += purFieldRow('Total', '<span style="font-size:14px;font-weight:600;color:var(--accent);">' + fmt(pur.total || 0) + '</span>');
+        html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">';
+        html += '<thead><tr>';
+        html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+        html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
+        html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
+        html += '</tr></thead><tbody>';
+        html += '<tr>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.product || '-') + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (pur.qty || 0) + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(pur.unitPrice || 0) + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(pur.total || 0) + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '</tr></tbody></table></div></div>';
+
+        // Note — read-only
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+        html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">—</span>');
         html += '</div>';
-        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">';
-        html += purFieldRow('Status', statusBadge(pur.status));
-        html += purFieldRow('Branch', '<span style="font-size:14px;color:var(--fg);">' + (pur.branch || '-') + '</span>');
+
+        // Bottom bar: Status + Close
+        html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;">';
+        html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
+        html += statusBadge(pur.status);
         html += '</div>';
-        html += '<div style="padding-top:20px;display:flex;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button></div>';
-        html += '</div></div>';
+        html += '<div style="flex:1;"></div>';
+        html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
+        html += '</div></div></div>';
+
+        injectPurStyles();
         var overlay = document.getElementById('modal-overlay');
         var box = document.getElementById('modal-box');
         box.innerHTML = html;
@@ -1275,7 +1286,7 @@ function bindPurchaseEvents() {
     })(viewBtns[v]);
   }
 
-  // Edit buttons
+  // Edit buttons — same layout as Add New, but pre-filled
   var editBtns = document.querySelectorAll('[data-edit-pur]');
   for (var e = 0; e < editBtns.length; e++) {
     (function(b) {
@@ -1284,41 +1295,67 @@ function bindPurchaseEvents() {
         var pur = null;
         for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
         if (!pur) return;
+
         var supOpts = '<option value="">Select Supplier</option>';
         for (var k = 0; k < DB.suppliers.length; k++) supOpts += '<option' + (DB.suppliers[k].name === pur.supplier ? ' selected' : '') + '>' + DB.suppliers[k].name + '</option>';
-        var html = '<div style="width:560px;max-width:96vw;">';
+        var catOpts = '<option value="">Select</option>';
+        for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
+        var brandOpts = '<option value="">Select</option>';
+        for (var k = 0; k < DB.brands.length; k++) brandOpts += '<option>' + DB.brands[k].name + '</option>';
+        var prdOpts = '<option value="">Select Product</option>';
+        for (var k = 0; k < DB.products.length; k++) prdOpts += '<option' + (DB.products[k].name === pur.product ? ' selected' : '') + '>' + DB.products[k].name + '</option>';
+
+        var html = '<div style="width:1120px;max-width:96vw;">';
+        // Header
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
         html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">Edit Purchase</div>';
         html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
-        html += '</div><div style="padding:20px 24px 24px;">';
+        html += '</div>';
+        html += '<div style="padding:20px 24px 24px;">';
+
+        // Top fields — editable
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
         html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date" value="' + (pur.date || '') + '">');
         html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" value="' + (pur.invoice || '') + '">');
         html += purFieldRow('Supplier', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="supplier">' + supOpts + '</select>');
+        html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
         html += '</div>';
+
+        // Product table — editable, pre-filled
+        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
+        html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
+        html += '<thead><tr>';
+        html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+        html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
+        html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
+        html += '<th class="pur-th" style="width:42px;"></th>';
+        html += '</tr></thead><tbody id="pur-entries-body">';
+        html += purTableRowHTML(catOpts, brandOpts, prdOpts);
+        html += '</tbody></table></div></div>';
+
+        // Pre-fill the first row with purchase data
+        // (will set values after DOM insert)
+
+        // Add Row
+        html += '<button type="button" id="btn-pur-addrow" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:Outfit,sans-serif;padding:6px 0;margin-bottom:18px;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><i class="fas fa-plus-circle"></i> Add Row</button>';
+
+        // Note
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-        html += purFieldRow('Product', '<span style="font-size:14px;color:var(--fg);">' + (pur.product || '-') + '</span>');
-        html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-pur-edit-qty" value="' + (pur.qty || 0) + '">');
-        html += purFieldRow('Unit Price', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-pur-edit-price" value="' + (pur.unitPrice || 0) + '">');
-        html += purFieldRow('Total', '<span style="font-size:14px;font-weight:600;color:var(--accent);" id="f-pur-edit-total">' + fmt(pur.total || 0) + '</span>');
+        html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-pur-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note..."></textarea>');
         html += '</div>';
-        html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-        html += purFieldRow('Status', '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option' + (pur.status === 'Draft' ? ' selected' : '') + '>Draft</option><option' + (pur.status === 'Submitted' ? ' selected' : '') + '>Submitted</option><option' + (pur.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (pur.status === 'Approved' ? ' selected' : '') + '>Approved</option></select>');
-        html += purFieldRow('Branch', '<span style="font-size:14px;color:var(--fg);">' + (pur.branch || '-') + '</span>');
-        html += '</div>';
+
+        // Bottom bar: Status + Cancel/Update
         html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;">';
+        html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
+        html += '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option' + (pur.status === 'Draft' ? ' selected' : '') + '>Draft</option><option' + (pur.status === 'Submitted' ? ' selected' : '') + '>Submitted</option><option' + (pur.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (pur.status === 'Approved' ? ' selected' : '') + '>Approved</option></select>';
+        html += '</div>';
         html += '<div style="flex:1;"></div>';
         html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
         html += '<button class="btn btn-primary" id="btn-update-pur" style="border-radius:8px;"><i class="fas fa-check"></i> Update</button>';
         html += '</div></div></div>';
 
-        if (!document.getElementById('pur-form-style')) {
-          var st = document.createElement('style');
-          st.id = 'pur-form-style';
-          st.textContent = '.pur-field{display:flex;border-bottom:1px solid var(--border);}.pur-field:last-child{border-bottom:none;}.pur-lbl{background:var(--accent-light);padding:11px 16px;font-size:13px;font-weight:600;color:var(--accent-dark);width:140px;min-width:140px;display:flex;align-items:center;border-right:1px solid var(--border);}.pur-val{flex:1;display:flex;align-items:center;padding:4px 14px;}.pur-val input,.pur-val select,.pur-val textarea{width:100%;}';
-          document.head.appendChild(st);
-        }
-
+        injectPurStyles();
         var overlay = document.getElementById('modal-overlay');
         var box = document.getElementById('modal-box');
         box.innerHTML = html;
@@ -1326,26 +1363,50 @@ function bindPurchaseEvents() {
         box.style.maxWidth = '96vw';
         overlay.classList.add('show');
 
-        // Auto-calc total on edit
-        var qtyInput = document.getElementById('f-pur-edit-qty');
-        var priceInput = document.getElementById('f-pur-edit-price');
-        var totalSpan = document.getElementById('f-pur-edit-total');
-        function calcEditTotal() {
-          var q = parseFloat(qtyInput.value) || 0;
-          var pr = parseFloat(priceInput.value) || 0;
-          totalSpan.textContent = fmt(q * pr);
+        // Pre-fill first row with purchase data
+        var firstRow = document.querySelector('#pur-entries-body tr');
+        if (firstRow) {
+          var prodSel = firstRow.querySelector('[data-f="product"]');
+          if (prodSel) prodSel.value = pur.product || '';
+          var qtyIn = firstRow.querySelector('[data-f="qty"]');
+          if (qtyIn) qtyIn.value = pur.qty || 0;
+          var priceIn = firstRow.querySelector('[data-f="price"]');
+          if (priceIn) priceIn.value = pur.unitPrice || 0;
+          var totalIn = firstRow.querySelector('[data-f="total"]');
+          if (totalIn) totalIn.value = fmt(pur.total || 0);
         }
-        qtyInput.addEventListener('input', calcEditTotal);
-        priceInput.addEventListener('input', calcEditTotal);
+
+        bindPurRowDel(firstRow);
+
+        document.getElementById('btn-pur-addrow').addEventListener('click', function() {
+          var tbody = document.getElementById('pur-entries-body');
+          var tr = document.createElement('tr');
+          tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts);
+          tbody.appendChild(tr);
+          bindPurRowDel(tr);
+        });
 
         document.getElementById('btn-update-pur').addEventListener('click', function() {
-          pur.date = document.querySelector('[data-top="date"]').value;
-          pur.invoice = document.querySelector('[data-top="invoice"]').value.trim();
+          var date = document.querySelector('[data-top="date"]').value;
+          var invoice = document.querySelector('[data-top="invoice"]').value.trim();
+          if (!invoice) { showToast('Invoice No required', 'error'); return; }
+          if (!date) { showToast('Date required', 'error'); return; }
+          pur.date = date;
+          pur.invoice = invoice;
           pur.supplier = document.querySelector('[data-top="supplier"]').value;
-          pur.qty = parseFloat(qtyInput.value) || 0;
-          pur.unitPrice = parseFloat(priceInput.value) || 0;
-          pur.total = pur.qty * pur.unitPrice;
           pur.status = document.getElementById('f-pur-status').value;
+          var rows = document.querySelectorAll('#pur-entries-body tr');
+          var firstValid = null;
+          for (var ri = 0; ri < rows.length; ri++) {
+            var pSel = rows[ri].querySelector('[data-f="product"]');
+            if (pSel && pSel.value) { firstValid = rows[ri]; break; }
+          }
+          if (firstValid) {
+            pur.product = firstValid.querySelector('[data-f="product"]').value;
+            pur.qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
+            pur.unitPrice = parseFloat(firstValid.querySelector('[data-f="price"]').value) || 0;
+            pur.total = pur.qty * pur.unitPrice;
+          }
           closeModal(); showToast('Purchase updated'); renderPage();
         });
       });
@@ -1357,6 +1418,29 @@ function bindPurchaseEvents() {
   for (var d = 0; d < delBtns.length; d++) {
     (function(b) { b.addEventListener('click', function() { deleteItem('purchases', parseInt(b.getAttribute('data-del-pur')), 'purchase-list'); }); })(delBtns[d]);
   }
+}
+
+function injectPurStyles() {
+  if (document.getElementById('pur-form-style')) return;
+  var st = document.createElement('style');
+  st.id = 'pur-form-style';
+  st.textContent =
+    '.pur-field{display:flex;border-bottom:1px solid var(--border);}' +
+    '.pur-field:last-child{border-bottom:none;}' +
+    '.pur-lbl{background:var(--accent-light);padding:11px 16px;font-size:13px;font-weight:600;color:var(--accent-dark);width:140px;min-width:140px;display:flex;align-items:center;border-right:1px solid var(--border);}' +
+    '.pur-val{flex:1;display:flex;align-items:center;padding:4px 14px;}' +
+    '.pur-val input,.pur-val select,.pur-val textarea{width:100%;}' +
+    '.pur-th{background:var(--accent-light);padding:10px 10px;font-size:11px;font-weight:700;color:var(--accent-dark);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}' +
+    '.pur-th:last-child{border-right:none;}' +
+    '.pur-td{padding:0;border-bottom:1px solid var(--border);border-right:1px solid var(--border);transition:background 0.15s;}' +
+    '.pur-td:last-child{border-right:none;}' +
+    'tr:hover .pur-td{background:var(--accent-light);}' +
+    '.pur-td select,.pur-td input{width:100%;border:none;padding:9px 10px;font-size:13px;outline:none;background:transparent;font-family:Outfit,sans-serif;color:var(--fg);}' +
+    '.pur-td select:focus,.pur-td input:focus{background:rgba(45,138,78,0.04);}' +
+    '.btn-del-pur{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:6px;border-radius:6px;transition:all 0.2s;}' +
+    '.btn-del-pur:hover{color:var(--danger);background:rgba(220,38,38,0.08);}' +
+    '.pur-td select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 fill=%27%236b7c6b%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M8 11L3 6h10z%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px;}';
+  document.head.appendChild(st);
 }
 
 function purFieldRow(label, inputHTML) {
