@@ -986,7 +986,8 @@ function renderPurchaseList() {
   var rows = '';
   for (var i = 0; i < DB.purchases.length; i++) {
     var p = DB.purchases[i];
-    rows += '<tr><td>' + p.date + '</td><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.supplier + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(p.total) + '</td><td style="text-align:center;"><i class="fas fa-paperclip" style="color:var(--muted);font-size:14px;cursor:pointer;" title="Attachment"></i></td><td>' + statusBadge(p.status) + '</td>';
+    var hasAttach = p.attachment && p.attachment.name;
+    rows += '<tr><td>' + p.date + '</td><td style="font-weight:600;">' + p.invoice + '</td><td>' + p.supplier + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(p.total) + '</td><td style="text-align:center;"><i class="fas fa-paperclip" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';font-size:14px;cursor:pointer;" data-attach-pur="' + p.id + '" title="View Attachment"></i></td><td>' + statusBadge(p.status) + '</td>';
     rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-pur="' + p.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-pur="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -1314,6 +1315,12 @@ function bindPurchaseEvents() {
         if (p && p.value) { hasItem = true; break; }
       }
       if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+      var attachInput = document.querySelector('[data-top="attach"]');
+      var attachInfo = null;
+      if (attachInput && attachInput.files && attachInput.files.length > 0) {
+        var f = attachInput.files[0];
+        attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB' };
+      }
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var product = r.querySelector('[data-f="product"]').value;
@@ -1323,7 +1330,7 @@ function bindPurchaseEvents() {
         DB.purchases.push({
           id: Date.now() + i, invoice: invoice, date: date, supplier: supplier,
           product: product, qty: qty, unitPrice: price, total: qty * price,
-          status: status, branch: 'Head Office'
+          status: status, branch: 'Head Office', attachment: attachInfo
         });
       }
       closeModal(); showToast('Purchase saved successfully'); renderPage();
@@ -1535,6 +1542,34 @@ function bindPurchaseEvents() {
   var delBtns = document.querySelectorAll('[data-del-pur]');
   for (var d = 0; d < delBtns.length; d++) {
     (function(b) { b.addEventListener('click', function() { deleteItem('purchases', parseInt(b.getAttribute('data-del-pur')), 'purchase-list'); }); })(delBtns[d]);
+  }
+
+  // Attachment click — opens view modal for that purchase
+  var attachIcons = document.querySelectorAll('[data-attach-pur]');
+  for (var a = 0; a < attachIcons.length; a++) {
+    (function(icon) {
+      icon.addEventListener('click', function() {
+        var purId = parseInt(icon.getAttribute('data-attach-pur'));
+        var pur = null;
+        for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
+        if (!pur) return;
+        var html = '<div style="padding:24px;">' + modalHeader('Attachment — ' + pur.invoice) + '<div style="padding-top:16px;">';
+        if (pur.attachment && pur.attachment.name) {
+          html += '<div style="border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">';
+          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-alt" style="color:var(--accent);font-size:20px;"></i></div>';
+          html += '<div><div style="font-weight:600;font-size:14px;">' + pur.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (pur.attachment.type || 'File') + ' &middot; ' + (pur.attachment.size || '') + '</div></div>';
+          html += '</div>';
+        } else {
+          html += '<div style="text-align:center;padding:40px 0;">';
+          html += '<div style="width:64px;height:64px;border-radius:16px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-file-upload" style="color:var(--accent);font-size:24px;"></i></div>';
+          html += '<div style="font-size:15px;font-weight:600;color:var(--fg);margin-bottom:6px;">No Attachment Found</div>';
+          html += '<div style="font-size:13px;color:var(--muted);">This purchase has no attached file.</div>';
+          html += '</div>';
+        }
+        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
+        openModal(html);
+      });
+    })(attachIcons[a]);
   }
 }
 
