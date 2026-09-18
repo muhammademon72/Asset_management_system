@@ -1021,9 +1021,9 @@ function openSupplierModal(supId) {
   var title = sup ? 'Edit Supplier' : 'Add Supplier';
   var html = '<div style="padding:24px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
   html += '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="f-sup-name" value="' + (sup ? sup.name : '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address" value="' + (sup ? sup.address : '') + '"></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="f-sup-contact" value="' + (sup ? sup.contact : '') + '"></div>';
   html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-sup-email" value="' + (sup ? sup.email : '') + '"></div></div>';
-  html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address" value="' + (sup ? sup.address : '') + '"></div>';
   html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
   html += '<button class="btn btn-primary" id="btn-save-sup"><i class="fas fa-save"></i> Save</button></div></div>';
   openModal(html);
