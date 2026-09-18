@@ -1116,50 +1116,50 @@ function openDeliveryModal(delId, readOnly) {
   var brOpts = '<option value="">Select Branch</option>';
   for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (del && DB.branches[i].name === del.branch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
 
-  var html = '<div style="padding:24px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
-  // Chalan No
-  html += '<div class="form-group"><label class="form-label">Chalan No</label>';
-  html += readOnly ? '<span style="font-size:14px;font-weight:600;color:var(--fg);">' + (del ? del.chalan : '-') + '</span>' : '<input class="form-input" id="f-del-chalan" value="' + (del ? del.chalan : '') + '" placeholder="e.g. DEL-2024-004">';
+  var html = '<div style="width:720px;max-width:96vw;">';
+  // Header
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+  html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
   html += '</div>';
-  // Date
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-  html += '<div class="form-group"><label class="form-label">Date</label>';
-  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.date : '-') + '</span>' : '<input type="date" class="form-input" id="f-del-date" value="' + (del ? del.date : '') + '">';
+  html += '<div style="padding:20px 24px 24px;">';
+
+  // Top fields — green label rows
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  html += purFieldRow('Date', readOnly ? '<span style="font-size:13px;color:var(--fg);">' + (del ? del.date : '-') + '</span>' : '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-del-date" value="' + (del ? del.date : '') + '">');
+  html += purFieldRow('Chalan No', readOnly ? '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (del ? del.chalan : '-') + '</span>' : '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-del-chalan" value="' + (del ? del.chalan : '') + '" placeholder="e.g. DEL-2024-004">');
+  html += purFieldRow('Product', readOnly ? '<span style="font-size:13px;color:var(--fg);">' + (del ? del.product : '-') + '</span>' : '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-del-product">' + prdOpts + '</select>');
+  html += purFieldRow('Branch', readOnly ? '<span style="font-size:13px;color:var(--fg);">' + (del ? del.branch : '-') + '</span>' : '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-del-branch">' + brOpts + '</select>');
+  html += purFieldRow('Quantity', readOnly ? '<span style="font-size:13px;color:var(--fg);">' + (del ? del.qty : 0) + '</span>' : '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-del-qty" value="' + (del ? del.qty : 0) + '">');
+  html += purFieldRow('Received By', readOnly ? '<span style="font-size:13px;color:var(--fg);">' + (del ? del.receivedBy : '-') + '</span>' : '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-del-received" value="' + (del ? del.receivedBy : '') + '" placeholder="Receiver name">');
   html += '</div>';
-  // Product
-  html += '<div class="form-group"><label class="form-label">Product</label>';
-  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.product : '-') + '</span>' : '<select class="form-input" id="f-del-product">' + prdOpts + '</select>';
-  html += '</div></div>';
-  // Qty + Branch
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-  html += '<div class="form-group"><label class="form-label">Quantity</label>';
-  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.qty : 0) + '</span>' : '<input type="number" class="form-input" id="f-del-qty" value="' + (del ? del.qty : 0) + '">';
-  html += '</div>';
-  html += '<div class="form-group"><label class="form-label">Branch</label>';
-  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.branch : '-') + '</span>' : '<select class="form-input" id="f-del-branch">' + brOpts + '</select>';
-  html += '</div></div>';
-  // Received By
-  html += '<div class="form-group"><label class="form-label">Received By</label>';
-  html += readOnly ? '<span style="font-size:14px;color:var(--fg);">' + (del ? del.receivedBy : '-') + '</span>' : '<input class="form-input" id="f-del-received" value="' + (del ? del.receivedBy : '') + '" placeholder="Receiver name">';
-  html += '</div>';
-  // Status
-  html += '<div class="form-group"><label class="form-label">Status</label>';
+
+  // Bottom bar: Status + buttons
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+  html += '<div style="display:flex;align-items:center;gap:10px;">';
+  html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
   if (readOnly) {
     html += statusBadge(del ? del.status : 'Pending');
   } else {
-    html += '<select class="form-input" id="f-del-status"><option' + (del && del.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (del && del.status === 'In Transit' ? ' selected' : '') + '>In Transit</option><option' + (del && del.status === 'Received' ? ' selected' : '') + '>Received</option></select>';
+    html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;"><option' + (del && del.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (del && del.status === 'In Transit' ? ' selected' : '') + '>In Transit</option><option' + (del && del.status === 'Received' ? ' selected' : '') + '>Received</option></select>';
   }
   html += '</div>';
-  // Buttons
-  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;">';
+  html += '<div style="flex:1;"></div>';
   if (readOnly) {
-    html += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
   } else {
-    html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-    html += '<button class="btn btn-primary" id="btn-save-del"><i class="fas fa-save"></i> ' + (del ? 'Update' : 'Save') + '</button>';
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-del" style="border-radius:8px;"><i class="fas fa-check"></i> ' + (del ? 'Update' : 'Save') + '</button>';
   }
-  html += '</div></div>';
-  openModal(html);
+  html += '</div></div></div>';
+
+  injectPurStyles();
+  var overlay = document.getElementById('modal-overlay');
+  var box = document.getElementById('modal-box');
+  box.innerHTML = html;
+  box.style.width = 'auto';
+  box.style.maxWidth = '96vw';
+  overlay.classList.add('show');
 
   if (!readOnly) {
     document.getElementById('btn-save-del').addEventListener('click', function() {
