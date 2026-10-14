@@ -1796,8 +1796,14 @@ function renderCashIn() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-primary" id="btn-add-cashin"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Voucher</th><th>Date</th><th>Amount</th><th>Description</th><th>Branch</th><th>Status</th></tr></thead><tbody>';
-  for (var i = 0; i < DB.cashIn.length; i++) { var c = DB.cashIn[i]; html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + c.date + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(c.amount) + '</td><td>' + c.description + '</td><td>' + c.branch + '</td><td>' + statusBadge(c.status) + '</td></tr>'; }
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Voucher</th><th>Date</th><th>Amount</th><th>Description</th><th style="text-align:center;width:70px;">Attach</th><th>Status</th></tr></thead><tbody>';
+  for (var i = 0; i < DB.cashIn.length; i++) {
+    var c = DB.cashIn[i];
+    var hasAttach = c.attachment && c.attachment.name;
+    html += '<tr><td style="font-weight:600;">' + c.voucher + '</td><td>' + (c.date || '-') + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(c.amount) + '</td><td>' + (c.description || '-') + '</td>';
+    html += '<td style="text-align:center;"><i class="fas fa-paperclip" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';font-size:14px;cursor:pointer;" data-attach-ci="' + c.id + '" title="' + (hasAttach ? c.attachment.name : 'No attachment') + '"></i></td>';
+    html += '<td>' + statusBadge(c.status) + '</td></tr>';
+  }
   html += '</tbody></table></div></div>';
   return html;
 }
@@ -2466,23 +2472,64 @@ function bindCashInEvents() {
   var btn = document.getElementById('btn-add-cashin');
   if (!btn) return;
   btn.addEventListener('click', function() {
-    var brOpts = '';
-    for (var i = 0; i < DB.branches.length; i++) brOpts += '<option>' + DB.branches[i].name + '</option>';
     var html = '<div style="padding:24px;">' + modalHeader('Add Cash In') + '<div style="padding-top:16px;">';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-ci-date" type="date"></div>';
     html += '<div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="f-ci-amount" type="number"></div></div>';
     html += '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="f-ci-desc"></div>';
-    html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-ci-branch">' + brOpts + '</select></div>';
+    html += '<div class="form-group"><label class="form-label">Attach File</label><input type="file" class="form-input" id="f-ci-attach" style="padding:6px 12px;"></div>';
+    html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-ci-status"><option>Pending</option><option>Approved</option><option>Rejected</option></select></div>';
     html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
     html += '<button class="btn btn-primary" id="btn-save-ci"><i class="fas fa-save"></i> Save</button></div></div>';
     openModal(html);
     document.getElementById('btn-save-ci').addEventListener('click', function() {
       var amount = Number(document.getElementById('f-ci-amount').value);
       if (!amount) { showToast('Amount required', 'error'); return; }
-      DB.cashIn.push({ id: Date.now(), voucher: 'CI-' + Date.now(), date: document.getElementById('f-ci-date').value, amount: amount, description: document.getElementById('f-ci-desc').value.trim(), branch: document.getElementById('f-ci-branch').value, status: 'Pending' });
+      var attachInput = document.getElementById('f-ci-attach');
+      var attachInfo = null;
+      if (attachInput && attachInput.files && attachInput.files.length > 0) {
+        var f = attachInput.files[0];
+        attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB' };
+      }
+      DB.cashIn.push({
+        id: Date.now(),
+        voucher: 'CI-' + Date.now(),
+        date: document.getElementById('f-ci-date').value,
+        amount: amount,
+        description: document.getElementById('f-ci-desc').value.trim(),
+        status: document.getElementById('f-ci-status').value,
+        attachment: attachInfo
+      });
       closeModal(); showToast('Cash In added'); renderPage();
     });
   });
+
+  // Attachment preview
+  var attachIcons = document.querySelectorAll('[data-attach-ci]');
+  for (var a = 0; a < attachIcons.length; a++) {
+    (function(icon) {
+      icon.addEventListener('click', function() {
+        var ciId = parseInt(icon.getAttribute('data-attach-ci'));
+        var ci = null;
+        for (var j = 0; j < DB.cashIn.length; j++) { if (DB.cashIn[j].id === ciId) { ci = DB.cashIn[j]; break; } }
+        if (!ci) return;
+        var html = '<div style="padding:24px;">' + modalHeader('Attachment — ' + ci.voucher) + '<div style="padding-top:16px;">';
+        if (ci.attachment && ci.attachment.name) {
+          html += '<div style="border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">';
+          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-alt" style="color:var(--accent);font-size:20px;"></i></div>';
+          html += '<div><div style="font-weight:600;font-size:14px;">' + ci.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (ci.attachment.type || 'File') + ' &middot; ' + (ci.attachment.size || '') + '</div></div>';
+          html += '</div>';
+        } else {
+          html += '<div style="text-align:center;padding:40px 0;">';
+          html += '<div style="width:64px;height:64px;border-radius:16px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-file-upload" style="color:var(--accent);font-size:24px;"></i></div>';
+          html += '<div style="font-size:15px;font-weight:600;color:var(--fg);margin-bottom:6px;">No Attachment Found</div>';
+          html += '<div style="font-size:13px;color:var(--muted);">This cash-in entry has no attached file.</div>';
+          html += '</div>';
+        }
+        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
+        openModal(html);
+      });
+    })(attachIcons[a]);
+  }
 }
 
 function renderCashOut() {
