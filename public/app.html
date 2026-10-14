@@ -261,6 +261,19 @@ const DB = {
     { id: 2, name: 'CompuWorld', contact: '01811234567', email: 'sales@compuworld.com', address: 'Elephant Road, Dhaka', status: 'Active' },
     { id: 3, name: 'Network Solutions BD', contact: '01911234567', email: 'info@netsolbd.com', address: 'Motijheel, Dhaka', status: 'Inactive' },
   ],
+  conditions: [
+    { id: 1, name: 'New', status: 'Active' },
+    { id: 2, name: 'Used', status: 'Active' },
+    { id: 3, name: 'Refurbished', status: 'Active' },
+  ],
+  warranties: [
+    { id: 1, name: 'No Warranty', status: 'Active' },
+    { id: 2, name: '3 Months', status: 'Active' },
+    { id: 3, name: '6 Months', status: 'Active' },
+    { id: 4, name: '1 Year', status: 'Active' },
+    { id: 5, name: '2 Years', status: 'Active' },
+    { id: 6, name: '3 Years', status: 'Active' },
+  ],
   purchases: [
     { id: 1, invoice: 'PUR-2024-001', date: '2024-01-15', supplier: 'TechVista Ltd', product: 'Dell Latitude 5540', qty: 10, unitPrice: 85000, total: 850000, status: 'Approved', branch: 'Head Office' },
     { id: 2, invoice: 'PUR-2024-002', date: '2024-01-20', supplier: 'CompuWorld', product: 'HP ProBook 450 G10', qty: 5, unitPrice: 78000, total: 390000, status: 'Approved', branch: 'Chittagong Branch' },
@@ -326,6 +339,8 @@ const NAV = [
     { id: 'brand', label: 'Brand' },
     { id: 'uom', label: 'UoM' },
     { id: 'product-list', label: 'Product' },
+    { id: 'condition', label: 'Condition' },
+    { id: 'warranty', label: 'Warranty' },
   ]},
   { id: 'purchase', label: 'Manage Purchase', icon: 'fa-cart-shopping', children: [
     { id: 'purchase-list', label: 'Purchase List' },
@@ -892,6 +907,8 @@ function renderDesignation() { return renderSimpleList('Designation List', DB.de
 function renderUoM() { return renderSimpleList('Unit of Measurement', DB.uoms, 'uoms', 'UoM name', null); }
 function renderCategories() { return renderSimpleList('Product Categories', DB.categories, 'categories', 'Category name', 'description'); }
 function renderBrand() { return renderSimpleList('Brand List', DB.brands, 'brands', 'Brand name', null); }
+function renderCondition() { return renderSimpleList('Product Condition', DB.conditions, 'conditions', 'Condition name', null); }
+function renderWarranty() { return renderSimpleList('Warranty', DB.warranties, 'warranties', 'Warranty name', null); }
 
 // ==================== PRODUCT LIST ====================
 function renderProductList() {
@@ -1985,6 +2002,8 @@ function renderPage() {
     'categories': renderCategories,
     'brand': renderBrand,
     'uom': renderUoM,
+    'condition': renderCondition,
+    'warranty': renderWarranty,
     'product-list': renderProductList,
     'purchase-list': renderPurchaseList,
     'supplier': renderSupplier,
@@ -2019,6 +2038,8 @@ function renderPage() {
     'uom': function() { bindSimpleListEvents('uoms', 'UoM name', null); },
     'categories': function() { bindSimpleListEvents('categories', 'Category name', 'description'); },
     'brand': function() { bindSimpleListEvents('brands', 'Brand name', null); },
+    'condition': function() { bindSimpleListEvents('conditions', 'Condition name', null); },
+    'warranty': function() { bindSimpleListEvents('warranties', 'Warranty name', null); },
     'product-list': bindProductEvents,
     'purchase-list': bindPurchaseEvents,
     'supplier': bindSupplierEvents,
