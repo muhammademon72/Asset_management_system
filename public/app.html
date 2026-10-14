@@ -1093,16 +1093,99 @@ function renderDeliveryList() {
   html += '<div style="font-size:20px;font-weight:800;">Delivery List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-print-delivery" title="Print Delivery List"><i class="fas fa-print"></i> Print</button>';
   html += '<button class="btn btn-primary" id="btn-add-delivery"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
+function printDeliveryList() {
+  var co = DB.company || {};
+  var rows = '';
+  for (var i = 0; i < DB.deliveries.length; i++) {
+    var d = DB.deliveries[i];
+    rows += '<tr>'
+      + '<td style="text-align:center;">' + (i + 1) + '</td>'
+      + '<td style="font-weight:600;">' + (d.chalan || '-') + '</td>'
+      + '<td>' + (d.date || '-') + '</td>'
+      + '<td>' + (d.product || '-') + '</td>'
+      + '<td style="text-align:center;">' + (d.qty || 0) + '</td>'
+      + '<td>' + (d.branch || '-') + '</td>'
+      + '<td>' + (d.receivedBy || '-') + '</td>'
+      + '<td>' + (d.empId || '-') + '</td>'
+      + '<td>' + (d.department || '-') + '</td>'
+      + '<td style="text-align:center;">' + (d.status || '-') + '</td>'
+      + '</tr>';
+  }
+  var now = new Date();
+  var stamp = now.toLocaleString();
+  var win = window.open('', '_blank', 'width=1100,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Delivery List — Print</title>';
+  html += '<style>';
+  html += '@page { margin: 14mm; }';
+  html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 20px; font-size: 12px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 16px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; }';
+  html += '.co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #1a2e1a; }';
+  html += '.doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; }';
+  html += 'thead th { background: #2d8a4e; color: #fff; padding: 8px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; }';
+  html += 'tbody td { padding: 7px 8px; font-size: 12px; border: 1px solid #d4ddd4; }';
+  html += 'tbody tr:nth-child(even) td { background: #f5f9f5; }';
+  html += '.foot { margin-top: 22px; display: flex; justify-content: space-between; font-size: 11px; color: #6b7c6b; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; }';
+  html += '.sign-box { flex: 1; text-align: center; }';
+  html += '.sign-line { margin-top: 50px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { body { padding: 0; } .no-print { display: none; } }';
+  html += '</style></head><body>';
+  html += '<div class="head">';
+  html += '<div>';
+  html += '<div class="co-name">' + (co.name || 'Company Name') + '</div>';
+  html += '<div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div>';
+  html += '</div>';
+  html += '<div>';
+  html += '<div class="doc-title">Delivery List</div>';
+  html += '<div class="doc-meta">Printed: ' + stamp + '</div>';
+  html += '<div class="doc-meta">Total Records: ' + DB.deliveries.length + '</div>';
+  html += '</div>';
+  html += '</div>';
+  html += '<table><thead><tr>';
+  html += '<th style="text-align:center;">#</th><th>Chalan No</th><th>Date</th><th>Product</th>';
+  html += '<th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Emp ID</th><th>Department</th><th style="text-align:center;">Status</th>';
+  html += '</tr></thead><tbody>' + rows + '</tbody></table>';
+  html += '<div class="sign">';
+  html += '<div class="sign-box"><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
+  html += '</div>';
+  html += '<div class="foot"><span>This is a system-generated document from the IT Asset Management System.</span><span>Page 1</span></div>';
+  html += '<div style="text-align:center;margin-top:18px;">';
+  html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
+  html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
+  html += '</div>';
+  html += '</body></html>';
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  // Auto-trigger print dialog after content loads
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+}
+
 function bindDeliveryEvents() {
   // Add New
   var addBtn = document.getElementById('btn-add-delivery');
   if (addBtn) addBtn.addEventListener('click', function() { openDeliveryAddModal(); });
+
+  // Print
+  var printBtn = document.getElementById('btn-print-delivery');
+  if (printBtn) printBtn.addEventListener('click', function() { printDeliveryList(); });
 
   // View
   var viewBtns = document.querySelectorAll('[data-view-del]');
