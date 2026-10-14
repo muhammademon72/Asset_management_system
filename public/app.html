@@ -1372,7 +1372,8 @@ function bindPurchaseEvents() {
         DB.purchases.push({
           id: Date.now() + i, invoice: invoice, date: date, supplier: supplier,
           product: product, category: category, qty: qty, unitPrice: price, total: qty * price,
-          status: status, branch: 'Head Office', attachment: attachInfo
+          status: status, branch: 'Head Office', attachment: attachInfo,
+          warranty: r.querySelector('[data-f="warranty"]').value
         });
       }
       closeModal(); showToast('Purchase saved successfully'); renderPage();
@@ -1560,6 +1561,8 @@ function bindPurchaseEvents() {
           if (priceIn) priceIn.value = pur.unitPrice || 0;
           var totalIn = firstRow.querySelector('[data-f="total"]');
           if (totalIn) totalIn.value = fmt(pur.total || 0);
+          var warSel = firstRow.querySelector('[data-f="warranty"]');
+          if (warSel) warSel.value = pur.warranty || '';
         }
 
         bindPurRowDel(firstRow);
@@ -1595,6 +1598,7 @@ function bindPurchaseEvents() {
             pur.qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
             pur.unitPrice = parseFloat(firstValid.querySelector('[data-f="price"]').value) || 0;
             pur.total = pur.qty * pur.unitPrice;
+            pur.warranty = firstValid.querySelector('[data-f="warranty"]').value;
           }
           closeModal(); showToast('Purchase updated'); renderPage();
         });
@@ -1823,7 +1827,9 @@ function purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr) {
   h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
   h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
-  h += '<td class="pur-td"><input data-f="warranty" placeholder="e.g. 1 Year"></td>';
+  var warOpts = '<option value="">Select</option>';
+  for (var wi = 0; wi < DB.warranties.length; wi++) warOpts += '<option>' + DB.warranties[wi].name + '</option>';
+  h += '<td class="pur-td"><select data-f="warranty">' + warOpts + '</select></td>';
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);"></td>';
