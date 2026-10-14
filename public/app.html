@@ -1087,7 +1087,7 @@ function renderDeliveryList() {
   for (var i = 0; i < DB.deliveries.length; i++) {
     var d = DB.deliveries[i];
     rows += '<tr><td style="font-weight:600;">' + d.chalan + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.branch + '</td><td>' + d.receivedBy + '</td><td>' + statusBadge(d.status) + '</td>';
-    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-del="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-del="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-del="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Delivery List</div>';
@@ -1096,7 +1096,7 @@ function renderDeliveryList() {
   html += '<button class="btn btn-secondary" id="btn-print-delivery" title="Print Delivery List"><i class="fas fa-print"></i> Print</button>';
   html += '<button class="btn btn-primary" id="btn-add-delivery"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -1210,6 +1210,120 @@ function bindDeliveryEvents() {
       b.addEventListener('click', function() { deleteItem('deliveries', parseInt(b.getAttribute('data-del-del')), 'delivery-list'); });
     })(delBtns[d]);
   }
+
+  // Print (per row)
+  var printBtns = document.querySelectorAll('[data-print-del]');
+  for (var p = 0; p < printBtns.length; p++) {
+    (function(b) {
+      b.addEventListener('click', function() { printDelivery(parseInt(b.getAttribute('data-print-del'))); });
+    })(printBtns[p]);
+  }
+}
+
+// Print a single delivery as a Delivery Chalan
+function printDelivery(delId) {
+  var del = null;
+  for (var i = 0; i < DB.deliveries.length; i++) { if (DB.deliveries[i].id === delId) { del = DB.deliveries[i]; break; } }
+  if (!del) { showToast('Delivery not found', 'error'); return; }
+  var co = DB.company || {};
+  // Look up receiver employee details
+  var emp = null;
+  if (del.receivedBy) { for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === del.receivedBy) { emp = DB.employees[ei]; break; } } }
+  var empId = (emp ? emp.empId : (del.empId || '-'));
+  var dept = (emp ? emp.department : (del.department || '-'));
+  var now = new Date();
+  var stamp = now.toLocaleString();
+  var win = window.open('', '_blank', 'width=900,height=700');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Delivery Chalan — ' + (del.chalan || '') + '</title>';
+  html += '<style>';
+  html += '@page { margin: 14mm; }';
+  html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 24px; font-size: 13px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 18px; }';
+  html += '.co-name { font-size: 22px; font-weight: 800; color: #1a5c30; }';
+  html += '.co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 22px; font-weight: 800; text-align: right; color: #1a5c30; letter-spacing: 1px; }';
+  html += '.doc-sub { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-bottom: 18px; }';
+  html += '.meta-box { border: 1px solid #d4ddd4; border-radius: 8px; padding: 10px 14px; background: #f5f9f5; }';
+  html += '.meta-label { font-size: 10px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }';
+  html += '.meta-value { font-size: 13px; font-weight: 600; color: #1a2e1a; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; }';
+  html += 'thead th { background: #2d8a4e; color: #fff; padding: 9px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; }';
+  html += 'tbody td { padding: 8px 10px; font-size: 12px; border: 1px solid #d4ddd4; }';
+  html += '.sign { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; }';
+  html += '.sign-box { flex: 1; text-align: center; }';
+  html += '.sign-line { margin-top: 60px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '.foot { margin-top: 26px; text-align: center; font-size: 10px; color: #6b7c6b; }';
+  html += '@media print { body { padding: 0; } .no-print { display: none; } }';
+  html += '</style></head><body>';
+  // Header
+  html += '<div class="head">';
+  html += '<div>';
+  html += '<div class="co-name">' + (co.name || 'Company Name') + '</div>';
+  html += '<div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div>';
+  html += '</div>';
+  html += '<div>';
+  html += '<div class="doc-title">DELIVERY CHALAN</div>';
+  html += '<div class="doc-sub">Chalan No: <strong>' + (del.chalan || '-') + '</strong></div>';
+  html += '<div class="doc-sub">Date: ' + (del.date || '-') + '</div>';
+  html += '</div>';
+  html += '</div>';
+  // Meta info grid
+  html += '<div class="meta-grid">';
+  html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (del.branch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (del.status || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Received By</div><div class="meta-value">' + (del.receivedBy || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Employee ID</div><div class="meta-value">' + empId + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Department</div><div class="meta-value">' + dept + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
+  html += '</div>';
+  // Product table
+  html += '<table><thead><tr>';
+  html += '<th style="text-align:center; width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th><th>Model</th><th>Serial Number</th><th>Condition</th><th>Warranty</th><th style="text-align:center;">Qty</th><th>Remarks</th>';
+  html += '</tr></thead><tbody>';
+  html += '<tr>';
+  html += '<td style="text-align:center;">1</td>';
+  html += '<td style="font-weight:600;">' + (del.product || '-') + '</td>';
+  html += '<td>' + (del.category || '-') + '</td>';
+  html += '<td>' + (del.brand || '-') + '</td>';
+  html += '<td>' + (del.model || '-') + '</td>';
+  html += '<td>' + (del.serial || '-') + '</td>';
+  html += '<td>' + (del.condition || '-') + '</td>';
+  html += '<td>' + (del.warranty || '-') + '</td>';
+  html += '<td style="text-align:center;font-weight:600;">' + (del.qty || 0) + '</td>';
+  html += '<td>' + (del.remarks || '-') + '</td>';
+  html += '</tr>';
+  html += '</tbody></table>';
+  // Note
+  if (del.note) {
+    html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#f5f9f5;">';
+    html += '<div style="font-size:10px;font-weight:700;color:#1a5c30;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Note</div>';
+    html += '<div style="font-size:12px;color:#1a2e1a;">' + del.note + '</div>';
+    html += '</div>';
+  }
+  // Signature lines
+  html += '<div class="sign">';
+  html += '<div class="sign-box"><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
+  html += '</div>';
+  // Footer
+  html += '<div class="foot">This is a system-generated Delivery Chalan from the IT Asset Management System.</div>';
+  // Action buttons (hidden on print)
+  html += '<div style="text-align:center;margin-top:18px;">';
+  html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
+  html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
+  html += '</div>';
+  html += '</body></html>';
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
 // Auto-generate next chalan number based on current year and existing deliveries
