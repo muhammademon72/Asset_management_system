@@ -1822,7 +1822,7 @@ if (!window._purSrGlobalInit) {
 function purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr) {
   var h = '<tr>';
   h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
-  h += '<td class="pur-td"><select data-f="category">' + catOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
   h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
