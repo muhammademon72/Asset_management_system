@@ -257,9 +257,9 @@ const DB = {
     { id: 6, name: 'APC Smart-UPS 1500VA', category: 'UPS', brand: 'APC', uom: 'Piece', price: 55000, status: 'Inactive' },
   ],
   suppliers: [
-    { id: 1, name: 'TechVista Ltd', contact: '01711234567', email: 'info@techvista.com', address: 'Gulshan-2, Dhaka' },
-    { id: 2, name: 'CompuWorld', contact: '01811234567', email: 'sales@compuworld.com', address: 'Elephant Road, Dhaka' },
-    { id: 3, name: 'Network Solutions BD', contact: '01911234567', email: 'info@netsolbd.com', address: 'Motijheel, Dhaka' },
+    { id: 1, name: 'TechVista Ltd', contact: '01711234567', email: 'info@techvista.com', address: 'Gulshan-2, Dhaka', status: 'Active' },
+    { id: 2, name: 'CompuWorld', contact: '01811234567', email: 'sales@compuworld.com', address: 'Elephant Road, Dhaka', status: 'Active' },
+    { id: 3, name: 'Network Solutions BD', contact: '01911234567', email: 'info@netsolbd.com', address: 'Motijheel, Dhaka', status: 'Inactive' },
   ],
   purchases: [
     { id: 1, invoice: 'PUR-2024-001', date: '2024-01-15', supplier: 'TechVista Ltd', product: 'Dell Latitude 5540', qty: 10, unitPrice: 85000, total: 850000, status: 'Approved', branch: 'Head Office' },
@@ -1005,10 +1005,10 @@ function renderSupplier() {
   html += '<div style="font-size:20px;font-weight:800;">Supplier List</div>';
   html += '<button class="btn btn-primary" id="btn-add-supplier"><i class="fas fa-plus"></i> Add New</button></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Name</th><th>Address</th><th>Contact</th><th>Email</th><th style="width:90px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Name</th><th>Address</th><th>Contact</th><th>Email</th><th>Status</th><th style="width:90px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.suppliers.length; i++) {
     var s = DB.suppliers[i];
-    html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + s.address + '</td><td>' + s.contact + '</td><td>' + s.email + '</td>';
+    html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + s.address + '</td><td>' + s.contact + '</td><td>' + s.email + '</td><td>' + statusBadge(s.status || 'Active') + '</td>';
     html += '<td style="width:90px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-edit-sup="' + s.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-sup="' + s.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
@@ -1024,6 +1024,8 @@ function openSupplierModal(supId) {
   html += '<div class="form-group"><label class="form-label">Address</label><input class="form-input" id="f-sup-address" value="' + (sup ? sup.address : '') + '"></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="f-sup-contact" value="' + (sup ? sup.contact : '') + '"></div>';
   html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-sup-email" value="' + (sup ? sup.email : '') + '"></div></div>';
+  var curStatus = sup ? (sup.status || 'Active') : 'Active';
+  html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-sup-status"><option value="Active"' + (curStatus === 'Active' ? ' selected' : '') + '>Active</option><option value="Inactive"' + (curStatus === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
   html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
   html += '<button class="btn btn-primary" id="btn-save-sup"><i class="fas fa-save"></i> Save</button></div></div>';
   openModal(html);
@@ -1035,9 +1037,10 @@ function openSupplierModal(supId) {
       sup.contact = document.getElementById('f-sup-contact').value.trim();
       sup.email = document.getElementById('f-sup-email').value.trim();
       sup.address = document.getElementById('f-sup-address').value.trim();
+      sup.status = document.getElementById('f-sup-status').value;
       closeModal(); showToast('Supplier updated'); renderPage();
     } else {
-      DB.suppliers.push({ id: Date.now(), name: name, contact: document.getElementById('f-sup-contact').value.trim(), email: document.getElementById('f-sup-email').value.trim(), address: document.getElementById('f-sup-address').value.trim() });
+      DB.suppliers.push({ id: Date.now(), name: name, contact: document.getElementById('f-sup-contact').value.trim(), email: document.getElementById('f-sup-email').value.trim(), address: document.getElementById('f-sup-address').value.trim(), status: document.getElementById('f-sup-status').value });
       closeModal(); showToast('Supplier added'); renderPage();
     }
   });
