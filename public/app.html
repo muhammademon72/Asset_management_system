@@ -446,6 +446,8 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('show');
   document.getElementById('modal-box').style.width = '';
   document.getElementById('modal-box').style.maxWidth = '';
+  // Cleanup any detached searchable panels
+  cleanupPurPanels();
 }
 
 // ==================== HELPERS ====================
@@ -1247,6 +1249,21 @@ function bindPurchaseEvents() {
     for (var i = 0; i < DB.brands.length; i++) brandOpts += '<option>' + DB.brands[i].name + '</option>';
     var prdOpts = '<option value="">Select Product</option>';
     for (var i = 0; i < DB.products.length; i++) prdOpts += '<option>' + DB.products[i].name + '</option>';
+    // Arrays for searchable dropdowns
+    var supArr = [];
+    for (var i = 0; i < DB.suppliers.length; i++) supArr.push({ value: DB.suppliers[i].name, label: DB.suppliers[i].name });
+    var prdArr = [];
+    for (var i = 0; i < DB.products.length; i++) prdArr.push({ value: DB.products[i].name, label: DB.products[i].name, category: DB.products[i].category });
+    // Callback: when product selected, auto-fill category
+    var purProductSelectCb = function(val, lbl, cat, wrapper) {
+      if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+        var row = wrapper.closest('tr');
+        if (row) {
+          var catSel = row.querySelector('[data-f="category"]');
+          if (catSel) catSel.value = cat;
+        }
+      }
+    };
 
     var html = '<div style="width:1120px;max-width:96vw;">';
     // Header
@@ -1260,7 +1277,7 @@ function bindPurchaseEvents() {
     html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
     html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date">');
     html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" placeholder="Enter Invoice No">');
-    html += purFieldRow('Supplier', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="supplier">' + supOpts + '</select>');
+    html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, '', 'Select Supplier', 'Search supplier...'));
     html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
     html += '</div>';
 
@@ -1281,7 +1298,7 @@ function bindPurchaseEvents() {
     html += '<th class="pur-th">Remarks</th>';
     html += '<th class="pur-th" style="width:42px;"></th>';
     html += '</tr></thead><tbody id="pur-entries-body">';
-    html += purTableRowHTML(catOpts, brandOpts, prdOpts);
+    html += purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr);
     html += '</tbody></table></div></div>';
 
     // Add Row
@@ -1307,19 +1324,22 @@ function bindPurchaseEvents() {
 
     var overlay = document.getElementById('modal-overlay');
     var box = document.getElementById('modal-box');
+    cleanupPurPanels();
     box.innerHTML = html;
     box.style.width = 'auto';
     box.style.maxWidth = '96vw';
     overlay.classList.add('show');
 
     bindPurRowDel(document.querySelector('#pur-entries-body tr'));
+    bindAllPurSearchable(box, purProductSelectCb);
 
     document.getElementById('btn-pur-addrow').addEventListener('click', function() {
       var tbody = document.getElementById('pur-entries-body');
       var tr = document.createElement('tr');
-      tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts);
+      tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr);
       tbody.appendChild(tr);
       bindPurRowDel(tr);
+      bindAllPurSearchable(tr, purProductSelectCb);
     });
 
     document.getElementById('btn-save-pur').addEventListener('click', function() {
@@ -1452,6 +1472,21 @@ function bindPurchaseEvents() {
         for (var k = 0; k < DB.brands.length; k++) brandOpts += '<option>' + DB.brands[k].name + '</option>';
         var prdOpts = '<option value="">Select Product</option>';
         for (var k = 0; k < DB.products.length; k++) prdOpts += '<option' + (DB.products[k].name === pur.product ? ' selected' : '') + '>' + DB.products[k].name + '</option>';
+        // Arrays for searchable dropdowns
+        var supArr = [];
+        for (var k = 0; k < DB.suppliers.length; k++) supArr.push({ value: DB.suppliers[k].name, label: DB.suppliers[k].name });
+        var prdArr = [];
+        for (var k = 0; k < DB.products.length; k++) prdArr.push({ value: DB.products[k].name, label: DB.products[k].name, category: DB.products[k].category });
+        // Callback: when product selected, auto-fill category
+        var purProductSelectCb = function(val, lbl, cat, wrapper) {
+          if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+            var row = wrapper.closest('tr');
+            if (row) {
+              var catSel = row.querySelector('[data-f="category"]');
+              if (catSel) catSel.value = cat;
+            }
+          }
+        };
 
         var html = '<div style="width:1120px;max-width:96vw;">';
         // Header
@@ -1465,7 +1500,7 @@ function bindPurchaseEvents() {
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
         html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date" value="' + (pur.date || '') + '">');
         html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" value="' + (pur.invoice || '') + '">');
-        html += purFieldRow('Supplier', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="supplier">' + supOpts + '</select>');
+        html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, pur.supplier || '', 'Select Supplier', 'Search supplier...'));
         html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
         html += '</div>';
 
@@ -1478,7 +1513,7 @@ function bindPurchaseEvents() {
         html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
         html += '<th class="pur-th" style="width:42px;"></th>';
         html += '</tr></thead><tbody id="pur-entries-body">';
-        html += purTableRowHTML(catOpts, brandOpts, prdOpts);
+        html += purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr);
         html += '</tbody></table></div></div>';
 
         // Pre-fill the first row with purchase data
@@ -1506,6 +1541,7 @@ function bindPurchaseEvents() {
         injectPurStyles();
         var overlay = document.getElementById('modal-overlay');
         var box = document.getElementById('modal-box');
+        cleanupPurPanels();
         box.innerHTML = html;
         box.style.width = 'auto';
         box.style.maxWidth = '96vw';
@@ -1514,8 +1550,8 @@ function bindPurchaseEvents() {
         // Pre-fill first row with purchase data
         var firstRow = document.querySelector('#pur-entries-body tr');
         if (firstRow) {
-          var prodSel = firstRow.querySelector('[data-f="product"]');
-          if (prodSel) prodSel.value = pur.product || '';
+          var prodWrapper = firstRow.querySelector('[data-sr="product"]');
+          if (prodWrapper) setPurSearchableValue(prodWrapper, pur.product || '', pur.product || '');
           var catSel = firstRow.querySelector('[data-f="category"]');
           if (catSel) catSel.value = pur.category || '';
           var qtyIn = firstRow.querySelector('[data-f="qty"]');
@@ -1527,13 +1563,15 @@ function bindPurchaseEvents() {
         }
 
         bindPurRowDel(firstRow);
+        bindAllPurSearchable(box, purProductSelectCb);
 
         document.getElementById('btn-pur-addrow').addEventListener('click', function() {
           var tbody = document.getElementById('pur-entries-body');
           var tr = document.createElement('tr');
-          tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts);
+          tr.innerHTML = purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr);
           tbody.appendChild(tr);
           bindPurRowDel(tr);
+          bindAllPurSearchable(tr, purProductSelectCb);
         });
 
         document.getElementById('btn-update-pur').addEventListener('click', function() {
@@ -1618,7 +1656,20 @@ function injectPurStyles() {
     '.pur-td select:focus,.pur-td input:focus{background:rgba(45,138,78,0.04);}' +
     '.btn-del-pur{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:6px;border-radius:6px;transition:all 0.2s;}' +
     '.btn-del-pur:hover{color:var(--danger);background:rgba(220,38,38,0.08);}' +
-    '.pur-td select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 fill=%27%236b7c6b%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M8 11L3 6h10z%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px;}';
+    '.pur-td select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 fill=%27%236b7c6b%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M8 11L3 6h10z%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px;}' +
+    '.pur-sr{position:relative;width:100%;}' +
+    '.pur-sr-trigger{width:100%;border:none;padding:9px 10px;font-size:13px;font-family:Outfit,sans-serif;background:transparent;color:var(--fg);cursor:pointer;text-align:left;outline:none;display:flex;align-items:center;justify-content:space-between;gap:8px;line-height:1.4;}' +
+    '.pur-sr-trigger:hover{background:rgba(45,138,78,0.04);}' +
+    '.pur-sr-caret{color:var(--muted);font-size:10px;flex-shrink:0;}' +
+    '.pur-sr-panel{position:fixed;z-index:100000;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-height:280px;overflow:hidden;display:flex;flex-direction:column;}' +
+    '.pur-sr-search{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--card);position:sticky;top:0;}' +
+    '.pur-sr-search i{color:var(--muted);font-size:12px;}' +
+    '.pur-sr-search-input{flex:1;border:none;outline:none;font-size:13px;font-family:Outfit,sans-serif;background:transparent;color:var(--fg);}' +
+    '.pur-sr-options{max-height:220px;overflow-y:auto;}' +
+    '.pur-sr-option{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--fg);transition:background 0.15s;}' +
+    '.pur-sr-option:hover{background:var(--accent-light);}' +
+    '.pur-sr-option.selected{background:rgba(45,138,78,0.10);font-weight:600;color:var(--accent-dark);}' +
+    '.pur-sr-empty{padding:16px;text-align:center;color:var(--muted);font-size:13px;}';
   document.head.appendChild(st);
 }
 
@@ -1626,9 +1677,147 @@ function purFieldRow(label, inputHTML) {
   return '<div class="pur-field"><div class="pur-lbl">' + label + '</div><div class="pur-val">' + inputHTML + '</div></div>';
 }
 
-function purTableRowHTML(catOpts, brandOpts, prdOpts) {
+// ==================== SEARCHABLE SELECT (Purchase modal) ====================
+function purSearchableHTML(name, dataAttr, options, selectedValue, placeholder, searchPlaceholder) {
+  var sel = null;
+  for (var i = 0; i < options.length; i++) { if (options[i].value === selectedValue) { sel = options[i]; break; } }
+  var display = sel ? sel.label : '<span style="color:var(--muted);">' + (placeholder || 'Select') + '</span>';
+  var h = '<div class="pur-sr" data-sr="' + name + '">';
+  h += '<input type="hidden" ' + dataAttr + ' value="' + (selectedValue || '') + '">';
+  h += '<button type="button" class="pur-sr-trigger">' + display + '<i class="fas fa-chevron-down pur-sr-caret"></i></button>';
+  h += '<div class="pur-sr-panel" style="display:none;">';
+  h += '<div class="pur-sr-search"><i class="fas fa-search"></i><input type="text" class="pur-sr-search-input" placeholder="' + (searchPlaceholder || 'Search...') + '"></div>';
+  h += '<div class="pur-sr-options">';
+  if (options.length === 0) {
+    h += '<div class="pur-sr-empty">No options</div>';
+  } else {
+    for (var i = 0; i < options.length; i++) {
+      var v = (options[i].value || '').toString().replace(/"/g, '&quot;');
+      var l = (options[i].label || '').toString();
+      var ls = l.toLowerCase().replace(/"/g, '&quot;');
+      var c = (options[i].category || '').toString().replace(/"/g, '&quot;');
+      h += '<div class="pur-sr-option' + (options[i].value === selectedValue ? ' selected' : '') + '" data-value="' + v + '" data-label="' + ls + '" data-category="' + c + '">' + l + '</div>';
+    }
+  }
+  h += '</div></div></div>';
+  return h;
+}
+
+function closeAllPurPanels() {
+  var panels = document.querySelectorAll('.pur-sr-panel');
+  for (var i = 0; i < panels.length; i++) panels[i].style.display = 'none';
+}
+
+function cleanupPurPanels() {
+  var panels = document.querySelectorAll('body > .pur-sr-panel');
+  for (var i = 0; i < panels.length; i++) panels[i].remove();
+}
+
+function positionPurPanel(trigger, panel) {
+  var rect = trigger.getBoundingClientRect();
+  var panelWidth = Math.max(rect.width, 220);
+  var top = rect.bottom + 2;
+  var left = rect.left;
+  // If not enough space below, open above
+  var spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < 280 && rect.top > 280) { top = rect.top - 280 - 2; }
+  // If panel would go off right edge, shift left
+  if (left + panelWidth > window.innerWidth - 8) { left = window.innerWidth - panelWidth - 8; }
+  if (left < 8) left = 8;
+  panel.style.top = top + 'px';
+  panel.style.left = left + 'px';
+  panel.style.width = panelWidth + 'px';
+}
+
+function bindPurSearchable(wrapper, onSelectCallback) {
+  if (!wrapper || wrapper.dataset.srBound === '1') return;
+  wrapper.dataset.srBound = '1';
+  var trigger = wrapper.querySelector('.pur-sr-trigger');
+  var panel = wrapper.querySelector('.pur-sr-panel');
+  var search = wrapper.querySelector('.pur-sr-search-input');
+  var hidden = wrapper.querySelector('input[type="hidden"]');
+  var options = wrapper.querySelectorAll('.pur-sr-option');
+  if (!trigger || !panel) return;
+
+  // Detach panel to body so it isn't clipped by overflow containers
+  document.body.appendChild(panel);
+
+  trigger.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var isOpen = panel.style.display === 'flex';
+    closeAllPurPanels();
+    if (isOpen) return;
+    positionPurPanel(trigger, panel);
+    panel.style.display = 'flex';
+    if (search) { search.value = ''; for (var i = 0; i < options.length; i++) options[i].style.display = 'block'; }
+    setTimeout(function() { if (search) search.focus(); }, 30);
+  });
+
+  if (search) {
+    search.addEventListener('input', function() {
+      var q = search.value.toLowerCase();
+      for (var i = 0; i < options.length; i++) {
+        var label = options[i].getAttribute('data-label') || '';
+        options[i].style.display = label.indexOf(q) !== -1 ? 'block' : 'none';
+      }
+    });
+    search.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; trigger.focus(); }
+    });
+  }
+
+  for (var i = 0; i < options.length; i++) {
+    (function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var val = opt.getAttribute('data-value');
+        var lbl = opt.textContent;
+        var cat = opt.getAttribute('data-category') || '';
+        hidden.value = val;
+        trigger.innerHTML = lbl + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+        for (var j = 0; j < options.length; j++) options[j].classList.remove('selected');
+        opt.classList.add('selected');
+        panel.style.display = 'none';
+        if (onSelectCallback) onSelectCallback(val, lbl, cat, wrapper);
+      });
+    })(options[i]);
+  }
+}
+
+function bindAllPurSearchable(scope, onSelectCallback) {
+  var wrappers = (scope || document).querySelectorAll('.pur-sr');
+  for (var i = 0; i < wrappers.length; i++) bindPurSearchable(wrappers[i], onSelectCallback);
+}
+
+function setPurSearchableValue(wrapper, value, label) {
+  if (!wrapper) return;
+  var hidden = wrapper.querySelector('input[type="hidden"]');
+  var trigger = wrapper.querySelector('.pur-sr-trigger');
+  if (!hidden || !trigger) return;
+  hidden.value = value || '';
+  if (value) {
+    trigger.innerHTML = label + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+    var options = wrapper.querySelectorAll('.pur-sr-option');
+    for (var i = 0; i < options.length; i++) {
+      if (options[i].getAttribute('data-value') === value) options[i].classList.add('selected');
+      else options[i].classList.remove('selected');
+    }
+  }
+}
+
+// Global handlers: click outside / scroll / resize closes panels
+if (!window._purSrGlobalInit) {
+  window._purSrGlobalInit = true;
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest || !e.target.closest('.pur-sr')) closeAllPurPanels();
+  });
+  window.addEventListener('scroll', closeAllPurPanels, true);
+  window.addEventListener('resize', closeAllPurPanels, true);
+}
+
+function purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr) {
   var h = '<tr>';
-  h += '<td class="pur-td"><select data-f="product">' + prdOpts + '</select></td>';
+  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
   h += '<td class="pur-td"><select data-f="category">' + catOpts + '</select></td>';
   h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
