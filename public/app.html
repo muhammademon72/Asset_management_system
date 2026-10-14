@@ -1373,7 +1373,12 @@ function bindPurchaseEvents() {
           id: Date.now() + i, invoice: invoice, date: date, supplier: supplier,
           product: product, category: category, qty: qty, unitPrice: price, total: qty * price,
           status: status, branch: 'Head Office', attachment: attachInfo,
-          warranty: r.querySelector('[data-f="warranty"]').value
+          brand: r.querySelector('[data-f="brand"]').value,
+          model: r.querySelector('[data-f="model"]').value,
+          serial: r.querySelector('[data-f="serial"]').value,
+          condition: r.querySelector('[data-f="condition"]').value,
+          warranty: r.querySelector('[data-f="warranty"]').value,
+          remarks: r.querySelector('[data-f="remarks"]').value
         });
       }
       closeModal(); showToast('Purchase saved successfully'); renderPage();
@@ -1418,15 +1423,15 @@ function bindPurchaseEvents() {
         html += '<tr>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.product || '-') + '</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.category || '-') + '</td>';
-        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
-        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
-        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
-        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
-        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.brand || '-') + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.model || '-') + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.serial || '-') + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.condition || '-') + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.warranty || '-') + '</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (pur.qty || 0) + '</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(pur.unitPrice || 0) + '</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(pur.total || 0) + '</td>';
-        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.remarks || '-') + '</td>';
         html += '</tr></tbody></table></div></div>';
 
         // Note — read-only
@@ -1555,14 +1560,24 @@ function bindPurchaseEvents() {
           if (prodWrapper) setPurSearchableValue(prodWrapper, pur.product || '', pur.product || '');
           var catSel = firstRow.querySelector('[data-f="category"]');
           if (catSel) catSel.value = pur.category || '';
+          var brandSel = firstRow.querySelector('[data-f="brand"]');
+          if (brandSel) brandSel.value = pur.brand || '';
+          var modelIn = firstRow.querySelector('[data-f="model"]');
+          if (modelIn) modelIn.value = pur.model || '';
+          var serialIn = firstRow.querySelector('[data-f="serial"]');
+          if (serialIn) serialIn.value = pur.serial || '';
+          var condSel = firstRow.querySelector('[data-f="condition"]');
+          if (condSel) condSel.value = pur.condition || 'New';
+          var warSel = firstRow.querySelector('[data-f="warranty"]');
+          if (warSel) warSel.value = pur.warranty || '';
           var qtyIn = firstRow.querySelector('[data-f="qty"]');
           if (qtyIn) qtyIn.value = pur.qty || 0;
           var priceIn = firstRow.querySelector('[data-f="price"]');
           if (priceIn) priceIn.value = pur.unitPrice || 0;
           var totalIn = firstRow.querySelector('[data-f="total"]');
           if (totalIn) totalIn.value = fmt(pur.total || 0);
-          var warSel = firstRow.querySelector('[data-f="warranty"]');
-          if (warSel) warSel.value = pur.warranty || '';
+          var remIn = firstRow.querySelector('[data-f="remarks"]');
+          if (remIn) remIn.value = pur.remarks || '';
         }
 
         bindPurRowDel(firstRow);
@@ -1595,10 +1610,15 @@ function bindPurchaseEvents() {
           if (firstValid) {
             pur.product = firstValid.querySelector('[data-f="product"]').value;
             pur.category = firstValid.querySelector('[data-f="category"]').value;
+            pur.brand = firstValid.querySelector('[data-f="brand"]').value;
+            pur.model = firstValid.querySelector('[data-f="model"]').value;
+            pur.serial = firstValid.querySelector('[data-f="serial"]').value;
+            pur.condition = firstValid.querySelector('[data-f="condition"]').value;
+            pur.warranty = firstValid.querySelector('[data-f="warranty"]').value;
             pur.qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
             pur.unitPrice = parseFloat(firstValid.querySelector('[data-f="price"]').value) || 0;
             pur.total = pur.qty * pur.unitPrice;
-            pur.warranty = firstValid.querySelector('[data-f="warranty"]').value;
+            pur.remarks = firstValid.querySelector('[data-f="remarks"]').value;
           }
           closeModal(); showToast('Purchase updated'); renderPage();
         });
