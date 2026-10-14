@@ -1252,6 +1252,7 @@ function bindPurchaseEvents() {
     html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
     html += '<thead><tr>';
     html += '<th class="pur-th">Product</th>';
+    html += '<th class="pur-th">Category</th>';
     html += '<th class="pur-th">Brand</th>';
     html += '<th class="pur-th">Model</th>';
     html += '<th class="pur-th">Serial Number</th>';
@@ -1328,11 +1329,12 @@ function bindPurchaseEvents() {
         var r = rows[i];
         var product = r.querySelector('[data-f="product"]').value;
         if (!product) continue;
+        var category = r.querySelector('[data-f="category"]').value;
         var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
         var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
         DB.purchases.push({
           id: Date.now() + i, invoice: invoice, date: date, supplier: supplier,
-          product: product, qty: qty, unitPrice: price, total: qty * price,
+          product: product, category: category, qty: qty, unitPrice: price, total: qty * price,
           status: status, branch: 'Head Office', attachment: attachInfo
         });
       }
@@ -1371,12 +1373,13 @@ function bindPurchaseEvents() {
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
         html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">';
         html += '<thead><tr>';
-        html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+        html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
         html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
         html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
         html += '</tr></thead><tbody>';
         html += '<tr>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.product || '-') + '</td>';
+        html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (pur.category || '-') + '</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
         html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">—</td>';
@@ -1453,7 +1456,7 @@ function bindPurchaseEvents() {
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
         html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
         html += '<thead><tr>';
-        html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+        html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
         html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
         html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
         html += '<th class="pur-th" style="width:42px;"></th>';
@@ -1496,6 +1499,8 @@ function bindPurchaseEvents() {
         if (firstRow) {
           var prodSel = firstRow.querySelector('[data-f="product"]');
           if (prodSel) prodSel.value = pur.product || '';
+          var catSel = firstRow.querySelector('[data-f="category"]');
+          if (catSel) catSel.value = pur.category || '';
           var qtyIn = firstRow.querySelector('[data-f="qty"]');
           if (qtyIn) qtyIn.value = pur.qty || 0;
           var priceIn = firstRow.querySelector('[data-f="price"]');
@@ -1531,6 +1536,7 @@ function bindPurchaseEvents() {
           }
           if (firstValid) {
             pur.product = firstValid.querySelector('[data-f="product"]').value;
+            pur.category = firstValid.querySelector('[data-f="category"]').value;
             pur.qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
             pur.unitPrice = parseFloat(firstValid.querySelector('[data-f="price"]').value) || 0;
             pur.total = pur.qty * pur.unitPrice;
@@ -1606,6 +1612,7 @@ function purFieldRow(label, inputHTML) {
 function purTableRowHTML(catOpts, brandOpts, prdOpts) {
   var h = '<tr>';
   h += '<td class="pur-td"><select data-f="product">' + prdOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="category">' + catOpts + '</select></td>';
   h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
