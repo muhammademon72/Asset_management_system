@@ -345,6 +345,7 @@ const NAV = [
   { id: 'purchase', label: 'Manage Purchase', icon: 'fa-cart-shopping', children: [
     { id: 'purchase-list', label: 'Purchase List' },
     { id: 'supplier', label: 'Supplier' },
+    { id: 'inventory-stock', label: 'Inventory Stock' },
   ]},
   { id: 'inventory', label: 'Manage Inventory', icon: 'fa-warehouse', children: [
     { id: 'delivery-list', label: 'Delivery List' },
@@ -1080,6 +1081,176 @@ function bindSupplierEvents() {
       btn.addEventListener('click', function() { deleteItem('suppliers', parseInt(btn.getAttribute('data-del-sup')), 'supplier'); });
     })(delBtns[i]);
   }
+}
+
+function renderInventoryStock() {
+  // Compute stock per product
+  // stock = purchased - delivered - damaged + (adjustments increase - decrease)
+  var rows = '';
+  var totalPurchased = 0, totalDelivered = 0, totalDamaged = 0, totalAdjusted = 0, totalStock = 0;
+  for (var i = 0; i < DB.products.length; i++) {
+    var p = DB.products[i];
+    var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) purchased += (DB.purchases[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) {
+      if (DB.adjustments[j].product === p.name) {
+        var adjQty = DB.adjustments[j].qty || 0;
+        adjusted += (DB.adjustments[j].type === 'Increase') ? adjQty : -adjQty;
+      }
+    }
+    var stock = purchased - delivered - damaged + adjusted;
+    if (stock < 0) stock = 0;
+    var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
+    totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
+    rows += '<tr>';
+    rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
+    rows += '<td style="font-weight:600;">' + p.name + '</td>';
+    rows += '<td>' + (p.category || '-') + '</td>';
+    rows += '<td>' + (p.brand || '-') + '</td>';
+    rows += '<td style="text-align:center;font-weight:600;color:var(--info);">' + purchased + '</td>';
+    rows += '<td style="text-align:center;color:var(--accent);">' + delivered + '</td>';
+    rows += '<td style="text-align:center;color:var(--danger);">' + damaged + '</td>';
+    rows += '<td style="text-align:center;color:' + (adjusted >= 0 ? 'var(--accent)' : 'var(--danger)') + ';">' + (adjusted >= 0 ? '+' : '') + adjusted + '</td>';
+    rows += '<td style="text-align:center;font-weight:700;color:var(--accent-dark);font-size:14px;">' + stock + '</td>';
+    rows += '<td style="text-align:center;">' + statusBadge(stockStatus) + '</td>';
+    rows += '</tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Inventory Stock</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-print-inventory-stock" title="Print Inventory Stock"><i class="fas fa-print"></i> Print</button>';
+  html += '</div></div>';
+  // Summary cards
+  html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;">';
+  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Purchased</div><div style="font-size:22px;font-weight:800;color:var(--info);">' + totalPurchased + '</div></div>';
+  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Delivered</div><div style="font-size:22px;font-weight:800;color:var(--accent);">' + totalDelivered + '</div></div>';
+  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Damaged</div><div style="font-size:22px;font-weight:800;color:var(--danger);">' + totalDamaged + '</div></div>';
+  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Net Adjustment</div><div style="font-size:22px;font-weight:800;color:' + (totalAdjusted >= 0 ? 'var(--accent)' : 'var(--danger)') + ';">' + (totalAdjusted >= 0 ? '+' : '') + totalAdjusted + '</div></div>';
+  html += '<div class="stat-card" style="padding:16px;border:2px solid var(--accent);"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Current Stock</div><div style="font-size:22px;font-weight:800;color:var(--accent-dark);">' + totalStock + '</div></div>';
+  html += '</div>';
+  // Table
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 360px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr>';
+  html += '<th style="text-align:center;width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th>';
+  html += '<th style="text-align:center;">Purchased</th><th style="text-align:center;">Delivered</th><th style="text-align:center;">Damaged</th><th style="text-align:center;">Adjustment</th>';
+  html += '<th style="text-align:center;">Current Stock</th><th style="text-align:center;">Status</th>';
+  html += '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindInventoryStockEvents() {
+  var printBtn = document.getElementById('btn-print-inventory-stock');
+  if (printBtn) printBtn.addEventListener('click', function() { printInventoryStock(); });
+}
+
+function printInventoryStock() {
+  var co = DB.company || {};
+  var rows = '';
+  var totalPurchased = 0, totalDelivered = 0, totalDamaged = 0, totalAdjusted = 0, totalStock = 0;
+  for (var i = 0; i < DB.products.length; i++) {
+    var p = DB.products[i];
+    var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) purchased += (DB.purchases[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) {
+      if (DB.adjustments[j].product === p.name) {
+        var adjQty = DB.adjustments[j].qty || 0;
+        adjusted += (DB.adjustments[j].type === 'Increase') ? adjQty : -adjQty;
+      }
+    }
+    var stock = purchased - delivered - damaged + adjusted;
+    if (stock < 0) stock = 0;
+    var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
+    totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
+    rows += '<tr>';
+    rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
+    rows += '<td style="font-weight:600;">' + p.name + '</td>';
+    rows += '<td>' + (p.category || '-') + '</td>';
+    rows += '<td>' + (p.brand || '-') + '</td>';
+    rows += '<td style="text-align:center;">' + purchased + '</td>';
+    rows += '<td style="text-align:center;">' + delivered + '</td>';
+    rows += '<td style="text-align:center;">' + damaged + '</td>';
+    rows += '<td style="text-align:center;">' + (adjusted >= 0 ? '+' : '') + adjusted + '</td>';
+    rows += '<td style="text-align:center;font-weight:700;">' + stock + '</td>';
+    rows += '<td style="text-align:center;">' + stockStatus + '</td>';
+    rows += '</tr>';
+  }
+  var now = new Date();
+  var stamp = now.toLocaleString();
+  var win = window.open('', '_blank', 'width=1100,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inventory Stock — Print</title>';
+  html += '<style>';
+  html += '@page { margin: 14mm; }';
+  html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 20px; font-size: 12px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 16px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; }';
+  html += '.co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #1a2e1a; }';
+  html += '.doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }';
+  html += '.sum-box { border: 1px solid #d4ddd4; border-radius: 8px; padding: 10px 12px; background: #f5f9f5; }';
+  html += '.sum-label { font-size: 9px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }';
+  html += '.sum-value { font-size: 18px; font-weight: 800; color: #1a2e1a; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; }';
+  html += 'thead th { background: #2d8a4e; color: #fff; padding: 8px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; }';
+  html += 'tbody td { padding: 7px 8px; font-size: 12px; border: 1px solid #d4ddd4; }';
+  html += 'tbody tr:nth-child(even) td { background: #f5f9f5; }';
+  html += '.foot { margin-top: 22px; display: flex; justify-content: space-between; font-size: 11px; color: #6b7c6b; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; }';
+  html += '.sign-box { flex: 1; text-align: center; }';
+  html += '.sign-line { margin-top: 50px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { body { padding: 0; } .no-print { display: none; } }';
+  html += '</style></head><body>';
+  html += '<div class="head">';
+  html += '<div>';
+  html += '<div class="co-name">' + (co.name || 'Company Name') + '</div>';
+  html += '<div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div>';
+  html += '</div>';
+  html += '<div>';
+  html += '<div class="doc-title">Inventory Stock Report</div>';
+  html += '<div class="doc-meta">Printed: ' + stamp + '</div>';
+  html += '<div class="doc-meta">Total Products: ' + DB.products.length + '</div>';
+  html += '</div>';
+  html += '</div>';
+  // Summary
+  html += '<div class="summary">';
+  html += '<div class="sum-box"><div class="sum-label">Total Purchased</div><div class="sum-value" style="color:#0284c7;">' + totalPurchased + '</div></div>';
+  html += '<div class="sum-box"><div class="sum-label">Total Delivered</div><div class="sum-value" style="color:#2d8a4e;">' + totalDelivered + '</div></div>';
+  html += '<div class="sum-box"><div class="sum-label">Total Damaged</div><div class="sum-value" style="color:#dc2626;">' + totalDamaged + '</div></div>';
+  html += '<div class="sum-box"><div class="sum-label">Net Adjustment</div><div class="sum-value" style="color:' + (totalAdjusted >= 0 ? '#2d8a4e' : '#dc2626') + ';">' + (totalAdjusted >= 0 ? '+' : '') + totalAdjusted + '</div></div>';
+  html += '<div class="sum-box" style="border:2px solid #2d8a4e;"><div class="sum-label">Current Stock</div><div class="sum-value" style="color:#1a5c30;">' + totalStock + '</div></div>';
+  html += '</div>';
+  // Table
+  html += '<table><thead><tr>';
+  html += '<th style="text-align:center;width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th>';
+  html += '<th style="text-align:center;">Purchased</th><th style="text-align:center;">Delivered</th><th style="text-align:center;">Damaged</th><th style="text-align:center;">Adjustment</th>';
+  html += '<th style="text-align:center;">Current Stock</th><th style="text-align:center;">Status</th>';
+  html += '</tr></thead><tbody>' + rows + '</tbody></table>';
+  // Sign
+  html += '<div class="sign">';
+  html += '<div class="sign-box"><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Verified By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
+  html += '</div>';
+  html += '<div class="foot"><span>This is a system-generated Inventory Stock Report from the IT Asset Management System.</span><span>Page 1</span></div>';
+  html += '<div style="text-align:center;margin-top:18px;">';
+  html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
+  html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
+  html += '</div>';
+  html += '</body></html>';
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
 function renderDeliveryList() {
@@ -2880,6 +3051,7 @@ function renderPage() {
     'product-list': renderProductList,
     'purchase-list': renderPurchaseList,
     'supplier': renderSupplier,
+    'inventory-stock': renderInventoryStock,
     'delivery-list': renderDeliveryList,
     'adjustment-list': renderAdjustmentList,
     'damage-list': renderDamageList,
@@ -2916,6 +3088,7 @@ function renderPage() {
     'product-list': bindProductEvents,
     'purchase-list': bindPurchaseEvents,
     'supplier': bindSupplierEvents,
+    'inventory-stock': bindInventoryStockEvents,
     'delivery-list': bindDeliveryEvents,
     'cash-in': bindCashInEvents,
     'cash-out': bindCashOutEvents,
