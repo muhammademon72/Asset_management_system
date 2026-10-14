@@ -1129,6 +1129,24 @@ function bindDeliveryEvents() {
   }
 }
 
+// Auto-generate next chalan number based on current year and existing deliveries
+function generateDeliveryChalan() {
+  var year = new Date().getFullYear();
+  var prefix = 'DEL-' + year + '-';
+  var maxSeq = 0;
+  for (var i = 0; i < DB.deliveries.length; i++) {
+    var ch = DB.deliveries[i].chalan || '';
+    if (ch.indexOf(prefix) === 0) {
+      var num = parseInt(ch.substring(prefix.length), 10);
+      if (!isNaN(num) && num > maxSeq) maxSeq = num;
+    }
+  }
+  var next = maxSeq + 1;
+  var seq = '' + next;
+  while (seq.length < 3) seq = '0' + seq;
+  return prefix + seq;
+}
+
 function openDeliveryModal(delId, readOnly) {
   // View (readOnly=true) and Edit (readOnly=false) — full multi-field modal mirroring Purchase Edit
   var del = null;
@@ -1163,19 +1181,21 @@ function openDeliveryModal(delId, readOnly) {
   // Top fields — green label rows
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   if (readOnly) {
+    var empView = null;
+    if (del.receivedBy) { for (var ek = 0; ek < DB.employees.length; ek++) { if (DB.employees[ek].name === del.receivedBy) { empView = DB.employees[ek]; break; } } }
     html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (del.date || '-') + '</span>');
     html += purFieldRow('Chalan No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (del.chalan || '-') + '</span>');
-    html += purFieldRow('Supplier', '<span style="font-size:13px;color:var(--fg);">' + (del.supplier || '-') + '</span>');
     html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (del.branch || '-') + '</span>');
     html += purFieldRow('Received By', '<span style="font-size:13px;color:var(--fg);">' + (del.receivedBy || '-') + '</span>');
-    html += purFieldRow('Attachment', '<span style="font-size:13px;color:var(--muted);">' + (del.attachment && del.attachment.name ? del.attachment.name : '—') + '</span>');
+    html += purFieldRow('Employee ID', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.empId : (del.empId || '-')) + '</span>');
+    html += purFieldRow('Department', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.department : (del.department || '-')) + '</span>');
   } else {
     html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="del-date" value="' + (del.date || '') + '">');
-    html += purFieldRow('Chalan No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="del-chalan" value="' + (del.chalan || '') + '" placeholder="e.g. DEL-2024-004">');
-    html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="del-supplier"', supArr, del.supplier || '', 'Select Supplier', 'Search supplier...'));
+    html += purFieldRow('Chalan No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" data-top="del-chalan" value="' + (del.chalan || '') + '" readonly>');
     html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="del-branch">' + brOpts + '</select>');
     html += purFieldRow('Received By', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="del-received">' + empOpts + '</select>');
-    html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="del-attach">');
+    html += purFieldRow('Employee ID', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-del-empid" value="" readonly>');
+    html += purFieldRow('Department', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-del-dept" value="" readonly>');
   }
   html += '</div>';
 
