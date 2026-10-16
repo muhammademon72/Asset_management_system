@@ -2998,7 +2998,12 @@ function bindUserEvents() {
 function renderRoleList() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Role List</div>';
-  html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button></div>';
+  html += '<div style="display:flex;gap:10px;align-items:center;">';
+  html += '<button class="btn btn-secondary" id="btn-backup-role" title="Export roles as JSON"><i class="fas fa-download"></i> Backup</button>';
+  html += '<button class="btn btn-secondary" id="btn-restore-role" title="Import roles from JSON"><i class="fas fa-upload"></i> Restore</button>';
+  html += '<button class="btn btn-secondary" id="btn-delete-all-role" title="Delete all roles" style="color:var(--danger);"><i class="fas fa-trash"></i> Delete All</button>';
+  html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button>';
+  html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Role Name</th><th>Permissions</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.roles.length; i++) {
@@ -3007,6 +3012,8 @@ function renderRoleList() {
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-role="' + r.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
+  // Hidden file input for restore
+  html += '<input type="file" id="file-restore-role" accept=".json,application/json" style="display:none;">';
   return html;
 }
 
@@ -3031,6 +3038,118 @@ function bindRoleEvents() {
   for (var i = 0; i < delBtns.length; i++) {
     (function(btn) { btn.addEventListener('click', function() { deleteItem('roles', parseInt(btn.getAttribute('data-del-role')), 'role-list'); }); })(delBtns[i]);
   }
+
+  // Backup (export JSON)
+  var backupBtn = document.getElementById('btn-backup-role');
+  if (backupBtn) backupBtn.addEventListener('click', exportRolesBackup);
+
+  // Restore (import JSON)
+  var restoreBtn = document.getElementById('btn-restore-role');
+  var restoreFile = document.getElementById('file-restore-role');
+  if (restoreBtn && restoreFile) {
+    restoreBtn.addEventListener('click', function() { restoreFile.click(); });
+    restoreFile.addEventListener('change', importRolesBackup);
+  }
+
+  // Delete all
+  var deleteAllBtn = document.getElementById('btn-delete-all-role');
+  if (deleteAllBtn) deleteAllBtn.addEventListener('click', confirmDeleteAllRoles);
+}
+
+// Backup roles as a JSON file download
+function exportRolesBackup() {
+  var data = {
+    type: 'role-list-backup',
+    exportedAt: new Date().toISOString(),
+    count: DB.roles.length,
+    roles: DB.roles
+  };
+  var json = JSON.stringify(data, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '-');
+  a.download = 'role-backup-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+  showToast('Backup exported (' + DB.roles.length + ' roles)');
+}
+
+// Restore roles from a JSON file
+function importRolesBackup(evt) {
+  var fileInput = evt.target;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+  var file = fileInput.files[0];
+  if (!/\.json$/i.test(file.name)) { showToast('Please select a JSON file', 'error'); fileInput.value = ''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      var importedRoles = null;
+      if (Array.isArray(data)) importedRoles = data;
+      else if (data && Array.isArray(data.roles)) importedRoles = data.roles;
+      else throw new Error('Invalid format');
+      if (importedRoles.length === 0) { showToast('No roles found in file', 'error'); return; }
+      // Confirm replace
+      var html = '<div style="padding:24px;">' + modalHeader('Restore Roles') + '<div style="padding-top:16px;">';
+      html += '<div style="font-size:14px;color:var(--fg);margin-bottom:10px;">File: <strong>' + file.name + '</strong></div>';
+      html += '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Found <strong style="color:var(--accent);">' + importedRoles.length + '</strong> roles in the backup file.</div>';
+      html += '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--accent-light);margin-bottom:14px;">';
+      html += '<div style="font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:6px;">Choose restore mode:</div>';
+      html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;"><input type="radio" name="restore-mode" value="merge" checked> <span><strong>Merge:</strong> Add imported roles alongside existing ones</span></label>';
+      html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="radio" name="restore-mode" value="replace"> <span><strong>Replace:</strong> Delete all current roles, then import</span></label>';
+      html += '</div>';
+      html += '<div style="font-size:12px;color:var(--warning);margin-bottom:14px;"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</div>';
+      html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+      html += '<button class="btn btn-primary" id="btn-confirm-restore-role"><i class="fas fa-check"></i> Restore</button></div></div>';
+      openModal(html);
+      document.getElementById('btn-confirm-restore-role').addEventListener('click', function() {
+        var mode = 'merge';
+        var radios = document.getElementsByName('restore-mode');
+        for (var ri = 0; ri < radios.length; ri++) { if (radios[ri].checked) mode = radios[ri].value; }
+        // Normalize roles (ensure id, name, permissions)
+        var cleaned = [];
+        for (var i = 0; i < importedRoles.length; i++) {
+          var r = importedRoles[i];
+          if (!r) continue;
+          cleaned.push({
+            id: r.id || (Date.now() + i),
+            name: r.name || ('Unnamed Role ' + (i + 1)),
+            permissions: r.permissions || ''
+          });
+        }
+        if (mode === 'replace') DB.roles = cleaned;
+        else { for (var i = 0; i < cleaned.length; i++) DB.roles.push(cleaned[i]); }
+        closeModal(); showToast('Restored ' + cleaned.length + ' roles (' + mode + ')'); renderPage();
+      });
+    } catch (err) {
+      showToast('Invalid JSON file: ' + err.message, 'error');
+    }
+    fileInput.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// Delete all roles with confirmation
+function confirmDeleteAllRoles() {
+  if (DB.roles.length === 0) { showToast('No roles to delete', 'info'); return; }
+  var html = '<div style="padding:24px;">' + modalHeader('Delete All Roles') + '<div style="padding-top:16px;">';
+  html += '<div style="text-align:center;padding:20px 0;">';
+  html += '<div style="width:64px;height:64px;border-radius:16px;background:rgba(220,38,38,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-exclamation-triangle" style="color:var(--danger);font-size:24px;"></i></div>';
+  html += '<div style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:8px;">Delete all ' + DB.roles.length + ' roles?</div>';
+  html += '<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">This will permanently remove every role from the list.</div>';
+  html += '<div style="font-size:12px;color:var(--warning);"><i class="fas fa-exclamation-triangle"></i> Consider using <strong>Backup</strong> first to export a JSON copy.</div>';
+  html += '</div>';
+  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<button class="btn btn-primary" id="btn-confirm-delete-all-role" style="background:var(--danger);border-color:var(--danger);"><i class="fas fa-trash"></i> Delete All</button></div></div>';
+  openModal(html);
+  document.getElementById('btn-confirm-delete-all-role').addEventListener('click', function() {
+    DB.roles = [];
+    closeModal(); showToast('All roles deleted'); renderPage();
+  });
 }
 
 // ==================== PAGE ROUTER ====================
