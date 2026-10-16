@@ -373,6 +373,7 @@ const NAV = [
     { id: 'company-profile', label: 'Company Profile' },
     { id: 'user-list', label: 'User Create List' },
     { id: 'role-list', label: 'Role Create List' },
+    { id: 'backup-restore', label: 'Backup / Restore' },
   ]},
 ];
 
@@ -2998,12 +2999,7 @@ function bindUserEvents() {
 function renderRoleList() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Role List</div>';
-  html += '<div style="display:flex;gap:10px;align-items:center;">';
-  html += '<button class="btn btn-secondary" id="btn-backup-role" title="Export roles as JSON"><i class="fas fa-download"></i> Backup</button>';
-  html += '<button class="btn btn-secondary" id="btn-restore-role" title="Import roles from JSON"><i class="fas fa-upload"></i> Restore</button>';
-  html += '<button class="btn btn-secondary" id="btn-delete-all-role" title="Delete all roles" style="color:var(--danger);"><i class="fas fa-trash"></i> Delete All</button>';
-  html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button>';
-  html += '</div></div>';
+  html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Role Name</th><th>Permissions</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.roles.length; i++) {
@@ -3012,8 +3008,6 @@ function renderRoleList() {
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-role="' + r.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
-  // Hidden file input for restore
-  html += '<input type="file" id="file-restore-role" accept=".json,application/json" style="display:none;">';
   return html;
 }
 
@@ -3038,31 +3032,143 @@ function bindRoleEvents() {
   for (var i = 0; i < delBtns.length; i++) {
     (function(btn) { btn.addEventListener('click', function() { deleteItem('roles', parseInt(btn.getAttribute('data-del-role')), 'role-list'); }); })(delBtns[i]);
   }
-
-  // Backup (export JSON)
-  var backupBtn = document.getElementById('btn-backup-role');
-  if (backupBtn) backupBtn.addEventListener('click', exportRolesBackup);
-
-  // Restore (import JSON)
-  var restoreBtn = document.getElementById('btn-restore-role');
-  var restoreFile = document.getElementById('file-restore-role');
-  if (restoreBtn && restoreFile) {
-    restoreBtn.addEventListener('click', function() { restoreFile.click(); });
-    restoreFile.addEventListener('change', importRolesBackup);
-  }
-
-  // Delete all
-  var deleteAllBtn = document.getElementById('btn-delete-all-role');
-  if (deleteAllBtn) deleteAllBtn.addEventListener('click', confirmDeleteAllRoles);
 }
 
-// Backup roles as a JSON file download
-function exportRolesBackup() {
+// ==================== BACKUP / RESTORE / DELETE PAGE ====================
+function renderBackupRestore() {
+  // Compute summary of all collections
+  var collections = [
+    { key: 'branches', label: 'Branches', icon: 'fa-building' },
+    { key: 'employees', label: 'Employees', icon: 'fa-users' },
+    { key: 'departments', label: 'Departments', icon: 'fa-sitemap' },
+    { key: 'designations', label: 'Designations', icon: 'fa-id-badge' },
+    { key: 'products', label: 'Products', icon: 'fa-box-open' },
+    { key: 'categories', label: 'Categories', icon: 'fa-folder-tree' },
+    { key: 'brands', label: 'Brands', icon: 'fa-tag' },
+    { key: 'uoms', label: 'UoM', icon: 'fa-ruler' },
+    { key: 'conditions', label: 'Conditions', icon: 'fa-check-circle' },
+    { key: 'warranties', label: 'Warranties', icon: 'fa-shield-halved' },
+    { key: 'suppliers', label: 'Suppliers', icon: 'fa-truck-field' },
+    { key: 'purchases', label: 'Purchases', icon: 'fa-cart-shopping' },
+    { key: 'deliveries', label: 'Deliveries', icon: 'fa-truck' },
+    { key: 'adjustments', label: 'Adjustments', icon: 'fa-sliders' },
+    { key: 'damages', label: 'Damages', icon: 'fa-triangle-exclamation' },
+    { key: 'transfers', label: 'Transfers', icon: 'fa-arrow-right-arrow-left' },
+    { key: 'cashIn', label: 'Cash In', icon: 'fa-arrow-down' },
+    { key: 'cashOut', label: 'Cash Out', icon: 'fa-arrow-up' },
+    { key: 'users', label: 'Users', icon: 'fa-user-gear' },
+    { key: 'roles', label: 'Roles', icon: 'fa-user-shield' },
+    { key: 'company', label: 'Company Profile', icon: 'fa-building-circle-check' }
+  ];
+  var totalRecords = 0;
+  var summaryRows = '';
+  for (var i = 0; i < collections.length; i++) {
+    var c = collections[i];
+    var count = (c.key === 'company') ? 1 : (DB[c.key] ? DB[c.key].length : 0);
+    totalRecords += count;
+    summaryRows += '<tr>';
+    summaryRows += '<td style="text-align:center;">' + (i + 1) + '</td>';
+    summaryRows += '<td><i class="fas ' + c.icon + '" style="color:var(--accent);margin-right:8px;width:16px;text-align:center;"></i>' + c.label + '</td>';
+    summaryRows += '<td style="text-align:center;font-weight:600;color:var(--accent-dark);">' + count + '</td>';
+    summaryRows += '<td style="text-align:center;"><code style="background:var(--accent-light);padding:3px 8px;border-radius:4px;font-size:11px;color:var(--accent-dark);">' + c.key + '</code></td>';
+    summaryRows += '</tr>';
+  }
+
+  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">Backup / Restore / Delete</div>';
+
+  // Summary cards
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">';
+  html += '<div class="stat-card" style="padding:18px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Collections</div><div style="font-size:24px;font-weight:800;color:var(--accent);">' + collections.length + '</div></div>';
+  html += '<div class="stat-card" style="padding:18px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Records</div><div style="font-size:24px;font-weight:800;color:var(--accent-dark);">' + totalRecords + '</div></div>';
+  html += '<div class="stat-card" style="padding:18px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Last Backup</div><div style="font-size:13px;font-weight:600;color:var(--muted);">' + (DB._lastBackup ? new Date(DB._lastBackup).toLocaleString() : 'Never') + '</div></div>';
+  html += '</div>';
+
+  // Action cards: Backup / Restore / Delete
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">';
+
+  // Backup card
+  html += '<div class="stat-card" style="padding:24px;text-align:center;">';
+  html += '<div style="width:56px;height:56px;border-radius:14px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class="fas fa-download" style="color:var(--accent);font-size:24px;"></i></div>';
+  html += '<div style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:6px;">Backup</div>';
+  html += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;">Export the entire system data as a JSON file. Save it somewhere safe — you can restore from it later.</div>';
+  html += '<button class="btn btn-primary" id="btn-backup-db" style="width:100%;"><i class="fas fa-download"></i> Export JSON Backup</button>';
+  html += '</div>';
+
+  // Restore card
+  html += '<div class="stat-card" style="padding:24px;text-align:center;">';
+  html += '<div style="width:56px;height:56px;border-radius:14px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class="fas fa-upload" style="color:var(--accent);font-size:24px;"></i></div>';
+  html += '<div style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:6px;">Restore</div>';
+  html += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;">Import data from a previously-exported JSON backup file. Choose Merge (add) or Replace (overwrite).</div>';
+  html += '<button class="btn btn-secondary" id="btn-restore-db" style="width:100%;"><i class="fas fa-upload"></i> Import JSON Backup</button>';
+  html += '</div>';
+
+  // Delete card
+  html += '<div class="stat-card" style="padding:24px;text-align:center;border:1px solid rgba(220,38,38,0.3);">';
+  html += '<div style="width:56px;height:56px;border-radius:14px;background:rgba(220,38,38,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class="fas fa-trash-can" style="color:var(--danger);font-size:24px;"></i></div>';
+  html += '<div style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:6px;">Delete All Data</div>';
+  html += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;">Permanently wipe all data from the system. Make sure to backup first — this cannot be undone.</div>';
+  html += '<button class="btn btn-secondary" id="btn-delete-db" style="width:100%;color:var(--danger);border-color:var(--danger);"><i class="fas fa-trash"></i> Delete All Data</button>';
+  html += '</div>';
+
+  html += '</div>';
+
+  // Collections summary table
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--accent-light);"><div style="font-size:14px;font-weight:700;color:var(--accent-dark);">Data Collections Overview</div></div>';
+  html += '<div style="overflow-x:auto;max-height:400px;overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th style="text-align:center;width:40px;">#</th><th>Collection</th><th style="text-align:center;">Records</th><th style="text-align:center;">JSON Key</th></tr></thead><tbody>';
+  html += summaryRows;
+  html += '</tbody></table></div></div>';
+
+  // Hidden file input
+  html += '<input type="file" id="file-restore-db" accept=".json,application/json" style="display:none;">';
+
+  return html;
+}
+
+function bindBackupRestoreEvents() {
+  var backupBtn = document.getElementById('btn-backup-db');
+  if (backupBtn) backupBtn.addEventListener('click', exportFullBackup);
+
+  var restoreBtn = document.getElementById('btn-restore-db');
+  var restoreFile = document.getElementById('file-restore-db');
+  if (restoreBtn && restoreFile) {
+    restoreBtn.addEventListener('click', function() { restoreFile.click(); });
+    restoreFile.addEventListener('change', importFullBackup);
+  }
+
+  var deleteBtn = document.getElementById('btn-delete-db');
+  if (deleteBtn) deleteBtn.addEventListener('click', confirmDeleteAllData);
+}
+
+// Export entire DB as JSON
+function exportFullBackup() {
   var data = {
-    type: 'role-list-backup',
+    type: 'it-asset-management-backup',
+    version: '1.0',
     exportedAt: new Date().toISOString(),
-    count: DB.roles.length,
-    roles: DB.roles
+    collections: {
+      branches: DB.branches,
+      employees: DB.employees,
+      departments: DB.departments,
+      designations: DB.designations,
+      products: DB.products,
+      categories: DB.categories,
+      brands: DB.brands,
+      uoms: DB.uoms,
+      conditions: DB.conditions,
+      warranties: DB.warranties,
+      suppliers: DB.suppliers,
+      purchases: DB.purchases,
+      deliveries: DB.deliveries,
+      adjustments: DB.adjustments,
+      damages: DB.damages,
+      transfers: DB.transfers,
+      cashIn: DB.cashIn,
+      cashOut: DB.cashOut,
+      users: DB.users,
+      roles: DB.roles,
+      company: DB.company
+    }
   };
   var json = JSON.stringify(data, null, 2);
   var blob = new Blob([json], { type: 'application/json' });
@@ -3070,16 +3176,19 @@ function exportRolesBackup() {
   var a = document.createElement('a');
   a.href = url;
   var stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '-');
-  a.download = 'role-backup-' + stamp + '.json';
+  a.download = 'it-asset-backup-' + stamp + '.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(function() { URL.revokeObjectURL(url); }, 100);
-  showToast('Backup exported (' + DB.roles.length + ' roles)');
+  DB._lastBackup = new Date().toISOString();
+  var total = 0;
+  for (var k in data.collections) { if (Array.isArray(data.collections[k])) total += data.collections[k].length; }
+  showToast('Backup exported (' + total + ' records)');
 }
 
-// Restore roles from a JSON file
-function importRolesBackup(evt) {
+// Import DB from JSON
+function importFullBackup(evt) {
   var fileInput = evt.target;
   if (!fileInput.files || fileInput.files.length === 0) return;
   var file = fileInput.files[0];
@@ -3088,68 +3197,87 @@ function importRolesBackup(evt) {
   reader.onload = function(e) {
     try {
       var data = JSON.parse(e.target.result);
-      var importedRoles = null;
-      if (Array.isArray(data)) importedRoles = data;
-      else if (data && Array.isArray(data.roles)) importedRoles = data.roles;
-      else throw new Error('Invalid format');
-      if (importedRoles.length === 0) { showToast('No roles found in file', 'error'); return; }
-      // Confirm replace
-      var html = '<div style="padding:24px;">' + modalHeader('Restore Roles') + '<div style="padding-top:16px;">';
+      var imported = null;
+      if (data && data.collections && typeof data.collections === 'object') imported = data.collections;
+      else if (data && data.db && typeof data.db === 'object') imported = data.db;
+      else throw new Error('Missing "collections" object');
+      // Count records
+      var totalRecords = 0;
+      var collectionCount = 0;
+      for (var k in imported) { if (Array.isArray(imported[k])) { totalRecords += imported[k].length; collectionCount++; } else if (imported[k] && typeof imported[k] === 'object') { collectionCount++; } }
+      // Show confirmation modal
+      var html = '<div style="padding:24px;">' + modalHeader('Restore Backup') + '<div style="padding-top:16px;">';
       html += '<div style="font-size:14px;color:var(--fg);margin-bottom:10px;">File: <strong>' + file.name + '</strong></div>';
-      html += '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Found <strong style="color:var(--accent);">' + importedRoles.length + '</strong> roles in the backup file.</div>';
+      html += '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Found <strong style="color:var(--accent);">' + totalRecords + '</strong> records across <strong style="color:var(--accent);">' + collectionCount + '</strong> collections.</div>';
       html += '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--accent-light);margin-bottom:14px;">';
-      html += '<div style="font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:6px;">Choose restore mode:</div>';
-      html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;"><input type="radio" name="restore-mode" value="merge" checked> <span><strong>Merge:</strong> Add imported roles alongside existing ones</span></label>';
-      html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="radio" name="restore-mode" value="replace"> <span><strong>Replace:</strong> Delete all current roles, then import</span></label>';
+      html += '<div style="font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:8px;">Choose restore mode:</div>';
+      html += '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;"><input type="radio" name="restore-db-mode" value="merge" checked style="margin-top:3px;"> <span><strong>Merge:</strong> Append imported records to existing collections. (Company profile will be overwritten.)</span></label>';
+      html += '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;"><input type="radio" name="restore-db-mode" value="replace" style="margin-top:3px;"> <span><strong>Replace (recommended):</strong> Wipe all current data, then load from backup file.</span></label>';
       html += '</div>';
-      html += '<div style="font-size:12px;color:var(--warning);margin-bottom:14px;"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</div>';
+      html += '<div style="font-size:12px;color:var(--warning);margin-bottom:14px;padding:8px 12px;border:1px solid rgba(217,119,6,0.3);border-radius:6px;background:rgba(217,119,6,0.05);"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone. Consider backing up current data first.</div>';
       html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-      html += '<button class="btn btn-primary" id="btn-confirm-restore-role"><i class="fas fa-check"></i> Restore</button></div></div>';
+      html += '<button class="btn btn-primary" id="btn-confirm-restore-db"><i class="fas fa-check"></i> Restore Now</button></div></div>';
       openModal(html);
-      document.getElementById('btn-confirm-restore-role').addEventListener('click', function() {
+      document.getElementById('btn-confirm-restore-db').addEventListener('click', function() {
         var mode = 'merge';
-        var radios = document.getElementsByName('restore-mode');
+        var radios = document.getElementsByName('restore-db-mode');
         for (var ri = 0; ri < radios.length; ri++) { if (radios[ri].checked) mode = radios[ri].value; }
-        // Normalize roles (ensure id, name, permissions)
-        var cleaned = [];
-        for (var i = 0; i < importedRoles.length; i++) {
-          var r = importedRoles[i];
-          if (!r) continue;
-          cleaned.push({
-            id: r.id || (Date.now() + i),
-            name: r.name || ('Unnamed Role ' + (i + 1)),
-            permissions: r.permissions || ''
-          });
+        var collectionKeys = ['branches','employees','departments','designations','products','categories','brands','uoms','conditions','warranties','suppliers','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','users','roles'];
+        var restoredCount = 0;
+        for (var i = 0; i < collectionKeys.length; i++) {
+          var key = collectionKeys[i];
+          if (Array.isArray(imported[key])) {
+            if (mode === 'replace') DB[key] = imported[key].slice();
+            else { for (var j = 0; j < imported[key].length; j++) DB[key].push(imported[key][j]); }
+            restoredCount += imported[key].length;
+          }
         }
-        if (mode === 'replace') DB.roles = cleaned;
-        else { for (var i = 0; i < cleaned.length; i++) DB.roles.push(cleaned[i]); }
-        closeModal(); showToast('Restored ' + cleaned.length + ' roles (' + mode + ')'); renderPage();
+        if (imported.company && typeof imported.company === 'object') DB.company = imported.company;
+        closeModal(); showToast('Restored ' + restoredCount + ' records (' + mode + ' mode)'); renderPage();
       });
     } catch (err) {
-      showToast('Invalid JSON file: ' + err.message, 'error');
+      showToast('Invalid JSON: ' + err.message, 'error');
     }
     fileInput.value = '';
   };
   reader.readAsText(file);
 }
 
-// Delete all roles with confirmation
-function confirmDeleteAllRoles() {
-  if (DB.roles.length === 0) { showToast('No roles to delete', 'info'); return; }
-  var html = '<div style="padding:24px;">' + modalHeader('Delete All Roles') + '<div style="padding-top:16px;">';
-  html += '<div style="text-align:center;padding:20px 0;">';
-  html += '<div style="width:64px;height:64px;border-radius:16px;background:rgba(220,38,38,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-exclamation-triangle" style="color:var(--danger);font-size:24px;"></i></div>';
-  html += '<div style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:8px;">Delete all ' + DB.roles.length + ' roles?</div>';
-  html += '<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">This will permanently remove every role from the list.</div>';
-  html += '<div style="font-size:12px;color:var(--warning);"><i class="fas fa-exclamation-triangle"></i> Consider using <strong>Backup</strong> first to export a JSON copy.</div>';
+// Delete all data with confirmation
+function confirmDeleteAllData() {
+  var html = '<div style="padding:24px;">' + modalHeader('Delete All Data') + '<div style="padding-top:16px;">';
+  html += '<div style="text-align:center;padding:16px 0 20px;">';
+  html += '<div style="width:72px;height:72px;border-radius:18px;background:rgba(220,38,38,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;"><i class="fas fa-triangle-exclamation" style="color:var(--danger);font-size:30px;"></i></div>';
+  html += '<div style="font-size:18px;font-weight:700;color:var(--fg);margin-bottom:8px;">Delete ALL system data?</div>';
+  html += '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">This will permanently remove every record — branches, employees, products, purchases, deliveries, cash entries, users, roles, and the company profile.</div>';
+  html += '<div style="font-size:12px;color:var(--warning);padding:10px 14px;border:1px solid rgba(217,119,6,0.3);border-radius:8px;background:rgba(217,119,6,0.05);margin-bottom:14px;"><i class="fas fa-exclamation-triangle"></i> <strong>Recommendation:</strong> Use <strong>Backup</strong> first to export a JSON copy before deleting.</div>';
+  html += '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--accent-light);margin-bottom:14px;">';
+  html += '<div style="font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:6px;">Type DELETE to confirm:</div>';
+  html += '<input type="text" id="f-confirm-delete-text" class="form-input" placeholder="Type DELETE" style="text-align:center;font-weight:700;letter-spacing:2px;">';
+  html += '</div>';
   html += '</div>';
   html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-  html += '<button class="btn btn-primary" id="btn-confirm-delete-all-role" style="background:var(--danger);border-color:var(--danger);"><i class="fas fa-trash"></i> Delete All</button></div></div>';
+  html += '<button class="btn btn-primary" id="btn-confirm-delete-db" style="background:var(--danger);border-color:var(--danger);" disabled><i class="fas fa-trash"></i> Delete All Data</button></div></div>';
   openModal(html);
-  document.getElementById('btn-confirm-delete-all-role').addEventListener('click', function() {
-    DB.roles = [];
-    closeModal(); showToast('All roles deleted'); renderPage();
-  });
+  var confirmInput = document.getElementById('f-confirm-delete-text');
+  var deleteBtn = document.getElementById('btn-confirm-delete-db');
+  if (confirmInput && deleteBtn) {
+    confirmInput.addEventListener('input', function() {
+      deleteBtn.disabled = (this.value.trim().toUpperCase() !== 'DELETE');
+    });
+  }
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', function() {
+      if (this.disabled) return;
+      DB.branches = []; DB.employees = []; DB.departments = []; DB.designations = [];
+      DB.products = []; DB.categories = []; DB.brands = []; DB.uoms = [];
+      DB.conditions = []; DB.warranties = []; DB.suppliers = []; DB.purchases = [];
+      DB.deliveries = []; DB.adjustments = []; DB.damages = []; DB.transfers = [];
+      DB.cashIn = []; DB.cashOut = []; DB.users = []; DB.roles = [];
+      DB.company = { name: '', address: '', phone: '', email: '', website: '' };
+      closeModal(); showToast('All data deleted'); renderPage();
+    });
+  }
 }
 
 // ==================== PAGE ROUTER ====================
@@ -3188,6 +3316,7 @@ function renderPage() {
     'company-profile': renderCompanyProfile,
     'user-list': renderUserList,
     'role-list': renderRoleList,
+    'backup-restore': renderBackupRestore,
   };
 
   var renderFn = pageMap[currentPage] || renderDashboard;
@@ -3218,6 +3347,7 @@ function renderPage() {
     'company-profile': bindCompanyEvents,
     'user-list': bindUserEvents,
     'role-list': bindRoleEvents,
+    'backup-restore': bindBackupRestoreEvents,
   };
 
   if (currentPage === 'dashboard') initDashboardChart();
