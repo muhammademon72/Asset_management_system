@@ -3250,32 +3250,54 @@ function confirmDeleteAllData() {
   html += '<div style="width:72px;height:72px;border-radius:18px;background:rgba(220,38,38,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;"><i class="fas fa-triangle-exclamation" style="color:var(--danger);font-size:30px;"></i></div>';
   html += '<div style="font-size:18px;font-weight:700;color:var(--fg);margin-bottom:8px;">Delete ALL system data?</div>';
   html += '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">This will permanently remove every record — branches, employees, products, purchases, deliveries, cash entries, users, roles, and the company profile.</div>';
-  html += '<div style="font-size:12px;color:var(--warning);padding:10px 14px;border:1px solid rgba(217,119,6,0.3);border-radius:8px;background:rgba(217,119,6,0.05);margin-bottom:14px;"><i class="fas fa-exclamation-triangle"></i> <strong>Recommendation:</strong> Use <strong>Backup</strong> first to export a JSON copy before deleting.</div>';
-  html += '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--accent-light);margin-bottom:14px;">';
-  html += '<div style="font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:6px;">Type DELETE to confirm:</div>';
-  html += '<input type="text" id="f-confirm-delete-text" class="form-input" placeholder="Type DELETE" style="text-align:center;font-weight:700;letter-spacing:2px;">';
+  html += '<div style="font-size:12px;color:var(--warning);padding:10px 14px;border:1px solid rgba(217,119,6,0.3);border-radius:8px;background:rgba(217,119,6,0.05);margin-bottom:14px;text-align:left;"><i class="fas fa-exclamation-triangle"></i> <strong>Recommendation:</strong> Use <strong>Backup</strong> first to export a JSON copy before deleting.</div>';
+  html += '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--accent-light);margin-bottom:14px;text-align:left;">';
+  html += '<div style="font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:8px;">Type <strong>DELETE</strong> to confirm:</div>';
+  html += '<input type="text" id="f-confirm-delete-text" class="form-input" placeholder="Type DELETE here" style="text-align:center;font-weight:700;letter-spacing:2px;font-size:14px;" autocomplete="off">';
+  html += '<div id="delete-confirm-status" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;">Button will activate after typing DELETE</div>';
   html += '</div>';
   html += '</div>';
   html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-  html += '<button class="btn btn-primary" id="btn-confirm-delete-db" style="background:var(--danger);border-color:var(--danger);" disabled><i class="fas fa-trash"></i> Delete All Data</button></div></div>';
+  html += '<button class="btn btn-primary" id="btn-confirm-delete-db" style="background:var(--danger);border-color:var(--danger);opacity:0.4;cursor:not-allowed;" disabled><i class="fas fa-trash"></i> Delete All Data</button></div></div>';
   openModal(html);
+
   var confirmInput = document.getElementById('f-confirm-delete-text');
   var deleteBtn = document.getElementById('btn-confirm-delete-db');
+  var statusEl = document.getElementById('delete-confirm-status');
+
   if (confirmInput && deleteBtn) {
     confirmInput.addEventListener('input', function() {
-      deleteBtn.disabled = (this.value.trim().toUpperCase() !== 'DELETE');
+      var typed = this.value.trim().toUpperCase();
+      var matched = (typed === 'DELETE');
+      // Toggle disabled state and visual style
+      deleteBtn.disabled = !matched;
+      if (matched) {
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.cursor = 'pointer';
+        if (statusEl) { statusEl.textContent = '✓ Confirmed — click to delete all data'; statusEl.style.color = 'var(--danger)'; }
+      } else {
+        deleteBtn.style.opacity = '0.4';
+        deleteBtn.style.cursor = 'not-allowed';
+        if (statusEl) { statusEl.textContent = 'Button will activate after typing DELETE'; statusEl.style.color = 'var(--muted)'; }
+      }
     });
+    // Auto-focus the input
+    setTimeout(function() { confirmInput.focus(); }, 50);
   }
+
   if (deleteBtn) {
     deleteBtn.addEventListener('click', function() {
-      if (this.disabled) return;
+      // Double-check the input value before deleting
+      var typed = confirmInput ? confirmInput.value.trim().toUpperCase() : '';
+      if (typed !== 'DELETE') { showToast('Please type DELETE to confirm', 'error'); return; }
+      // Perform the deletion
       DB.branches = []; DB.employees = []; DB.departments = []; DB.designations = [];
       DB.products = []; DB.categories = []; DB.brands = []; DB.uoms = [];
       DB.conditions = []; DB.warranties = []; DB.suppliers = []; DB.purchases = [];
       DB.deliveries = []; DB.adjustments = []; DB.damages = []; DB.transfers = [];
       DB.cashIn = []; DB.cashOut = []; DB.users = []; DB.roles = [];
       DB.company = { name: '', address: '', phone: '', email: '', website: '' };
-      closeModal(); showToast('All data deleted'); renderPage();
+      closeModal(); showToast('All data deleted successfully'); renderPage();
     });
   }
 }
