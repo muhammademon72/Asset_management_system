@@ -698,7 +698,7 @@ function openEmployeeModal(editId) {
   html += '<div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="f-emp-branch">' + branchOpts + '</select></div>';
   html += '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="f-emp-phone" value="' + (e ? e.phone : '') + '"></div>';
   html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-emp-status"><option' + (e && e.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (e && e.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div>';
-  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button';
+  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
   html += '<button class="btn btn-primary" id="btn-save-emp"><i class="fas fa-save"></i> ' + (e ? 'Update' : 'Save') + '</button></div></div>';
   openModal(html);
 
