@@ -3950,6 +3950,8 @@ function confirmDeleteAllData() {
       DB.deliveries = []; DB.adjustments = []; DB.damages = []; DB.transfers = [];
       DB.cashIn = []; DB.cashOut = []; DB.users = []; DB.roles = [];
       DB.company = { name: '', address: '', phone: '', email: '', website: '' };
+      // Also clear localStorage so deleted data doesn't come back on refresh
+      clearSavedDB();
       closeModal(); showToast('All data deleted successfully'); renderPage();
     });
   }
@@ -3957,6 +3959,8 @@ function confirmDeleteAllData() {
 
 // ==================== PAGE ROUTER ====================
 function renderPage() {
+  // Persist any DB changes to localStorage so user-entered data survives page refresh / browser restart
+  saveDB();
   document.getElementById('breadcrumb').textContent = getBreadcrumb();
   var pc = document.getElementById('page-content');
   var pageMap = {
@@ -4036,6 +4040,67 @@ function renderPage() {
 }
 
 // ==================== INIT ====================
+// Persist DB to localStorage so user-entered data is never lost on refresh or restart
+function saveDB() {
+  try {
+    var data = {
+      branches: DB.branches,
+      employees: DB.employees,
+      departments: DB.departments,
+      designations: DB.designations,
+      categories: DB.categories,
+      brands: DB.brands,
+      uoms: DB.uoms,
+      products: DB.products,
+      suppliers: DB.suppliers,
+      conditions: DB.conditions,
+      warranties: DB.warranties,
+      purchases: DB.purchases,
+      deliveries: DB.deliveries,
+      adjustments: DB.adjustments,
+      damages: DB.damages,
+      transfers: DB.transfers,
+      cashIn: DB.cashIn,
+      cashOut: DB.cashOut,
+      users: DB.users,
+      roles: DB.roles,
+      company: DB.company,
+      _lastBackup: DB._lastBackup,
+      _savedAt: new Date().toISOString()
+    };
+    localStorage.setItem('itAssetDB', JSON.stringify(data));
+  } catch (e) {
+    console.warn('saveDB failed:', e);
+  }
+}
+
+function loadDB() {
+  try {
+    var raw = localStorage.getItem('itAssetDB');
+    if (!raw) return; // First visit — keep the empty default DB
+    var data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return;
+    // Restore each collection (only if the saved value is an array or expected shape)
+    var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','users','roles'];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (Array.isArray(data[k])) DB[k] = data[k];
+    }
+    if (data.company && typeof data.company === 'object') DB.company = data.company;
+    if (data._lastBackup) DB._lastBackup = data._lastBackup;
+  } catch (e) {
+    console.warn('loadDB failed (corrupt data, starting fresh):', e);
+  }
+}
+
+// Clear all saved data (used by the Delete All Data button — clears localStorage too)
+function clearSavedDB() {
+  try { localStorage.removeItem('itAssetDB'); } catch (e) {}
+}
+
+// Load saved data BEFORE rendering the first page
+loadDB();
+
 renderNav();
 renderPage();
 </script>
