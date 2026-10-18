@@ -1542,6 +1542,7 @@ function openDeliveryModal(delId, readOnly) {
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.serial || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.condition || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.warranty || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (del.bqty !== undefined ? del.bqty : 0) + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (del.qty || 0) + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.remarks || '-') + '</td>';
     html += '</tr>';
@@ -1626,6 +1627,8 @@ function openDeliveryModal(delId, readOnly) {
       if (condSel) condSel.value = del.condition || 'New';
       var warSel = firstRow.querySelector('[data-f="warranty"]');
       if (warSel) warSel.value = del.warranty || '';
+      var bqIn = firstRow.querySelector('[data-f="bqty"]');
+      if (bqIn) bqIn.value = (del.bqty !== undefined ? del.bqty : 0);
       var qtyIn = firstRow.querySelector('[data-f="qty"]');
       if (qtyIn) qtyIn.value = del.qty || 0;
       var remIn = firstRow.querySelector('[data-f="remarks"]');
@@ -1691,6 +1694,7 @@ function openDeliveryModal(delId, readOnly) {
         del.serial = firstValid.querySelector('[data-f="serial"]').value;
         del.condition = firstValid.querySelector('[data-f="condition"]').value;
         del.warranty = firstValid.querySelector('[data-f="warranty"]').value;
+        del.bqty = parseFloat(firstValid.querySelector('[data-f="bqty"]').value) || 0;
         del.qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
         del.remarks = firstValid.querySelector('[data-f="remarks"]').value;
       }
@@ -1873,7 +1877,7 @@ function openDeliveryAddModal() {
 
   bindPurRowDel(document.querySelector('#pur-entries-body tr'));
   bindAllPurSearchable(box, function(val, lbl, cat, wrapper, optData) {
-    // Product auto-fill: Category, Brand, Model, Serial, Condition, Warranty
+    // Product auto-fill: Category, Brand, Model, Serial, Condition, Warranty, B.QTY
     if (wrapper.getAttribute('data-sr') === 'product') {
       var row = wrapper.closest('tr');
       if (row && optData) {
@@ -1883,6 +1887,7 @@ function openDeliveryAddModal() {
         var si = row.querySelector('[data-f="serial"]'); if (si && optData.serial) si.value = optData.serial;
         var cd = row.querySelector('[data-f="condition"]'); if (cd && optData.condition) cd.value = optData.condition;
         var ws = row.querySelector('[data-f="warranty"]'); if (ws && optData.warranty) ws.value = optData.warranty;
+        var bq = row.querySelector('[data-f="bqty"]'); if (bq && optData.stock !== undefined) bq.value = optData.stock;
       }
       // Override trigger to show only the Product name (not "Product · Serial")
       var pTrigger = wrapper.querySelector('.pur-sr-trigger');
@@ -1918,6 +1923,7 @@ function openDeliveryAddModal() {
           var si = row.querySelector('[data-f="serial"]'); if (si && optData.serial) si.value = optData.serial;
           var cd = row.querySelector('[data-f="condition"]'); if (cd && optData.condition) cd.value = optData.condition;
           var ws = row.querySelector('[data-f="warranty"]'); if (ws && optData.warranty) ws.value = optData.warranty;
+          var bq = row.querySelector('[data-f="bqty"]'); if (bq && optData.stock !== undefined) bq.value = optData.stock;
           // Override trigger to show only the Product name
           var pTrigger = wrapper.querySelector('.pur-sr-trigger');
           if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
@@ -1959,6 +1965,7 @@ function openDeliveryAddModal() {
         serial: r.querySelector('[data-f="serial"]').value,
         condition: r.querySelector('[data-f="condition"]').value,
         warranty: r.querySelector('[data-f="warranty"]').value,
+        bqty: parseFloat(r.querySelector('[data-f="bqty"]').value) || 0,
         qty: parseFloat(r.querySelector('[data-f="qty"]').value) || 0,
         remarks: r.querySelector('[data-f="remarks"]').value
       });
