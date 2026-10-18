@@ -1529,7 +1529,7 @@ function openDeliveryModal(delId, readOnly) {
   html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
-  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
   html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
@@ -1709,6 +1709,8 @@ function deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
   h += '<td class="pur-td"><input data-f="serial" placeholder="Auto" readonly style="background:#f5f7f5;color:var(--muted);"></td>';
   h += '<td class="pur-td"><select data-f="condition" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
   h += '<td class="pur-td"><select data-f="warranty" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + warOpts + '</select></td>';
+  // B.QTY (Balance Quantity) — auto-filled from inventory stock, read-only
+  h += '<td class="pur-td"><input type="text" data-f="bqty" value="0" readonly style="text-align:center;font-weight:700;color:var(--info);background:#f0f7ff;"></td>';
   // Editable fields
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
@@ -1834,7 +1836,7 @@ function openDeliveryAddModal() {
   html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
-  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
   html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
   html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
@@ -2066,7 +2068,7 @@ function openAdjustmentModal(adjId, readOnly) {
   html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
-  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
   html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
