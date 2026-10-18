@@ -1701,13 +1701,15 @@ function openDeliveryModal(delId, readOnly) {
 
 function deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
   var h = '<tr>';
-  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
+  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search by product or serial...') + '</td>';
+  // Auto-filled & read-only fields (sourced from inventory purchase record)
   h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
-  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
-  h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
-  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
-  h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
-  h += '<td class="pur-td"><select data-f="warranty">' + warOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="brand" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Auto" readonly style="background:#f5f7f5;color:var(--muted);"></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Auto" readonly style="background:#f5f7f5;color:var(--muted);"></td>';
+  h += '<td class="pur-td"><select data-f="condition" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td class="pur-td"><select data-f="warranty" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + warOpts + '</select></td>';
+  // Editable fields
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
   h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
@@ -1718,8 +1720,53 @@ function deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
 function openDeliveryAddModal() {
   var supArr = [];
   for (var k = 0; k < DB.suppliers.length; k++) supArr.push({ value: DB.suppliers[k].name, label: DB.suppliers[k].name });
+  // Build product array from Inventory Stock (products with stock > 0)
+  // For each product, pull the latest purchase record to get serial/model/condition/warranty
   var prdArr = [];
-  for (var k = 0; k < DB.products.length; k++) prdArr.push({ value: DB.products[k].name, label: DB.products[k].name, category: DB.products[k].category });
+  for (var k = 0; k < DB.products.length; k++) {
+    var p = DB.products[k];
+    // Compute current stock for this product
+    var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) {
+      if (DB.purchases[j].product === p.name) {
+        purchased += (DB.purchases[j].qty || 0);
+        if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
+      }
+    }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) {
+      if (DB.adjustments[j].product === p.name) {
+        var adjQty = DB.adjustments[j].qty || 0;
+        adjusted += (DB.adjustments[j].type === 'Increase') ? adjQty : -adjQty;
+      }
+    }
+    var stock = purchased - delivered - damaged + adjusted;
+    if (stock < 0) stock = 0;
+    // Skip products with zero stock — only show in-stock products for delivery
+    if (stock === 0) continue;
+    // Pull product-level attributes from latest purchase (or product master as fallback)
+    var serial = (latestPur && latestPur.serial) || '';
+    var model = (latestPur && latestPur.model) || '';
+    var condition = (latestPur && latestPur.condition) || '';
+    var warranty = (latestPur && latestPur.warranty) || '';
+    var brand = p.brand || (latestPur && latestPur.brand) || '';
+    var category = p.category || (latestPur && latestPur.category) || '';
+    // Label: Product name + serial (if available), so user can see both and search by either
+    var label = p.name + (serial ? ' · ' + serial : '');
+    prdArr.push({
+      value: p.name,
+      label: label,
+      category: category,
+      brand: brand,
+      model: model,
+      serial: serial,
+      condition: condition,
+      warranty: warranty,
+      stock: stock
+    });
+  }
   var catOpts = '<option value="">Select</option>';
   for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
   var brandOpts = '<option value="">Select</option>';
@@ -1823,11 +1870,21 @@ function openDeliveryAddModal() {
   overlay.classList.add('show');
 
   bindPurRowDel(document.querySelector('#pur-entries-body tr'));
-  bindAllPurSearchable(box, function(val, lbl, cat, wrapper) {
-    // Product auto-fill category
-    if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+  bindAllPurSearchable(box, function(val, lbl, cat, wrapper, optData) {
+    // Product auto-fill: Category, Brand, Model, Serial, Condition, Warranty
+    if (wrapper.getAttribute('data-sr') === 'product') {
       var row = wrapper.closest('tr');
-      if (row) { var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = cat; }
+      if (row && optData) {
+        var cs = row.querySelector('[data-f="category"]'); if (cs && optData.category) cs.value = optData.category;
+        var bs = row.querySelector('[data-f="brand"]'); if (bs && optData.brand) bs.value = optData.brand;
+        var mi = row.querySelector('[data-f="model"]'); if (mi && optData.model) mi.value = optData.model;
+        var si = row.querySelector('[data-f="serial"]'); if (si && optData.serial) si.value = optData.serial;
+        var cd = row.querySelector('[data-f="condition"]'); if (cd && optData.condition) cd.value = optData.condition;
+        var ws = row.querySelector('[data-f="warranty"]'); if (ws && optData.warranty) ws.value = optData.warranty;
+      }
+      // Override trigger to show only the Product name (not "Product · Serial")
+      var pTrigger = wrapper.querySelector('.pur-sr-trigger');
+      if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
     }
     // Receiver auto-fill Employee ID & Department
     if (wrapper.getAttribute('data-sr') === 'receiver') {
@@ -1849,10 +1906,20 @@ function openDeliveryAddModal() {
     tr.innerHTML = deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
     tbody.appendChild(tr);
     bindPurRowDel(tr);
-    bindAllPurSearchable(tr, function(val, lbl, cat, wrapper) {
-      if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+    bindAllPurSearchable(tr, function(val, lbl, cat, wrapper, optData) {
+      if (wrapper.getAttribute('data-sr') === 'product' && optData) {
         var row = wrapper.closest('tr');
-        if (row) { var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = cat; }
+        if (row) {
+          var cs = row.querySelector('[data-f="category"]'); if (cs && optData.category) cs.value = optData.category;
+          var bs = row.querySelector('[data-f="brand"]'); if (bs && optData.brand) bs.value = optData.brand;
+          var mi = row.querySelector('[data-f="model"]'); if (mi && optData.model) mi.value = optData.model;
+          var si = row.querySelector('[data-f="serial"]'); if (si && optData.serial) si.value = optData.serial;
+          var cd = row.querySelector('[data-f="condition"]'); if (cd && optData.condition) cd.value = optData.condition;
+          var ws = row.querySelector('[data-f="warranty"]'); if (ws && optData.warranty) ws.value = optData.warranty;
+          // Override trigger to show only the Product name
+          var pTrigger = wrapper.querySelector('.pur-sr-trigger');
+          if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+        }
       }
     });
   });
@@ -3110,12 +3177,25 @@ function purSearchableHTML(name, dataAttr, options, selectedValue, placeholder, 
   if (options.length === 0) {
     h += '<div class="pur-sr-empty">No options</div>';
   } else {
+    // Whitelist of extra data attributes we support on options (in addition to value/label/category)
+    var extraAttrs = ['brand', 'model', 'serial', 'condition', 'warranty', 'empId', 'department', 'stock'];
     for (var i = 0; i < options.length; i++) {
       var v = (options[i].value || '').toString().replace(/"/g, '&quot;');
       var l = (options[i].label || '').toString();
       var ls = l.toLowerCase().replace(/"/g, '&quot;');
       var c = (options[i].category || '').toString().replace(/"/g, '&quot;');
-      h += '<div class="pur-sr-option' + (options[i].value === selectedValue ? ' selected' : '') + '" data-value="' + v + '" data-label="' + ls + '" data-category="' + c + '">' + l + '</div>';
+      // Also include serial in the searchable label so users can search by serial
+      var serialStr = (options[i].serial || '').toString();
+      var searchStr = ls + (serialStr ? ' ' + serialStr.toLowerCase().replace(/"/g, '&quot;') : '');
+      h += '<div class="pur-sr-option' + (options[i].value === selectedValue ? ' selected' : '') + '" data-value="' + v + '" data-label="' + searchStr + '" data-category="' + c + '"';
+      // Add extra data attributes
+      for (var ea = 0; ea < extraAttrs.length; ea++) {
+        var attrName = extraAttrs[ea];
+        if (options[i][attrName] !== undefined && options[i][attrName] !== null && options[i][attrName] !== '') {
+          h += ' data-' + attrName + '="' + options[i][attrName].toString().replace(/"/g, '&quot;') + '"';
+        }
+      }
+      h += '>' + l + '</div>';
     }
   }
   h += '</div></div></div>';
@@ -3192,12 +3272,19 @@ function bindPurSearchable(wrapper, onSelectCallback) {
         var val = opt.getAttribute('data-value');
         var lbl = opt.textContent;
         var cat = opt.getAttribute('data-category') || '';
+        // Build a full option data object from all data-* attributes
+        var optData = { value: val, label: lbl, category: cat };
+        var extraKeys = ['brand', 'model', 'serial', 'condition', 'warranty', 'empId', 'department', 'stock'];
+        for (var ek = 0; ek < extraKeys.length; ek++) {
+          var av = opt.getAttribute('data-' + extraKeys[ek]);
+          if (av !== null) optData[extraKeys[ek]] = av;
+        }
         hidden.value = val;
         trigger.innerHTML = lbl + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
         for (var j = 0; j < options.length; j++) options[j].classList.remove('selected');
         opt.classList.add('selected');
         panel.style.display = 'none';
-        if (onSelectCallback) onSelectCallback(val, lbl, cat, wrapper);
+        if (onSelectCallback) onSelectCallback(val, lbl, cat, wrapper, optData);
       });
     })(options[i]);
   }
