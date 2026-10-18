@@ -208,119 +208,27 @@
 <script>
 // ==================== DATABASE ====================
 const DB = {
-  branches: [
-    { id: 1, name: 'Head Office', address: '45 Tech Park, Dhaka', phone: '01711234567', manager: 'Rafiq Ahmed', status: 'Active' },
-    { id: 2, name: 'Chittagong Branch', address: '12 Agrabad C/A, Chittagong', phone: '01811234567', manager: 'Karim Uddin', status: 'Active' },
-    { id: 3, name: 'Sylhet Branch', address: '78 Zindabazar, Sylhet', phone: '01911234567', manager: 'Tanvir Hasan', status: 'Active' },
-    { id: 4, name: 'Rajshahi Branch', address: '23 Serniabat, Rajshahi', phone: '01611234567', manager: 'Nasir Hossain', status: 'Inactive' },
-    { id: 5, name: 'Khulna Branch', address: '56 KDA Ave, Khulna', phone: '01511234567', manager: 'Mizanur Rahman', status: 'Active' },
-  ],
-  employees: [
-    { id: 1, name: 'Rafiq Ahmed', empId: 'EMP-001', department: 'IT', designation: 'Manager', branch: 'Head Office', phone: '01711234567', email: 'rafiq@itassets.com', status: 'Active' },
-    { id: 2, name: 'Karim Uddin', empId: 'EMP-002', department: 'IT', designation: 'Senior Officer', branch: 'Chittagong Branch', phone: '01811234567', email: 'karim@itassets.com', status: 'Active' },
-    { id: 3, name: 'Tanvir Hasan', empId: 'EMP-003', department: 'Finance', designation: 'Officer', branch: 'Sylhet Branch', phone: '01911234567', email: 'tanvir@itassets.com', status: 'Active' },
-    { id: 4, name: 'Nasir Hossain', empId: 'EMP-004', department: 'HR', designation: 'Executive', branch: 'Rajshahi Branch', phone: '01611234567', email: 'nasir@itassets.com', status: 'Inactive' },
-    { id: 5, name: 'Mizanur Rahman', empId: 'EMP-005', department: 'IT', designation: 'Technician', branch: 'Khulna Branch', phone: '01511234567', email: 'mizan@itassets.com', status: 'Active' },
-    { id: 6, name: 'Fahmida Akter', empId: 'EMP-006', department: 'Admin', designation: 'Assistant', branch: 'Head Office', phone: '01411234567', email: 'fahmida@itassets.com', status: 'Active' },
-  ],
-  departments: [
-    { id: 1, name: 'IT', status: 'Active' }, { id: 2, name: 'Finance', status: 'Active' }, { id: 3, name: 'HR', status: 'Active' }, { id: 4, name: 'Admin', status: 'Active' }, { id: 5, name: 'Operations', status: 'Active' }, { id: 6, name: 'Marketing', status: 'Active' },
-  ],
-  designations: [
-    { id: 1, name: 'Manager', status: 'Active' }, { id: 2, name: 'Senior Officer', status: 'Active' }, { id: 3, name: 'Officer', status: 'Active' }, { id: 4, name: 'Executive', status: 'Active' }, { id: 5, name: 'Assistant', status: 'Active' }, { id: 6, name: 'Technician', status: 'Active' },
-  ],
-  categories: [
-    { id: 1, name: 'Laptop', description: 'All laptop devices', status: 'Active' },
-    { id: 2, name: 'Desktop', description: 'Desktop computers and workstations', status: 'Active' },
-    { id: 3, name: 'Printer', description: 'Printers and scanners', status: 'Active' },
-    { id: 4, name: 'Networking', description: 'Switches, routers, access points', status: 'Active' },
-    { id: 5, name: 'Server', description: 'Server hardware and components', status: 'Active' },
-    { id: 6, name: 'UPS', description: 'Uninterruptible power supplies', status: 'Active' },
-  ],
-  brands: [
-    { id: 1, name: 'Dell', category: 'Laptop', status: 'Active' },
-    { id: 2, name: 'HP', category: 'Laptop', status: 'Active' },
-    { id: 3, name: 'Lenovo', category: 'Laptop', status: 'Active' },
-    { id: 4, name: 'Cisco', category: 'Networking', status: 'Active' },
-    { id: 5, name: 'HP Printer', category: 'Printer', status: 'Active' },
-    { id: 6, name: 'APC', category: 'UPS', status: 'Active' },
-  ],
-  uoms: [
-    { id: 1, name: 'Piece', status: 'Active' }, { id: 2, name: 'Set', status: 'Active' }, { id: 3, name: 'Pair', status: 'Active' }, { id: 4, name: 'Box', status: 'Active' }, { id: 5, name: 'Pack', status: 'Active' },
-  ],
-  products: [
-    { id: 1, name: 'Dell Latitude 5540', category: 'Laptop', brand: 'Dell', uom: 'Piece', price: 85000, status: 'Active' },
-    { id: 2, name: 'HP ProBook 450 G10', category: 'Laptop', brand: 'HP', uom: 'Piece', price: 78000, status: 'Active' },
-    { id: 3, name: 'Lenovo ThinkPad T14', category: 'Laptop', brand: 'Lenovo', uom: 'Piece', price: 92000, status: 'Active' },
-    { id: 4, name: 'Cisco Catalyst 2960', category: 'Networking', brand: 'Cisco', uom: 'Piece', price: 45000, status: 'Active' },
-    { id: 5, name: 'HP LaserJet Pro M404', category: 'Printer', brand: 'HP Printer', uom: 'Piece', price: 38000, status: 'Active' },
-    { id: 6, name: 'APC Smart-UPS 1500VA', category: 'UPS', brand: 'APC', uom: 'Piece', price: 55000, status: 'Inactive' },
-  ],
-  suppliers: [
-    { id: 1, name: 'TechVista Ltd', contact: '01711234567', email: 'info@techvista.com', address: 'Gulshan-2, Dhaka', status: 'Active' },
-    { id: 2, name: 'CompuWorld', contact: '01811234567', email: 'sales@compuworld.com', address: 'Elephant Road, Dhaka', status: 'Active' },
-    { id: 3, name: 'Network Solutions BD', contact: '01911234567', email: 'info@netsolbd.com', address: 'Motijheel, Dhaka', status: 'Inactive' },
-  ],
-  conditions: [
-    { id: 1, name: 'New', status: 'Active' },
-    { id: 2, name: 'Used', status: 'Active' },
-    { id: 3, name: 'Refurbished', status: 'Active' },
-  ],
-  warranties: [
-    { id: 1, name: 'No Warranty', status: 'Active' },
-    { id: 2, name: '3 Months', status: 'Active' },
-    { id: 3, name: '6 Months', status: 'Active' },
-    { id: 4, name: '1 Year', status: 'Active' },
-    { id: 5, name: '2 Years', status: 'Active' },
-    { id: 6, name: '3 Years', status: 'Active' },
-  ],
-  purchases: [
-    { id: 1, invoice: 'PUR-2024-001', date: '2024-01-15', supplier: 'TechVista Ltd', product: 'Dell Latitude 5540', qty: 10, unitPrice: 85000, total: 850000, status: 'Approved', branch: 'Head Office' },
-    { id: 2, invoice: 'PUR-2024-002', date: '2024-01-20', supplier: 'CompuWorld', product: 'HP ProBook 450 G10', qty: 5, unitPrice: 78000, total: 390000, status: 'Approved', branch: 'Chittagong Branch' },
-    { id: 3, invoice: 'PUR-2024-003', date: '2024-02-05', supplier: 'TechVista Ltd', product: 'Cisco Catalyst 2960', qty: 3, unitPrice: 45000, total: 135000, status: 'Pending', branch: 'Head Office' },
-    { id: 4, invoice: 'PUR-2024-004', date: '2024-02-10', supplier: 'Network Solutions BD', product: 'APC Smart-UPS 1500VA', qty: 4, unitPrice: 55000, total: 220000, status: 'Pending', branch: 'Sylhet Branch' },
-    { id: 5, invoice: 'PUR-2024-005', date: '2024-02-15', supplier: 'CompuWorld', product: 'HP LaserJet Pro M404', qty: 6, unitPrice: 38000, total: 228000, status: 'Rejected', branch: 'Khulna Branch' },
-  ],
-  deliveries: [
-    { id: 1, chalan: 'DEL-2024-001', date: '2024-01-18', product: 'Dell Latitude 5540', qty: 10, branch: 'Head Office', receivedBy: 'Rafiq Ahmed', status: 'Received' },
-    { id: 2, chalan: 'DEL-2024-002', date: '2024-01-22', product: 'HP ProBook 450 G10', qty: 5, branch: 'Chittagong Branch', receivedBy: 'Karim Uddin', status: 'Received' },
-    { id: 3, chalan: 'DEL-2024-003', date: '2024-02-08', product: 'Cisco Catalyst 2960', qty: 3, branch: 'Head Office', receivedBy: 'Mizanur Rahman', status: 'In Transit' },
-  ],
-  adjustments: [
-    { id: 1, ref: 'ADJ-2024-001', date: '2024-02-01', product: 'Dell Latitude 5540', branch: 'Head Office', type: 'Increase', qty: 2, reason: 'Found in stock audit', status: 'Approved' },
-    { id: 2, ref: 'ADJ-2024-002', date: '2024-02-12', product: 'HP LaserJet Pro M404', branch: 'Chittagong Branch', type: 'Decrease', qty: 1, reason: 'Defective unit removed', status: 'Pending' },
-  ],
-  damages: [
-    { id: 1, ref: 'DMG-2024-001', date: '2024-01-25', product: 'Dell Latitude 5540', branch: 'Head Office', qty: 1, reason: 'Screen cracked during transport', status: 'Approved' },
-    { id: 2, ref: 'DMG-2024-002', date: '2024-02-14', product: 'APC Smart-UPS 1500VA', branch: 'Sylhet Branch', qty: 1, reason: 'Power surge damage', status: 'Pending' },
-  ],
-  transfers: [
-    { id: 1, ref: 'TRF-2024-001', date: '2024-02-10', product: 'Dell Latitude 5540', qty: 2, fromBranch: 'Head Office', toBranch: 'Sylhet Branch', status: 'Completed' },
-    { id: 2, ref: 'TRF-2024-002', date: '2024-02-18', product: 'HP ProBook 450 G10', qty: 1, fromBranch: 'Chittagong Branch', toBranch: 'Khulna Branch', status: 'In Transit' },
-  ],
-  cashIn: [
-    { id: 1, voucher: 'CI-2024-001', date: '2024-01-15', amount: 850000, description: 'Payment for PUR-2024-001', branch: 'Head Office', status: 'Approved' },
-    { id: 2, voucher: 'CI-2024-002', date: '2024-01-22', amount: 390000, description: 'Payment for PUR-2024-002', branch: 'Chittagong Branch', status: 'Approved' },
-    { id: 3, voucher: 'CI-2024-003', date: '2024-02-05', amount: 200000, description: 'Advance for IT services', branch: 'Head Office', status: 'Pending' },
-  ],
-  cashOut: [
-    { id: 1, voucher: 'CO-2024-001', date: '2024-01-15', amount: 850000, description: 'Payment to TechVista Ltd', branch: 'Head Office', status: 'Approved' },
-    { id: 2, voucher: 'CO-2024-002', date: '2024-01-20', amount: 390000, description: 'Payment to CompuWorld', branch: 'Chittagong Branch', status: 'Approved' },
-    { id: 3, voucher: 'CO-2024-003', date: '2024-02-01', amount: 45000, description: 'Maintenance - Networking', branch: 'Head Office', status: 'Pending' },
-  ],
-  users: [
-    { id: 1, name: 'Admin User', username: 'admin', email: 'admin@itassets.com', role: 'Super Admin', status: 'Active' },
-    { id: 2, name: 'Rafiq Ahmed', username: 'rafiq', email: 'rafiq@itassets.com', role: 'Branch Manager', status: 'Active' },
-    { id: 3, name: 'Karim Uddin', username: 'karim', email: 'karim@itassets.com', role: 'Inventory Officer', status: 'Active' },
-  ],
-  roles: [
-    { id: 1, name: 'Super Admin', permissions: 'Full Access' },
-    { id: 2, name: 'Branch Manager', permissions: 'Dashboard, Inventory, Reports (Own Branch)' },
-    { id: 3, name: 'Inventory Officer', permissions: 'Inventory, Delivery, Adjustment' },
-    { id: 4, name: 'Finance Officer', permissions: 'Cash Book, Reports' },
-    { id: 5, name: 'Viewer', permissions: 'Dashboard, Reports (Read Only)' },
-  ],
-  company: { name: 'IT Asset Management Ltd', address: '45 Tech Park, Gulshan-2, Dhaka 1212', phone: '01711234567', email: 'info@itassets.com', website: 'www.itassets.com' }
+  branches: [],
+  employees: [],
+  departments: [],
+  designations: [],
+  categories: [],
+  brands: [],
+  uoms: [],
+  products: [],
+  suppliers: [],
+  conditions: [],
+  warranties: [],
+  purchases: [],
+  deliveries: [],
+  adjustments: [],
+  damages: [],
+  transfers: [],
+  cashIn: [],
+  cashOut: [],
+  users: [],
+  roles: [],
+  company: { name: '', address: '', phone: '', email: '', website: '' }
 };
 
 // ==================== NAVIGATION ====================
