@@ -1058,16 +1058,8 @@ function renderInventoryStock() {
     html += '<span><strong>' + visibleCount + '</strong> products with stock shown &nbsp;·&nbsp; <strong>' + hiddenCount + '</strong> out-of-stock product' + (hiddenCount === 1 ? '' : 's') + ' hidden</span>';
     html += '</div>';
   }
-  // Summary cards
-  html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;">';
-  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Purchased</div><div style="font-size:22px;font-weight:800;color:var(--info);">' + totalPurchased + '</div></div>';
-  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Delivered</div><div style="font-size:22px;font-weight:800;color:var(--accent);">' + totalDelivered + '</div></div>';
-  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Damaged</div><div style="font-size:22px;font-weight:800;color:var(--danger);">' + totalDamaged + '</div></div>';
-  html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Net Adjustment</div><div style="font-size:22px;font-weight:800;color:' + (totalAdjusted >= 0 ? 'var(--accent)' : 'var(--danger)') + ';">' + (totalAdjusted >= 0 ? '+' : '') + totalAdjusted + '</div></div>';
-  html += '<div class="stat-card" style="padding:16px;border:2px solid var(--accent);"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Current Stock</div><div style="font-size:22px;font-weight:800;color:var(--accent-dark);">' + totalStock + '</div></div>';
-  html += '</div>';
   // Table — show empty state message if no products with stock
-  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 360px);overflow-y:auto;">';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
   html += '<th style="text-align:center;width:50px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
   html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
@@ -1172,14 +1164,6 @@ function printInventoryStock() {
   html += '<div class="doc-meta">Printed: ' + stamp + '</div>';
   html += '<div class="doc-meta">Total Products: ' + DB.products.length + '</div>';
   html += '</div>';
-  html += '</div>';
-  // Summary
-  html += '<div class="summary">';
-  html += '<div class="sum-box"><div class="sum-label">Total Purchased</div><div class="sum-value" style="color:#0284c7;">' + totalPurchased + '</div></div>';
-  html += '<div class="sum-box"><div class="sum-label">Total Delivered</div><div class="sum-value" style="color:#2d8a4e;">' + totalDelivered + '</div></div>';
-  html += '<div class="sum-box"><div class="sum-label">Total Damaged</div><div class="sum-value" style="color:#dc2626;">' + totalDamaged + '</div></div>';
-  html += '<div class="sum-box"><div class="sum-label">Net Adjustment</div><div class="sum-value" style="color:' + (totalAdjusted >= 0 ? '#2d8a4e' : '#dc2626') + ';">' + (totalAdjusted >= 0 ? '+' : '') + totalAdjusted + '</div></div>';
-  html += '<div class="sum-box" style="border:2px solid #2d8a4e;"><div class="sum-label">Current Stock</div><div class="sum-value" style="color:#1a5c30;">' + totalStock + '</div></div>';
   html += '</div>';
   // Table
   html += '<table><thead><tr>';
