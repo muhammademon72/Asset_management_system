@@ -1117,6 +1117,7 @@ function renderInventoryStock() {
     var serial = (latestPur && latestPur.serial) || '-';
     var condition = (latestPur && latestPur.condition) || '-';
     var warranty = (latestPur && latestPur.warranty) || '-';
+    var remarks = (latestPur && latestPur.remarks) || '-';
     rows += '<tr>';
     rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + (i + 1) + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
@@ -1127,7 +1128,7 @@ function renderInventoryStock() {
     rows += '<td>' + condition + '</td>';
     rows += '<td>' + warranty + '</td>';
     rows += '<td style="text-align:center;font-weight:700;color:var(--accent-dark);font-size:14px;">' + stock + '</td>';
-    rows += '<td style="text-align:center;">' + statusBadge(stockStatus) + '</td>';
+    rows += '<td>' + remarks + '</td>';
     rows += '</tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -1149,7 +1150,7 @@ function renderInventoryStock() {
   html += '<table class="data-table" id="main-table"><thead><tr>';
   html += '<th style="text-align:center;width:50px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
   html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
-  html += '<th style="text-align:center;">Current Stock</th><th style="text-align:center;">Status</th>';
+  html += '<th style="text-align:center;">Current Stock</th><th>Remarks</th>';
   html += '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
@@ -1189,6 +1190,7 @@ function printInventoryStock() {
     var serial = (latestPur && latestPur.serial) || '-';
     var condition = (latestPur && latestPur.condition) || '-';
     var warranty = (latestPur && latestPur.warranty) || '-';
+    var remarks = (latestPur && latestPur.remarks) || '-';
     rows += '<tr>';
     rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
@@ -1199,7 +1201,7 @@ function printInventoryStock() {
     rows += '<td>' + condition + '</td>';
     rows += '<td>' + warranty + '</td>';
     rows += '<td style="text-align:center;font-weight:700;">' + stock + '</td>';
-    rows += '<td style="text-align:center;">' + stockStatus + '</td>';
+    rows += '<td>' + remarks + '</td>';
     rows += '</tr>';
   }
   var now = new Date();
@@ -1256,7 +1258,7 @@ function printInventoryStock() {
   html += '<table><thead><tr>';
   html += '<th style="text-align:center;width:40px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
   html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
-  html += '<th style="text-align:center;">Current Stock</th><th style="text-align:center;">Status</th>';
+  html += '<th style="text-align:center;">Current Stock</th><th>Remarks</th>';
   html += '</tr></thead><tbody>' + rows + '</tbody></table>';
   // Sign
   html += '<div class="sign">';
