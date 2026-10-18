@@ -1968,20 +1968,577 @@ function openDeliveryAddModal() {
 
 function renderAdjustmentList() {
   var rows = '';
-  for (var i = 0; i < DB.adjustments.length; i++) { var a = DB.adjustments[i]; rows += '<tr><td style="font-weight:600;">' + a.ref + '</td><td>' + a.date + '</td><td>' + a.product + '</td><td>' + a.branch + '</td><td><span class="badge ' + (a.type==='Increase'?'badge-green':'badge-red') + '">' + a.type + '</span></td><td style="text-align:center;">' + a.qty + '</td><td>' + a.reason + '</td><td>' + statusBadge(a.status) + '</td></tr>'; }
-  return renderReadOnlyTable('Adjustment List', ['Reference', 'Date', 'Product', 'Branch', 'Type', 'Qty', 'Reason', 'Status'], rows);
+  for (var i = 0; i < DB.adjustments.length; i++) {
+    var a = DB.adjustments[i];
+    rows += '<tr><td style="font-weight:600;">' + a.ref + '</td><td>' + (a.date || '-') + '</td><td>' + (a.product || '-') + '</td><td>' + (a.branch || '-') + '</td><td><span class="badge ' + (a.type==='Increase'?'badge-green':'badge-red') + '">' + (a.type || '-') + '</span></td><td style="text-align:center;">' + (a.qty || 0) + '</td><td>' + (a.reason || '-') + '</td><td>' + statusBadge(a.status) + '</td>';
+    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-adj="' + a.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-adj="' + a.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-adj="' + a.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-adj="' + a.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Adjustment List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-print-adjustment-list" title="Print Adjustment List"><i class="fas fa-print"></i> Print</button>';
+  html += '<button class="btn btn-primary" id="btn-add-adjustment"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th>Type</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindAdjustmentEvents() {
+  var addBtn = document.getElementById('btn-add-adjustment');
+  if (addBtn) addBtn.addEventListener('click', function() { openAdjustmentModal(null); });
+  var printListBtn = document.getElementById('btn-print-adjustment-list');
+  if (printListBtn) printListBtn.addEventListener('click', printAdjustmentList);
+  var viewBtns = document.querySelectorAll('[data-view-adj]');
+  for (var v = 0; v < viewBtns.length; v++) { (function(b) { b.addEventListener('click', function() { openAdjustmentModal(parseInt(b.getAttribute('data-view-adj')), true); }); })(viewBtns[v]); }
+  var printBtns = document.querySelectorAll('[data-print-adj]');
+  for (var p = 0; p < printBtns.length; p++) { (function(b) { b.addEventListener('click', function() { printAdjustment(parseInt(b.getAttribute('data-print-adj'))); }); })(printBtns[p]); }
+  var editBtns = document.querySelectorAll('[data-edit-adj]');
+  for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openAdjustmentModal(parseInt(b.getAttribute('data-edit-adj')), false); }); })(editBtns[e]); }
+  var delBtns = document.querySelectorAll('[data-del-adj]');
+  for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('adjustments', parseInt(b.getAttribute('data-del-adj')), 'adjustment-list'); }); })(delBtns[d]); }
+}
+
+function generateAdjustmentRef() {
+  var year = new Date().getFullYear();
+  var prefix = 'ADJ-' + year + '-';
+  var maxSeq = 0;
+  for (var i = 0; i < DB.adjustments.length; i++) {
+    var r = DB.adjustments[i].ref || '';
+    if (r.indexOf(prefix) === 0) { var n = parseInt(r.substring(prefix.length), 10); if (!isNaN(n) && n > maxSeq) maxSeq = n; }
+  }
+  var seq = '' + (maxSeq + 1); while (seq.length < 3) seq = '0' + seq;
+  return prefix + seq;
+}
+
+function openAdjustmentModal(adjId, readOnly) {
+  var adj = null;
+  if (adjId) { for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } } }
+  var title = adj ? (readOnly ? 'Adjustment Details' : 'Edit Adjustment') : 'Add New Adjustment';
+  var prdOpts = '<option value="">Select Product</option>';
+  for (var i = 0; i < DB.products.length; i++) prdOpts += '<option' + (adj && DB.products[i].name === adj.product ? ' selected' : '') + '>' + DB.products[i].name + '</option>';
+  var brOpts = '<option value="">Select Branch</option>';
+  for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (adj && DB.branches[i].name === adj.branch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
+  var html = '<div style="width:720px;max-width:96vw;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+  html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button></div>';
+  html += '<div style="padding:20px 24px 24px;">';
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Reference', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (adj.ref || '-') + '</span>');
+    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (adj.date || '-') + '</span>');
+    html += purFieldRow('Product', '<span style="font-size:13px;color:var(--fg);">' + (adj.product || '-') + '</span>');
+    html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (adj.branch || '-') + '</span>');
+    html += purFieldRow('Type', '<span class="badge ' + (adj.type==='Increase'?'badge-green':'badge-red') + '">' + (adj.type || '-') + '</span>');
+    html += purFieldRow('Quantity', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (adj.qty || 0) + '</span>');
+    html += purFieldRow('Reason', '<span style="font-size:13px;color:var(--fg);">' + (adj.reason || '-') + '</span>');
+    html += purFieldRow('Status', statusBadge(adj.status || 'Pending'));
+  } else {
+    var refVal = adj ? adj.ref : generateAdjustmentRef();
+    html += purFieldRow('Reference', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-adj-ref" value="' + refVal + '" readonly>');
+    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-adj-date" value="' + (adj ? adj.date : '') + '">');
+    html += purFieldRow('Product', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-product">' + prdOpts + '</select>');
+    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-branch">' + brOpts + '</select>');
+    html += purFieldRow('Type', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-type"><option' + (adj && adj.type === 'Increase' ? ' selected' : '') + '>Increase</option><option' + (adj && adj.type === 'Decrease' ? ' selected' : '') + '>Decrease</option></select>');
+    html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-adj-qty" value="' + (adj ? adj.qty : 0) + '">');
+    html += purFieldRow('Reason', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-adj-reason" value="' + (adj ? adj.reason || '' : '') + '" placeholder="Adjustment reason">');
+    html += purFieldRow('Status', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-status"><option' + (adj && adj.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (adj && adj.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (adj && adj.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select>');
+  }
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;justify-content:flex-end;">';
+  if (readOnly) {
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
+  } else {
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-adj" style="border-radius:8px;"><i class="fas fa-check"></i> ' + (adj ? 'Update' : 'Save') + '</button>';
+  }
+  html += '</div></div></div>';
+  injectPurStyles();
+  var overlay = document.getElementById('modal-overlay');
+  var box = document.getElementById('modal-box');
+  cleanupPurPanels();
+  box.innerHTML = html;
+  box.style.width = 'auto';
+  box.style.maxWidth = '96vw';
+  overlay.classList.add('show');
+  if (!readOnly) {
+    document.getElementById('btn-save-adj').addEventListener('click', function() {
+      var ref = document.getElementById('f-adj-ref').value.trim();
+      var date = document.getElementById('f-adj-date').value;
+      if (!date) { showToast('Date required', 'error'); return; }
+      var product = document.getElementById('f-adj-product').value;
+      var branch = document.getElementById('f-adj-branch').value;
+      var type = document.getElementById('f-adj-type').value;
+      var qty = parseFloat(document.getElementById('f-adj-qty').value) || 0;
+      var reason = document.getElementById('f-adj-reason').value.trim();
+      var status = document.getElementById('f-adj-status').value;
+      if (adj) {
+        adj.ref = ref; adj.date = date; adj.product = product; adj.branch = branch;
+        adj.type = type; adj.qty = qty; adj.reason = reason; adj.status = status;
+        closeModal(); showToast('Adjustment updated'); renderPage();
+      } else {
+        DB.adjustments.push({ id: Date.now(), ref: ref, date: date, product: product, branch: branch, type: type, qty: qty, reason: reason, status: status });
+        closeModal(); showToast('Adjustment added'); renderPage();
+      }
+    });
+  }
+}
+
+function printAdjustment(adjId) {
+  var adj = null;
+  for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } }
+  if (!adj) { showToast('Adjustment not found', 'error'); return; }
+  var co = DB.company || {};
+  var now = new Date();
+  var stamp = now.toLocaleString();
+  var win = window.open('', '_blank', 'width=900,height=700');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Adjustment — ' + (adj.ref || '') + '</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 24px; font-size: 13px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 18px; }';
+  html += '.co-name { font-size: 22px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 22px; font-weight: 800; text-align: right; color: #1a5c30; letter-spacing: 1px; } .doc-sub { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-bottom: 18px; }';
+  html += '.meta-box { border: 1px solid #d4ddd4; border-radius: 8px; padding: 10px 14px; background: #f5f9f5; }';
+  html += '.meta-label { font-size: 10px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; } .meta-value { font-size: 13px; font-weight: 600; color: #1a2e1a; }';
+  html += '.sign { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 60px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">STOCK ADJUSTMENT</div><div class="doc-sub">Ref: <strong>' + (adj.ref || '-') + '</strong></div><div class="doc-sub">Date: ' + (adj.date || '-') + '</div></div></div>';
+  html += '<div class="meta-grid">';
+  html += '<div class="meta-box"><div class="meta-label">Product</div><div class="meta-value">' + (adj.product || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (adj.branch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Type</div><div class="meta-value">' + (adj.type || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Quantity</div><div class="meta-value">' + (adj.qty || 0) + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (adj.status || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
+  html += '</div>';
+  if (adj.reason) {
+    html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#f5f9f5;"><div style="font-size:10px;font-weight:700;color:#1a5c30;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Reason</div><div style="font-size:12px;color:#1a2e1a;">' + adj.reason + '</div></div>';
+  }
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+}
+
+function printAdjustmentList() {
+  var co = DB.company || {};
+  var rows = '';
+  for (var i = 0; i < DB.adjustments.length; i++) {
+    var a = DB.adjustments[i];
+    rows += '<tr><td style="text-align:center;">' + (i + 1) + '</td><td style="font-weight:600;">' + (a.ref || '-') + '</td><td>' + (a.date || '-') + '</td><td>' + (a.product || '-') + '</td><td>' + (a.branch || '-') + '</td><td>' + (a.type || '-') + '</td><td style="text-align:center;">' + (a.qty || 0) + '</td><td>' + (a.reason || '-') + '</td><td style="text-align:center;">' + (a.status || '-') + '</td></tr>';
+  }
+  var stamp = new Date().toLocaleString();
+  var win = window.open('', '_blank', 'width=1100,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Adjustment List — Print</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 20px; font-size: 12px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 16px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; } thead th { background: #2d8a4e; color: #fff; padding: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; }';
+  html += 'tbody td { padding: 7px 8px; font-size: 12px; border: 1px solid #d4ddd4; } tbody tr:nth-child(even) td { background: #f5f9f5; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 50px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">Adjustment List</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + DB.adjustments.length + '</div></div></div>';
+  html += '<table><thead><tr><th style="text-align:center;">#</th><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th>Type</th><th style="text-align:center;">Qty</th><th>Reason</th><th style="text-align:center;">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
 function renderDamageList() {
   var rows = '';
-  for (var i = 0; i < DB.damages.length; i++) { var d = DB.damages[i]; rows += '<tr><td style="font-weight:600;">' + d.ref + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td>' + d.branch + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.reason + '</td><td>' + statusBadge(d.status) + '</td></tr>'; }
-  return renderReadOnlyTable('Damage List', ['Reference', 'Date', 'Product', 'Branch', 'Qty', 'Reason', 'Status'], rows);
+  for (var i = 0; i < DB.damages.length; i++) {
+    var d = DB.damages[i];
+    rows += '<tr><td style="font-weight:600;">' + d.ref + '</td><td>' + (d.date || '-') + '</td><td>' + (d.product || '-') + '</td><td>' + (d.branch || '-') + '</td><td style="text-align:center;">' + (d.qty || 0) + '</td><td>' + (d.reason || '-') + '</td><td>' + statusBadge(d.status) + '</td>';
+    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-dmg="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-dmg="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-dmg="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-dmg="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Damage List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-print-damage-list" title="Print Damage List"><i class="fas fa-print"></i> Print</button>';
+  html += '<button class="btn btn-primary" id="btn-add-damage"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindDamageEvents() {
+  var addBtn = document.getElementById('btn-add-damage');
+  if (addBtn) addBtn.addEventListener('click', function() { openDamageModal(null); });
+  var printListBtn = document.getElementById('btn-print-damage-list');
+  if (printListBtn) printListBtn.addEventListener('click', printDamageList);
+  var viewBtns = document.querySelectorAll('[data-view-dmg]');
+  for (var v = 0; v < viewBtns.length; v++) { (function(b) { b.addEventListener('click', function() { openDamageModal(parseInt(b.getAttribute('data-view-dmg')), true); }); })(viewBtns[v]); }
+  var printBtns = document.querySelectorAll('[data-print-dmg]');
+  for (var p = 0; p < printBtns.length; p++) { (function(b) { b.addEventListener('click', function() { printDamage(parseInt(b.getAttribute('data-print-dmg'))); }); })(printBtns[p]); }
+  var editBtns = document.querySelectorAll('[data-edit-dmg]');
+  for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openDamageModal(parseInt(b.getAttribute('data-edit-dmg')), false); }); })(editBtns[e]); }
+  var delBtns = document.querySelectorAll('[data-del-dmg]');
+  for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('damages', parseInt(b.getAttribute('data-del-dmg')), 'damage-list'); }); })(delBtns[d]); }
+}
+
+function generateDamageRef() {
+  var year = new Date().getFullYear();
+  var prefix = 'DMG-' + year + '-';
+  var maxSeq = 0;
+  for (var i = 0; i < DB.damages.length; i++) {
+    var r = DB.damages[i].ref || '';
+    if (r.indexOf(prefix) === 0) { var n = parseInt(r.substring(prefix.length), 10); if (!isNaN(n) && n > maxSeq) maxSeq = n; }
+  }
+  var seq = '' + (maxSeq + 1); while (seq.length < 3) seq = '0' + seq;
+  return prefix + seq;
+}
+
+function openDamageModal(dmgId, readOnly) {
+  var dmg = null;
+  if (dmgId) { for (var i = 0; i < DB.damages.length; i++) { if (DB.damages[i].id === dmgId) { dmg = DB.damages[i]; break; } } }
+  var title = dmg ? (readOnly ? 'Damage Details' : 'Edit Damage') : 'Add New Damage';
+  var prdOpts = '<option value="">Select Product</option>';
+  for (var i = 0; i < DB.products.length; i++) prdOpts += '<option' + (dmg && DB.products[i].name === dmg.product ? ' selected' : '') + '>' + DB.products[i].name + '</option>';
+  var brOpts = '<option value="">Select Branch</option>';
+  for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (dmg && DB.branches[i].name === dmg.branch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
+  var html = '<div style="width:720px;max-width:96vw;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+  html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button></div>';
+  html += '<div style="padding:20px 24px 24px;">';
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Reference', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (dmg.ref || '-') + '</span>');
+    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (dmg.date || '-') + '</span>');
+    html += purFieldRow('Product', '<span style="font-size:13px;color:var(--fg);">' + (dmg.product || '-') + '</span>');
+    html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (dmg.branch || '-') + '</span>');
+    html += purFieldRow('Quantity', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (dmg.qty || 0) + '</span>');
+    html += purFieldRow('Reason', '<span style="font-size:13px;color:var(--fg);">' + (dmg.reason || '-') + '</span>');
+    html += purFieldRow('Status', statusBadge(dmg.status || 'Pending'));
+  } else {
+    var refVal = dmg ? dmg.ref : generateDamageRef();
+    html += purFieldRow('Reference', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-dmg-ref" value="' + refVal + '" readonly>');
+    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-dmg-date" value="' + (dmg ? dmg.date : '') + '">');
+    html += purFieldRow('Product', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-dmg-product">' + prdOpts + '</select>');
+    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-dmg-branch">' + brOpts + '</select>');
+    html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-dmg-qty" value="' + (dmg ? dmg.qty : 0) + '">');
+    html += purFieldRow('Reason', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-dmg-reason" value="' + (dmg ? dmg.reason || '' : '') + '" placeholder="Damage reason">');
+    html += purFieldRow('Status', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-dmg-status"><option' + (dmg && dmg.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (dmg && dmg.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (dmg && dmg.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select>');
+  }
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;justify-content:flex-end;">';
+  if (readOnly) {
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
+  } else {
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-dmg" style="border-radius:8px;"><i class="fas fa-check"></i> ' + (dmg ? 'Update' : 'Save') + '</button>';
+  }
+  html += '</div></div></div>';
+  injectPurStyles();
+  var overlay = document.getElementById('modal-overlay');
+  var box = document.getElementById('modal-box');
+  cleanupPurPanels();
+  box.innerHTML = html;
+  box.style.width = 'auto';
+  box.style.maxWidth = '96vw';
+  overlay.classList.add('show');
+  if (!readOnly) {
+    document.getElementById('btn-save-dmg').addEventListener('click', function() {
+      var ref = document.getElementById('f-dmg-ref').value.trim();
+      var date = document.getElementById('f-dmg-date').value;
+      if (!date) { showToast('Date required', 'error'); return; }
+      var product = document.getElementById('f-dmg-product').value;
+      var branch = document.getElementById('f-dmg-branch').value;
+      var qty = parseFloat(document.getElementById('f-dmg-qty').value) || 0;
+      var reason = document.getElementById('f-dmg-reason').value.trim();
+      var status = document.getElementById('f-dmg-status').value;
+      if (dmg) {
+        dmg.ref = ref; dmg.date = date; dmg.product = product; dmg.branch = branch;
+        dmg.qty = qty; dmg.reason = reason; dmg.status = status;
+        closeModal(); showToast('Damage updated'); renderPage();
+      } else {
+        DB.damages.push({ id: Date.now(), ref: ref, date: date, product: product, branch: branch, qty: qty, reason: reason, status: status });
+        closeModal(); showToast('Damage added'); renderPage();
+      }
+    });
+  }
+}
+
+function printDamage(dmgId) {
+  var dmg = null;
+  for (var i = 0; i < DB.damages.length; i++) { if (DB.damages[i].id === dmgId) { dmg = DB.damages[i]; break; } }
+  if (!dmg) { showToast('Damage record not found', 'error'); return; }
+  var co = DB.company || {};
+  var now = new Date();
+  var stamp = now.toLocaleString();
+  var win = window.open('', '_blank', 'width=900,height=700');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Damage — ' + (dmg.ref || '') + '</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 24px; font-size: 13px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #dc2626; padding-bottom: 14px; margin-bottom: 18px; }';
+  html += '.co-name { font-size: 22px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 22px; font-weight: 800; text-align: right; color: #dc2626; letter-spacing: 1px; } .doc-sub { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-bottom: 18px; }';
+  html += '.meta-box { border: 1px solid #d4ddd4; border-radius: 8px; padding: 10px 14px; background: #f5f9f5; }';
+  html += '.meta-label { font-size: 10px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; } .meta-value { font-size: 13px; font-weight: 600; color: #1a2e1a; }';
+  html += '.sign { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 60px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">DAMAGE REPORT</div><div class="doc-sub">Ref: <strong>' + (dmg.ref || '-') + '</strong></div><div class="doc-sub">Date: ' + (dmg.date || '-') + '</div></div></div>';
+  html += '<div class="meta-grid">';
+  html += '<div class="meta-box"><div class="meta-label">Product</div><div class="meta-value">' + (dmg.product || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (dmg.branch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Quantity</div><div class="meta-value">' + (dmg.qty || 0) + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (dmg.status || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Department</div><div class="meta-value">-</div></div>';
+  html += '</div>';
+  if (dmg.reason) {
+    html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#fef2f2;"><div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Damage Reason</div><div style="font-size:12px;color:#1a2e1a;">' + dmg.reason + '</div></div>';
+  }
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Reported By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+}
+
+function printDamageList() {
+  var co = DB.company || {};
+  var rows = '';
+  for (var i = 0; i < DB.damages.length; i++) {
+    var d = DB.damages[i];
+    rows += '<tr><td style="text-align:center;">' + (i + 1) + '</td><td style="font-weight:600;">' + (d.ref || '-') + '</td><td>' + (d.date || '-') + '</td><td>' + (d.product || '-') + '</td><td>' + (d.branch || '-') + '</td><td style="text-align:center;">' + (d.qty || 0) + '</td><td>' + (d.reason || '-') + '</td><td style="text-align:center;">' + (d.status || '-') + '</td></tr>';
+  }
+  var stamp = new Date().toLocaleString();
+  var win = window.open('', '_blank', 'width=1100,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Damage List — Print</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 20px; font-size: 12px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #dc2626; padding-bottom: 14px; margin-bottom: 16px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #dc2626; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; } thead th { background: #dc2626; color: #fff; padding: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #dc2626; }';
+  html += 'tbody td { padding: 7px 8px; font-size: 12px; border: 1px solid #d4ddd4; } tbody tr:nth-child(even) td { background: #fef2f2; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 50px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">Damage List</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + DB.damages.length + '</div></div></div>';
+  html += '<table><thead><tr><th style="text-align:center;">#</th><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th style="text-align:center;">Qty</th><th>Reason</th><th style="text-align:center;">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
 function renderTransferList() {
   var rows = '';
-  for (var i = 0; i < DB.transfers.length; i++) { var t = DB.transfers[i]; rows += '<tr><td style="font-weight:600;">' + t.ref + '</td><td>' + t.date + '</td><td>' + t.product + '</td><td style="text-align:center;">' + t.qty + '</td><td>' + t.fromBranch + '</td><td>' + t.toBranch + '</td><td>' + statusBadge(t.status) + '</td></tr>'; }
-  return renderReadOnlyTable('Internal Transfer List', ['Reference', 'Date', 'Product', 'Qty', 'From Branch', 'To Branch', 'Status'], rows);
+  for (var i = 0; i < DB.transfers.length; i++) {
+    var t = DB.transfers[i];
+    rows += '<tr><td style="font-weight:600;">' + t.ref + '</td><td>' + (t.date || '-') + '</td><td>' + (t.product || '-') + '</td><td style="text-align:center;">' + (t.qty || 0) + '</td><td>' + (t.fromBranch || '-') + '</td><td>' + (t.toBranch || '-') + '</td><td>' + statusBadge(t.status) + '</td>';
+    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-trf="' + t.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-trf="' + t.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-trf="' + t.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-trf="' + t.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Internal Transfer List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-print-transfer-list" title="Print Transfer List"><i class="fas fa-print"></i> Print</button>';
+  html += '<button class="btn btn-primary" id="btn-add-transfer"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>From Branch</th><th>To Branch</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindTransferEvents() {
+  var addBtn = document.getElementById('btn-add-transfer');
+  if (addBtn) addBtn.addEventListener('click', function() { openTransferModal(null); });
+  var printListBtn = document.getElementById('btn-print-transfer-list');
+  if (printListBtn) printListBtn.addEventListener('click', printTransferList);
+  var viewBtns = document.querySelectorAll('[data-view-trf]');
+  for (var v = 0; v < viewBtns.length; v++) { (function(b) { b.addEventListener('click', function() { openTransferModal(parseInt(b.getAttribute('data-view-trf')), true); }); })(viewBtns[v]); }
+  var printBtns = document.querySelectorAll('[data-print-trf]');
+  for (var p = 0; p < printBtns.length; p++) { (function(b) { b.addEventListener('click', function() { printTransfer(parseInt(b.getAttribute('data-print-trf'))); }); })(printBtns[p]); }
+  var editBtns = document.querySelectorAll('[data-edit-trf]');
+  for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openTransferModal(parseInt(b.getAttribute('data-edit-trf')), false); }); })(editBtns[e]); }
+  var delBtns = document.querySelectorAll('[data-del-trf]');
+  for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('transfers', parseInt(b.getAttribute('data-del-trf')), 'transfer-list'); }); })(delBtns[d]); }
+}
+
+function generateTransferRef() {
+  var year = new Date().getFullYear();
+  var prefix = 'TRF-' + year + '-';
+  var maxSeq = 0;
+  for (var i = 0; i < DB.transfers.length; i++) {
+    var r = DB.transfers[i].ref || '';
+    if (r.indexOf(prefix) === 0) { var n = parseInt(r.substring(prefix.length), 10); if (!isNaN(n) && n > maxSeq) maxSeq = n; }
+  }
+  var seq = '' + (maxSeq + 1); while (seq.length < 3) seq = '0' + seq;
+  return prefix + seq;
+}
+
+function openTransferModal(trfId, readOnly) {
+  var trf = null;
+  if (trfId) { for (var i = 0; i < DB.transfers.length; i++) { if (DB.transfers[i].id === trfId) { trf = DB.transfers[i]; break; } } }
+  var title = trf ? (readOnly ? 'Transfer Details' : 'Edit Transfer') : 'Add New Transfer';
+  var prdOpts = '<option value="">Select Product</option>';
+  for (var i = 0; i < DB.products.length; i++) prdOpts += '<option' + (trf && DB.products[i].name === trf.product ? ' selected' : '') + '>' + DB.products[i].name + '</option>';
+  var brOpts = '<option value="">Select Branch</option>';
+  for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (trf && DB.branches[i].name === trf.fromBranch ? ' data-from-selected="1"' : '') + '>' + DB.branches[i].name + '</option>';
+  var brOptsTo = '<option value="">Select Branch</option>';
+  for (var i = 0; i < DB.branches.length; i++) brOptsTo += '<option' + (trf && DB.branches[i].name === trf.toBranch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
+  var html = '<div style="width:720px;max-width:96vw;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+  html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button></div>';
+  html += '<div style="padding:20px 24px 24px;">';
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  // Build from-branch options with selected marker
+  var fromBrOpts = '<option value="">Select Branch</option>';
+  for (var i = 0; i < DB.branches.length; i++) fromBrOpts += '<option' + (trf && DB.branches[i].name === trf.fromBranch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
+  if (readOnly) {
+    html += purFieldRow('Reference', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (trf.ref || '-') + '</span>');
+    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (trf.date || '-') + '</span>');
+    html += purFieldRow('Product', '<span style="font-size:13px;color:var(--fg);">' + (trf.product || '-') + '</span>');
+    html += purFieldRow('Quantity', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (trf.qty || 0) + '</span>');
+    html += purFieldRow('From Branch', '<span style="font-size:13px;color:var(--fg);">' + (trf.fromBranch || '-') + '</span>');
+    html += purFieldRow('To Branch', '<span style="font-size:13px;color:var(--fg);">' + (trf.toBranch || '-') + '</span>');
+    html += purFieldRow('Status', statusBadge(trf.status || 'Pending'));
+  } else {
+    var refVal = trf ? trf.ref : generateTransferRef();
+    html += purFieldRow('Reference', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-trf-ref" value="' + refVal + '" readonly>');
+    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-trf-date" value="' + (trf ? trf.date : '') + '">');
+    html += purFieldRow('Product', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-trf-product">' + prdOpts + '</select>');
+    html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-trf-qty" value="' + (trf ? trf.qty : 0) + '">');
+    html += purFieldRow('From Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-trf-from">' + fromBrOpts + '</select>');
+    html += purFieldRow('To Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-trf-to">' + brOptsTo + '</select>');
+    html += purFieldRow('Status', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-trf-status"><option' + (trf && trf.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (trf && trf.status === 'In Transit' ? ' selected' : '') + '>In Transit</option><option' + (trf && trf.status === 'Completed' ? ' selected' : '') + '>Completed</option><option' + (trf && trf.status === 'Cancelled' ? ' selected' : '') + '>Cancelled</option></select>');
+  }
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;justify-content:flex-end;">';
+  if (readOnly) {
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
+  } else {
+    html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-trf" style="border-radius:8px;"><i class="fas fa-check"></i> ' + (trf ? 'Update' : 'Save') + '</button>';
+  }
+  html += '</div></div></div>';
+  injectPurStyles();
+  var overlay = document.getElementById('modal-overlay');
+  var box = document.getElementById('modal-box');
+  cleanupPurPanels();
+  box.innerHTML = html;
+  box.style.width = 'auto';
+  box.style.maxWidth = '96vw';
+  overlay.classList.add('show');
+  if (!readOnly) {
+    document.getElementById('btn-save-trf').addEventListener('click', function() {
+      var ref = document.getElementById('f-trf-ref').value.trim();
+      var date = document.getElementById('f-trf-date').value;
+      if (!date) { showToast('Date required', 'error'); return; }
+      var product = document.getElementById('f-trf-product').value;
+      var qty = parseFloat(document.getElementById('f-trf-qty').value) || 0;
+      var fromBranch = document.getElementById('f-trf-from').value;
+      var toBranch = document.getElementById('f-trf-to').value;
+      var status = document.getElementById('f-trf-status').value;
+      if (trf) {
+        trf.ref = ref; trf.date = date; trf.product = product; trf.qty = qty;
+        trf.fromBranch = fromBranch; trf.toBranch = toBranch; trf.status = status;
+        closeModal(); showToast('Transfer updated'); renderPage();
+      } else {
+        DB.transfers.push({ id: Date.now(), ref: ref, date: date, product: product, qty: qty, fromBranch: fromBranch, toBranch: toBranch, status: status });
+        closeModal(); showToast('Transfer added'); renderPage();
+      }
+    });
+  }
+}
+
+function printTransfer(trfId) {
+  var trf = null;
+  for (var i = 0; i < DB.transfers.length; i++) { if (DB.transfers[i].id === trfId) { trf = DB.transfers[i]; break; } }
+  if (!trf) { showToast('Transfer not found', 'error'); return; }
+  var co = DB.company || {};
+  var now = new Date();
+  var stamp = now.toLocaleString();
+  var win = window.open('', '_blank', 'width=900,height=700');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Transfer — ' + (trf.ref || '') + '</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 24px; font-size: 13px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0284c7; padding-bottom: 14px; margin-bottom: 18px; }';
+  html += '.co-name { font-size: 22px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 22px; font-weight: 800; text-align: right; color: #0284c7; letter-spacing: 1px; } .doc-sub { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-bottom: 18px; }';
+  html += '.meta-box { border: 1px solid #d4ddd4; border-radius: 8px; padding: 10px 14px; background: #f5f9f5; }';
+  html += '.meta-label { font-size: 10px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; } .meta-value { font-size: 13px; font-weight: 600; color: #1a2e1a; }';
+  html += '.sign { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 60px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">INTERNAL TRANSFER</div><div class="doc-sub">Ref: <strong>' + (trf.ref || '-') + '</strong></div><div class="doc-sub">Date: ' + (trf.date || '-') + '</div></div></div>';
+  html += '<div class="meta-grid">';
+  html += '<div class="meta-box"><div class="meta-label">Product</div><div class="meta-value">' + (trf.product || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Quantity</div><div class="meta-value">' + (trf.qty || 0) + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">From Branch</div><div class="meta-value">' + (trf.fromBranch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">To Branch</div><div class="meta-value">' + (trf.toBranch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (trf.status || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
+  html += '</div>';
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Released By</div></div><div class="sign-box"><div class="sign-line">Received By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+}
+
+function printTransferList() {
+  var co = DB.company || {};
+  var rows = '';
+  for (var i = 0; i < DB.transfers.length; i++) {
+    var t = DB.transfers[i];
+    rows += '<tr><td style="text-align:center;">' + (i + 1) + '</td><td style="font-weight:600;">' + (t.ref || '-') + '</td><td>' + (t.date || '-') + '</td><td>' + (t.product || '-') + '</td><td style="text-align:center;">' + (t.qty || 0) + '</td><td>' + (t.fromBranch || '-') + '</td><td>' + (t.toBranch || '-') + '</td><td style="text-align:center;">' + (t.status || '-') + '</td></tr>';
+  }
+  var stamp = new Date().toLocaleString();
+  var win = window.open('', '_blank', 'width=1100,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Internal Transfer List — Print</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 20px; font-size: 12px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0284c7; padding-bottom: 14px; margin-bottom: 16px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #0284c7; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; } thead th { background: #0284c7; color: #fff; padding: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #0284c7; }';
+  html += 'tbody td { padding: 7px 8px; font-size: 12px; border: 1px solid #d4ddd4; } tbody tr:nth-child(even) td { background: #eff6ff; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 50px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">Internal Transfer List</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + DB.transfers.length + '</div></div></div>';
+  html += '<table><thead><tr><th style="text-align:center;">#</th><th>Reference</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>From Branch</th><th>To Branch</th><th style="text-align:center;">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
 // ==================== CASH BOOK ====================
@@ -3384,6 +3941,9 @@ function renderPage() {
     'supplier': bindSupplierEvents,
     'inventory-stock': bindInventoryStockEvents,
     'delivery-list': bindDeliveryEvents,
+    'adjustment-list': bindAdjustmentEvents,
+    'damage-list': bindDamageEvents,
+    'transfer-list': bindTransferEvents,
     'cash-in': bindCashInEvents,
     'cash-out': bindCashOutEvents,
     'approval-purchase': bindApprovalEvents,
