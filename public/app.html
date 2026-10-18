@@ -1092,7 +1092,14 @@ function renderInventoryStock() {
   for (var i = 0; i < DB.products.length; i++) {
     var p = DB.products[i];
     var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
-    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) purchased += (DB.purchases[j].qty || 0); }
+    // Latest purchase record (to pull model/serial/condition/warranty)
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) {
+      if (DB.purchases[j].product === p.name) {
+        purchased += (DB.purchases[j].qty || 0);
+        if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
+      }
+    }
     for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
     for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
     for (var j = 0; j < DB.adjustments.length; j++) {
@@ -1105,15 +1112,20 @@ function renderInventoryStock() {
     if (stock < 0) stock = 0;
     var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
     totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
+    // Pull product-level attributes (fall back to latest purchase record)
+    var model = (latestPur && latestPur.model) || '-';
+    var serial = (latestPur && latestPur.serial) || '-';
+    var condition = (latestPur && latestPur.condition) || '-';
+    var warranty = (latestPur && latestPur.warranty) || '-';
     rows += '<tr>';
-    rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
+    rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + (i + 1) + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
     rows += '<td>' + (p.category || '-') + '</td>';
     rows += '<td>' + (p.brand || '-') + '</td>';
-    rows += '<td style="text-align:center;font-weight:600;color:var(--info);">' + purchased + '</td>';
-    rows += '<td style="text-align:center;color:var(--accent);">' + delivered + '</td>';
-    rows += '<td style="text-align:center;color:var(--danger);">' + damaged + '</td>';
-    rows += '<td style="text-align:center;color:' + (adjusted >= 0 ? 'var(--accent)' : 'var(--danger)') + ';">' + (adjusted >= 0 ? '+' : '') + adjusted + '</td>';
+    rows += '<td>' + model + '</td>';
+    rows += '<td>' + serial + '</td>';
+    rows += '<td>' + condition + '</td>';
+    rows += '<td>' + warranty + '</td>';
     rows += '<td style="text-align:center;font-weight:700;color:var(--accent-dark);font-size:14px;">' + stock + '</td>';
     rows += '<td style="text-align:center;">' + statusBadge(stockStatus) + '</td>';
     rows += '</tr>';
@@ -1135,8 +1147,8 @@ function renderInventoryStock() {
   // Table
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 360px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
-  html += '<th style="text-align:center;width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th>';
-  html += '<th style="text-align:center;">Purchased</th><th style="text-align:center;">Delivered</th><th style="text-align:center;">Damaged</th><th style="text-align:center;">Adjustment</th>';
+  html += '<th style="text-align:center;width:50px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
+  html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
   html += '<th style="text-align:center;">Current Stock</th><th style="text-align:center;">Status</th>';
   html += '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
@@ -1154,7 +1166,13 @@ function printInventoryStock() {
   for (var i = 0; i < DB.products.length; i++) {
     var p = DB.products[i];
     var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
-    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) purchased += (DB.purchases[j].qty || 0); }
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) {
+      if (DB.purchases[j].product === p.name) {
+        purchased += (DB.purchases[j].qty || 0);
+        if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
+      }
+    }
     for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
     for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
     for (var j = 0; j < DB.adjustments.length; j++) {
@@ -1167,15 +1185,19 @@ function printInventoryStock() {
     if (stock < 0) stock = 0;
     var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
     totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
+    var model = (latestPur && latestPur.model) || '-';
+    var serial = (latestPur && latestPur.serial) || '-';
+    var condition = (latestPur && latestPur.condition) || '-';
+    var warranty = (latestPur && latestPur.warranty) || '-';
     rows += '<tr>';
     rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
     rows += '<td>' + (p.category || '-') + '</td>';
     rows += '<td>' + (p.brand || '-') + '</td>';
-    rows += '<td style="text-align:center;">' + purchased + '</td>';
-    rows += '<td style="text-align:center;">' + delivered + '</td>';
-    rows += '<td style="text-align:center;">' + damaged + '</td>';
-    rows += '<td style="text-align:center;">' + (adjusted >= 0 ? '+' : '') + adjusted + '</td>';
+    rows += '<td>' + model + '</td>';
+    rows += '<td>' + serial + '</td>';
+    rows += '<td>' + condition + '</td>';
+    rows += '<td>' + warranty + '</td>';
     rows += '<td style="text-align:center;font-weight:700;">' + stock + '</td>';
     rows += '<td style="text-align:center;">' + stockStatus + '</td>';
     rows += '</tr>';
@@ -1232,8 +1254,8 @@ function printInventoryStock() {
   html += '</div>';
   // Table
   html += '<table><thead><tr>';
-  html += '<th style="text-align:center;width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th>';
-  html += '<th style="text-align:center;">Purchased</th><th style="text-align:center;">Delivered</th><th style="text-align:center;">Damaged</th><th style="text-align:center;">Adjustment</th>';
+  html += '<th style="text-align:center;width:40px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
+  html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
   html += '<th style="text-align:center;">Current Stock</th><th style="text-align:center;">Status</th>';
   html += '</tr></thead><tbody>' + rows + '</tbody></table>';
   // Sign
