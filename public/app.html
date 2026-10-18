@@ -2020,37 +2020,94 @@ function openAdjustmentModal(adjId, readOnly) {
   var adj = null;
   if (adjId) { for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } } }
   var title = adj ? (readOnly ? 'Adjustment Details' : 'Edit Adjustment') : 'Add New Adjustment';
-  var prdOpts = '<option value="">Select Product</option>';
-  for (var i = 0; i < DB.products.length; i++) prdOpts += '<option' + (adj && DB.products[i].name === adj.product ? ' selected' : '') + '>' + DB.products[i].name + '</option>';
+
+  // Build option arrays (same as Delivery/Purchase)
+  var prdArr = [];
+  for (var k = 0; k < DB.products.length; k++) prdArr.push({ value: DB.products[k].name, label: DB.products[k].name, category: DB.products[k].category });
+  var catOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
+  var brandOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.brands.length; k++) brandOpts += '<option>' + DB.brands[k].name + '</option>';
+  var warOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.warranties.length; k++) warOpts += '<option>' + DB.warranties[k].name + '</option>';
   var brOpts = '<option value="">Select Branch</option>';
-  for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (adj && DB.branches[i].name === adj.branch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
-  var html = '<div style="width:720px;max-width:96vw;">';
+  for (var k = 0; k < DB.branches.length; k++) brOpts += '<option' + (adj && DB.branches[k].name === adj.branch ? ' selected' : '') + '>' + DB.branches[k].name + '</option>';
+
+  // Auto-fill Category callback
+  var adjProductSelectCb = function(val, lbl, cat, wrapper) {
+    if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+      var row = wrapper.closest('tr');
+      if (row) { var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = cat; }
+    }
+  };
+
+  var html = '<div style="width:1120px;max-width:96vw;">';
+  // Header
   html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
   html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
-  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button></div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;transition:all 0.2s;"><i class="fas fa-times"></i></button>';
+  html += '</div>';
   html += '<div style="padding:20px 24px 24px;">';
-  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+
+  // Top fields — 2-column grid: Date | Reference
+  var refVal = adj ? adj.ref : generateAdjustmentRef();
+  html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;">';
   if (readOnly) {
-    html += purFieldRow('Reference', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (adj.ref || '-') + '</span>');
-    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (adj.date || '-') + '</span>');
-    html += purFieldRow('Product', '<span style="font-size:13px;color:var(--fg);">' + (adj.product || '-') + '</span>');
-    html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (adj.branch || '-') + '</span>');
-    html += purFieldRow('Type', '<span class="badge ' + (adj.type==='Increase'?'badge-green':'badge-red') + '">' + (adj.type || '-') + '</span>');
-    html += purFieldRow('Quantity', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (adj.qty || 0) + '</span>');
-    html += purFieldRow('Reason', '<span style="font-size:13px;color:var(--fg);">' + (adj.reason || '-') + '</span>');
-    html += purFieldRow('Status', statusBadge(adj.status || 'Pending'));
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (adj.date || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (adj.ref || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (adj.branch || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Status</label><div style="padding:8px 0;">' + statusBadge(adj.status || 'Pending') + '</div></div>';
   } else {
-    var refVal = adj ? adj.ref : generateAdjustmentRef();
-    html += purFieldRow('Reference', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-adj-ref" value="' + refVal + '" readonly>');
-    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-adj-date" value="' + (adj ? adj.date : '') + '">');
-    html += purFieldRow('Product', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-product">' + prdOpts + '</select>');
-    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-branch">' + brOpts + '</select>');
-    html += purFieldRow('Type', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-type"><option' + (adj && adj.type === 'Increase' ? ' selected' : '') + '>Increase</option><option' + (adj && adj.type === 'Decrease' ? ' selected' : '') + '>Decrease</option></select>');
-    html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-adj-qty" value="' + (adj ? adj.qty : 0) + '">');
-    html += purFieldRow('Reason', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-adj-reason" value="' + (adj ? adj.reason || '' : '') + '" placeholder="Adjustment reason">');
-    html += purFieldRow('Status', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-adj-status"><option' + (adj && adj.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (adj && adj.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (adj && adj.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select>');
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-adj-date" value="' + (adj ? adj.date || '' : '') + '"></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><input class="form-input" style="color:var(--muted);" id="f-adj-ref" value="' + refVal + '" readonly></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><select class="form-input" id="f-adj-branch">' + brOpts + '</select></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Status</label><select class="form-input" id="f-adj-status"><option' + (adj && adj.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (adj && adj.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (adj && adj.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select></div>';
   }
   html += '</div>';
+  html += '</div>';
+
+  // Product table — multi-row
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
+  html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr>';
+  html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
+  html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
+  if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
+  html += '</tr></thead><tbody id="pur-entries-body">';
+  if (readOnly) {
+    // View mode — show the saved row read-only
+    html += '<tr>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;font-weight:600;">' + (adj.product || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.category || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.brand || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.model || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.serial || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.condition || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.warranty || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:600;color:var(--accent-dark);">' + (adj.qty || 0) + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.remarks || '-') + '</td>';
+    html += '</tr>';
+  } else {
+    html += adjustmentTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
+  }
+  html += '</tbody></table></div></div>';
+
+  if (!readOnly) {
+    html += '<button type="button" id="btn-adj-addrow" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:Outfit,sans-serif;padding:6px 0;margin-bottom:18px;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;margin-left:auto;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><i class="fas fa-plus-circle"></i> Add Row</button>';
+  }
+
+  // Note
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + (adj.note || '—') + '</span>');
+  } else {
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-adj-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (adj ? adj.note || '' : '') + '</textarea>');
+  }
+  html += '</div>';
+
+  // Bottom bar: Status + Cancel/Save  (kept consistent with delivery layout; status already in grid, but keep button bar)
   html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;justify-content:flex-end;">';
   if (readOnly) {
     html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
@@ -2059,6 +2116,7 @@ function openAdjustmentModal(adjId, readOnly) {
     html += '<button class="btn btn-primary" id="btn-save-adj" style="border-radius:8px;"><i class="fas fa-check"></i> ' + (adj ? 'Update' : 'Save') + '</button>';
   }
   html += '</div></div></div>';
+
   injectPurStyles();
   var overlay = document.getElementById('modal-overlay');
   var box = document.getElementById('modal-box');
@@ -2067,27 +2125,109 @@ function openAdjustmentModal(adjId, readOnly) {
   box.style.width = 'auto';
   box.style.maxWidth = '96vw';
   overlay.classList.add('show');
+
   if (!readOnly) {
+    // Pre-fill first row from saved record (Edit mode)
+    var firstRow = document.querySelector('#pur-entries-body tr');
+    if (firstRow && adj) {
+      var prodWrapper = firstRow.querySelector('[data-sr="product"]');
+      if (prodWrapper) setPurSearchableValue(prodWrapper, adj.product || '', adj.product || '');
+      var catSel = firstRow.querySelector('[data-f="category"]');
+      if (catSel) catSel.value = adj.category || '';
+      var brandSel = firstRow.querySelector('[data-f="brand"]');
+      if (brandSel) brandSel.value = adj.brand || '';
+      var modelIn = firstRow.querySelector('[data-f="model"]');
+      if (modelIn) modelIn.value = adj.model || '';
+      var serialIn = firstRow.querySelector('[data-f="serial"]');
+      if (serialIn) serialIn.value = adj.serial || '';
+      var condSel = firstRow.querySelector('[data-f="condition"]');
+      if (condSel) condSel.value = adj.condition || 'New';
+      var warSel = firstRow.querySelector('[data-f="warranty"]');
+      if (warSel) warSel.value = adj.warranty || '';
+      var qtyIn = firstRow.querySelector('[data-f="qty"]');
+      if (qtyIn) qtyIn.value = adj.qty || 0;
+      var remIn = firstRow.querySelector('[data-f="remarks"]');
+      if (remIn) remIn.value = adj.remarks || '';
+    }
+    bindPurRowDel(firstRow);
+    bindAllPurSearchable(box, adjProductSelectCb);
+
+    document.getElementById('btn-adj-addrow').addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      var tr = document.createElement('tr');
+      tr.innerHTML = adjustmentTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
+      tbody.appendChild(tr);
+      bindPurRowDel(tr);
+      bindAllPurSearchable(tr, adjProductSelectCb);
+    });
+
     document.getElementById('btn-save-adj').addEventListener('click', function() {
       var ref = document.getElementById('f-adj-ref').value.trim();
       var date = document.getElementById('f-adj-date').value;
       if (!date) { showToast('Date required', 'error'); return; }
-      var product = document.getElementById('f-adj-product').value;
       var branch = document.getElementById('f-adj-branch').value;
-      var type = document.getElementById('f-adj-type').value;
-      var qty = parseFloat(document.getElementById('f-adj-qty').value) || 0;
-      var reason = document.getElementById('f-adj-reason').value.trim();
       var status = document.getElementById('f-adj-status').value;
+      var note = document.getElementById('f-adj-note').value.trim();
+      // Read first valid row
+      var rows = document.querySelectorAll('#pur-entries-body tr');
+      var firstValid = null;
+      for (var ri = 0; ri < rows.length; ri++) {
+        var pSel = rows[ri].querySelector('[data-f="product"]');
+        if (pSel && pSel.value) { firstValid = rows[ri]; break; }
+      }
+      if (!firstValid) { showToast('Add at least one product', 'error'); return; }
+      var product = firstValid.querySelector('[data-f="product"]').value;
+      var category = firstValid.querySelector('[data-f="category"]').value;
+      var brand = firstValid.querySelector('[data-f="brand"]').value;
+      var model = firstValid.querySelector('[data-f="model"]').value;
+      var serial = firstValid.querySelector('[data-f="serial"]').value;
+      var condition = firstValid.querySelector('[data-f="condition"]').value;
+      var warranty = firstValid.querySelector('[data-f="warranty"]').value;
+      var qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
+      var remarks = firstValid.querySelector('[data-f="remarks"]').value;
+      // Determine type based on qty sign convention (Increase/Decrease chosen by user via Remarks hint or kept as 'Increase' default)
+      // For backward compat, use 'Increase' if qty positive, 'Decrease' if negative; user can also use Remarks to clarify
+      var type = (qty >= 0) ? 'Increase' : 'Decrease';
+      var absQty = Math.abs(qty);
       if (adj) {
-        adj.ref = ref; adj.date = date; adj.product = product; adj.branch = branch;
-        adj.type = type; adj.qty = qty; adj.reason = reason; adj.status = status;
+        adj.ref = ref; adj.date = date; adj.branch = branch;
+        adj.product = product; adj.category = category; adj.brand = brand;
+        adj.model = model; adj.serial = serial; adj.condition = condition;
+        adj.warranty = warranty; adj.qty = absQty; adj.type = type;
+        adj.reason = remarks; adj.remarks = remarks; adj.note = note; adj.status = status;
         closeModal(); showToast('Adjustment updated'); renderPage();
       } else {
-        DB.adjustments.push({ id: Date.now(), ref: ref, date: date, product: product, branch: branch, type: type, qty: qty, reason: reason, status: status });
+        DB.adjustments.push({
+          id: Date.now(), ref: ref, date: date, branch: branch,
+          product: product, category: category, brand: brand, model: model,
+          serial: serial, condition: condition, warranty: warranty,
+          qty: absQty, type: type, reason: remarks, remarks: remarks, note: note, status: status
+        });
         closeModal(); showToast('Adjustment added'); renderPage();
       }
     });
   }
+}
+
+function adjustmentTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
+  var h = '<tr>';
+  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
+  h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
+  h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td class="pur-td"><select data-f="warranty">' + warOpts + '</select></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="adjustmentCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
+  h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
+  h += '</tr>';
+  return h;
+}
+
+function adjustmentCalcRowTotal(input) {
+  // Placeholder — kept for future extension (e.g. showing total qty somewhere)
+  // Currently no auto-calc needed since adjustment has no price/total
 }
 
 function printAdjustment(adjId) {
