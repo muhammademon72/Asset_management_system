@@ -1087,8 +1087,11 @@ function bindSupplierEvents() {
 function renderInventoryStock() {
   // Compute stock per product
   // stock = purchased - delivered - damaged + (adjustments increase - decrease)
+  // Hides products with zero stock
   var rows = '';
   var totalPurchased = 0, totalDelivered = 0, totalDamaged = 0, totalAdjusted = 0, totalStock = 0;
+  var visibleCount = 0;
+  var hiddenCount = 0;
   for (var i = 0; i < DB.products.length; i++) {
     var p = DB.products[i];
     var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
@@ -1110,8 +1113,11 @@ function renderInventoryStock() {
     }
     var stock = purchased - delivered - damaged + adjusted;
     if (stock < 0) stock = 0;
+    // Skip products with zero stock — hide from the list
+    if (stock === 0) { hiddenCount++; continue; }
     var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
     totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
+    visibleCount++;
     // Pull product-level attributes (fall back to latest purchase record)
     var model = (latestPur && latestPur.model) || '-';
     var serial = (latestPur && latestPur.serial) || '-';
@@ -1119,7 +1125,7 @@ function renderInventoryStock() {
     var warranty = (latestPur && latestPur.warranty) || '-';
     var remarks = (latestPur && latestPur.remarks) || '-';
     rows += '<tr>';
-    rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + (i + 1) + '</td>';
+    rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + visibleCount + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
     rows += '<td>' + (p.category || '-') + '</td>';
     rows += '<td>' + (p.brand || '-') + '</td>';
@@ -1137,6 +1143,13 @@ function renderInventoryStock() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-secondary" id="btn-print-inventory-stock" title="Print Inventory Stock"><i class="fas fa-print"></i> Print</button>';
   html += '</div></div>';
+  // Info banner — shows how many zero-stock products are hidden
+  if (hiddenCount > 0) {
+    html += '<div style="background:var(--accent-light);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--accent-dark);">';
+    html += '<i class="fas fa-info-circle" style="color:var(--accent);"></i>';
+    html += '<span><strong>' + visibleCount + '</strong> products with stock shown &nbsp;·&nbsp; <strong>' + hiddenCount + '</strong> out-of-stock product' + (hiddenCount === 1 ? '' : 's') + ' hidden</span>';
+    html += '</div>';
+  }
   // Summary cards
   html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;">';
   html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Total Purchased</div><div style="font-size:22px;font-weight:800;color:var(--info);">' + totalPurchased + '</div></div>';
@@ -1145,13 +1158,19 @@ function renderInventoryStock() {
   html += '<div class="stat-card" style="padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Net Adjustment</div><div style="font-size:22px;font-weight:800;color:' + (totalAdjusted >= 0 ? 'var(--accent)' : 'var(--danger)') + ';">' + (totalAdjusted >= 0 ? '+' : '') + totalAdjusted + '</div></div>';
   html += '<div class="stat-card" style="padding:16px;border:2px solid var(--accent);"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Current Stock</div><div style="font-size:22px;font-weight:800;color:var(--accent-dark);">' + totalStock + '</div></div>';
   html += '</div>';
-  // Table
+  // Table — show empty state message if no products with stock
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 360px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
   html += '<th style="text-align:center;width:50px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
   html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
   html += '<th style="text-align:center;">Current Stock</th><th>Remarks</th>';
-  html += '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '</tr></thead><tbody>';
+  if (rows === '') {
+    html += '<tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--muted);"><i class="fas fa-boxes" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i><div style="font-size:14px;font-weight:600;margin-bottom:4px;">No products in stock</div><div style="font-size:12px;">All products currently have zero stock. Add purchases or reduce deliveries/damages to see stock here.</div></td></tr>';
+  } else {
+    html += rows;
+  }
+  html += '</tbody></table></div></div>';
   return html;
 }
 
