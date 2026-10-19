@@ -4058,9 +4058,17 @@ function confirmDeleteAllData() {
       DB.cashIn = []; DB.cashOut = [];
       // Note: Keep users & roles so the admin can still log in after wiping data
       DB.company = { name: '', address: '', phone: '', email: '', website: '' };
-      // Also clear localStorage so deleted data doesn't come back on refresh
-      clearSavedDB();
-      closeModal(); showToast('All data deleted successfully'); renderPage();
+      closeModal();
+      showToast('All data deleted successfully');
+      renderPage();
+      // Persist the cleared state to the server (and localStorage) asynchronously
+      clearSavedDB(function(res) {
+        if (res && res.ok) {
+          showToast('Server data cleared', 'info');
+        } else {
+          showToast('Server clear failed — local only', 'error');
+        }
+      });
     });
   }
 }
@@ -4149,61 +4157,152 @@ function renderPage() {
 
 // ==================== INIT ====================
 // Persist DB to localStorage so user-entered data is never lost on refresh or restart
+// ==================== SERVER PERSISTENCE (cross-browser / cross-device) ====================
+// Data is now stored on the server (SQLite via /api/db) so that any browser,
+// device, or user sees the same data after logging in.
+//
+// localStorage is still used for the SESSION (logged-in user) and as a fast
+// read-cache for the first paint, but the source of truth is the server.
+
+var DB_SAVE_TIMER = null;
+var DB_LAST_SAVED_AT = null;
+
+// Build the JSON-serializable snapshot of DB
+function buildDBSnapshot() {
+  return {
+    branches: DB.branches,
+    employees: DB.employees,
+    departments: DB.departments,
+    designations: DB.designations,
+    categories: DB.categories,
+    brands: DB.brands,
+    uoms: DB.uoms,
+    products: DB.products,
+    suppliers: DB.suppliers,
+    conditions: DB.conditions,
+    warranties: DB.warranties,
+    purchases: DB.purchases,
+    deliveries: DB.deliveries,
+    adjustments: DB.adjustments,
+    damages: DB.damages,
+    transfers: DB.transfers,
+    cashIn: DB.cashIn,
+    cashOut: DB.cashOut,
+    users: DB.users,
+    roles: DB.roles,
+    company: DB.company,
+    _lastBackup: DB._lastBackup,
+    _savedAt: new Date().toISOString()
+  };
+}
+
+// Save to server (debounced — 800ms after the last change)
 function saveDB() {
+  // Clear any pending save
+  if (DB_SAVE_TIMER) clearTimeout(DB_SAVE_TIMER);
+  // Schedule a new save in 800ms — coalesces rapid edits into one request
+  DB_SAVE_TIMER = setTimeout(function() { saveDBNow(); }, 800);
+}
+
+// Save immediately (no debounce). Called by saveDB debouncer and explicitly
+// when a user clicks "Backup" or similar critical actions.
+function saveDBNow(onDone) {
   try {
-    var data = {
-      branches: DB.branches,
-      employees: DB.employees,
-      departments: DB.departments,
-      designations: DB.designations,
-      categories: DB.categories,
-      brands: DB.brands,
-      uoms: DB.uoms,
-      products: DB.products,
-      suppliers: DB.suppliers,
-      conditions: DB.conditions,
-      warranties: DB.warranties,
-      purchases: DB.purchases,
-      deliveries: DB.deliveries,
-      adjustments: DB.adjustments,
-      damages: DB.damages,
-      transfers: DB.transfers,
-      cashIn: DB.cashIn,
-      cashOut: DB.cashOut,
-      users: DB.users,
-      roles: DB.roles,
-      company: DB.company,
-      _lastBackup: DB._lastBackup,
-      _savedAt: new Date().toISOString()
-    };
-    localStorage.setItem('itAssetDB', JSON.stringify(data));
+    var payload = buildDBSnapshot();
+    // Optimistically also cache in localStorage so the next page load
+    // can paint quickly before the server round-trip completes.
+    try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
+    // Fire-and-forget POST — keep UI snappy
+    fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: payload })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res && res.ok) {
+        DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
+      } else {
+        console.warn('saveDB: server returned error', res);
+      }
+      if (onDone) onDone(res);
+    }).catch(function(err) {
+      console.warn('saveDB: network error', err);
+      if (onDone) onDone({ ok: false, error: err && err.message });
+    });
   } catch (e) {
     console.warn('saveDB failed:', e);
+    if (onDone) onDone({ ok: false, error: e && e.message });
   }
 }
 
-function loadDB() {
+// Load DB from server. Falls back to localStorage cache if the server is unreachable.
+// This is ASYNC — caller must continue in the callback.
+function loadDB(onDone) {
+  // Step 1: try to paint quickly from localStorage cache (best-effort)
   try {
-    var raw = localStorage.getItem('itAssetDB');
-    if (!raw) return; // First visit — keep the empty default DB
-    var data = JSON.parse(raw);
-    if (!data || typeof data !== 'object') return;
-    // Restore each collection (only if the saved value is an array or expected shape)
-    var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','users','roles'];
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (Array.isArray(data[k])) DB[k] = data[k];
+    var cached = localStorage.getItem('itAssetDB');
+    if (cached) {
+      var cachedData = JSON.parse(cached);
+      applyDBData(cachedData);
     }
-    if (data.company && typeof data.company === 'object') DB.company = data.company;
-    if (data._lastBackup) DB._lastBackup = data._lastBackup;
-  } catch (e) {
-    console.warn('loadDB failed (corrupt data, starting fresh):', e);
-  }
+  } catch (e) { /* ignore cache read errors */ }
+
+  // Step 2: fetch the authoritative copy from the server
+  fetch('/api/db', { method: 'GET' })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res && res.ok && res.data) {
+        applyDBData(res.data);
+        DB_LAST_SAVED_AT = res.updatedAt || null;
+        // Refresh the local cache too
+        try { localStorage.setItem('itAssetDB', JSON.stringify(res.data)); } catch (e) {}
+        if (onDone) onDone(true);
+      } else {
+        console.warn('loadDB: server returned error', res);
+        if (onDone) onDone(false);
+      }
+    })
+    .catch(function(err) {
+      console.warn('loadDB: network error, using cached/localStorage data', err);
+      if (onDone) onDone(false);
+    });
 }
 
-// Clear all saved data (used by the Delete All Data button — clears localStorage too)
-function clearSavedDB() {
+// Apply a data object to the global DB (replaces arrays but keeps shape)
+function applyDBData(data) {
+  if (!data || typeof data !== 'object') return;
+  var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','users','roles'];
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (Array.isArray(data[k])) DB[k] = data[k];
+  }
+  if (data.company && typeof data.company === 'object') DB.company = data.company;
+  if (data._lastBackup) DB._lastBackup = data._lastBackup;
+}
+
+// Clear saved data — used by "Delete All Data" button. Clears both server and localStorage.
+function clearSavedDB(onDone) {
   try { localStorage.removeItem('itAssetDB'); } catch (e) {}
+  // Tell server to reset to defaults by sending the empty/default DB
+  var emptyDB = {
+    branches: [], employees: [], departments: [], designations: [],
+    categories: [], brands: [], uoms: [], products: [], suppliers: [],
+    conditions: [], warranties: [], purchases: [], deliveries: [],
+    adjustments: [], damages: [], transfers: [], cashIn: [], cashOut: [],
+    users: DB.users,         // keep users so admin can still log in
+    roles: DB.roles,         // keep roles too
+    company: { name: '', address: '', phone: '', email: '', website: '' },
+    _savedAt: new Date().toISOString()
+  };
+  fetch('/api/db', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: emptyDB })
+  }).then(function(r) { return r.json(); }).then(function(res) {
+    if (onDone) onDone(res);
+  }).catch(function(err) {
+    console.warn('clearSavedDB: network error', err);
+    if (onDone) onDone({ ok: false, error: err && err.message });
+  });
 }
 
 // Ensure at least one admin user exists in DB.users
@@ -4472,23 +4571,50 @@ function showUserMenu() {
   showToast('Signed in as: ' + (currentUser.name || currentUser.username) + ' (' + currentUser.role + ')', 'info');
 }
 
-// Load saved data BEFORE rendering the first page
-loadDB();
-// Always ensure a default admin user exists (so the user can never get locked out)
-ensureDefaultAdmin();
+// ==================== BOOT ====================
+// Show a brief loading splash while we fetch the latest DB from the server.
+// This makes the app feel responsive even when the network is slow, and
+// ensures the user sees fresh data on every load (cross-browser/cross-device).
 
-// Try to restore the user's previous session (if "Remember me" was used)
-var sessionRestored = restoreSession();
-
-renderNav();
-if (sessionRestored) {
-  // User was previously logged in — show the app
-  updateTopBarUser();
-  renderPage();
-} else {
-  // Not logged in — show the login screen on top of the app
-  renderPage(); // render app underneath so it's ready when login succeeds
-  renderLoginPage();
+function showBootSplash() {
+  if (document.getElementById('boot-splash')) return;
+  var splash = document.createElement('div');
+  splash.id = 'boot-splash';
+  splash.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0f1f0f 0%,#1a2e1a 50%,#2d4a2d 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:white;';
+  splash.innerHTML = ''
+    + '<div style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.25);">'
+    + '<i class="fas fa-microchip" style="font-size:30px;"></i>'
+    + '</div>'
+    + '<div style="font-size:18px;font-weight:700;letter-spacing:0.5px;">IT Asset Management</div>'
+    + '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(255,255,255,0.7);">'
+    + '<div style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>'
+    + 'Loading data from server...'
+    + '</div>'
+    + '<style>@keyframes spin{to{transform:rotate(360deg);}}</style>';
+  document.body.appendChild(splash);
 }
+
+function hideBootSplash() {
+  var splash = document.getElementById('boot-splash');
+  if (splash) splash.remove();
+}
+
+// Start the boot sequence
+showBootSplash();
+loadDB(function() {
+  // Server data loaded (or fallback used) — finish booting
+  ensureDefaultAdmin();
+  var sessionRestored = restoreSession();
+  renderNav();
+  if (sessionRestored) {
+    updateTopBarUser();
+    renderPage();
+    hideBootSplash();
+  } else {
+    renderPage();
+    renderLoginPage();
+    hideBootSplash();
+  }
+});
 </script>
 </body>

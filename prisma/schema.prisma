@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,6 +10,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// The entire application state (DB object) is stored as a single JSON blob.
+// This makes cross-browser / cross-device sync trivial: every save overwrites
+// the previous state, and every load fetches the latest.
+//
+// A single record (id = 'main') holds the current data. We could split this
+// into multiple models later if we want finer-grained queries, but for an
+// inventory management app where each user is typically the only writer,
+// the JSON-blob approach is simple, robust, and requires no migrations
+// when the DB shape changes.
+model AppData {
+  id        String   @id @default("main")
+  data      String   // JSON-serialized DB object
+  updatedAt DateTime @updatedAt
+}
+
+// Keep the existing User/Post models for reference / future auth
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
