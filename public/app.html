@@ -4206,6 +4206,46 @@ function clearSavedDB() {
   try { localStorage.removeItem('itAssetDB'); } catch (e) {}
 }
 
+// Ensure at least one admin user exists in DB.users
+// (called after loadDB so that previously-saved empty users list doesn't lock out the admin)
+function ensureDefaultAdmin() {
+  // Make sure DB.users is an array
+  if (!Array.isArray(DB.users)) DB.users = [];
+  // Look for the default admin user (by username 'admin')
+  var adminExists = false;
+  for (var i = 0; i < DB.users.length; i++) {
+    if (DB.users[i].username && DB.users[i].username.toLowerCase() === 'admin') {
+      adminExists = true;
+      // Backfill password if missing (so old admin records can still log in)
+      if (!DB.users[i].password) DB.users[i].password = 'admin123';
+      if (!DB.users[i].role) DB.users[i].role = 'Super Admin';
+      if (!DB.users[i].status) DB.users[i].status = 'Active';
+      break;
+    }
+  }
+  if (!adminExists) {
+    DB.users.push({
+      id: 1,
+      name: 'Admin User',
+      username: 'admin',
+      email: 'admin@itassets.com',
+      password: 'admin123',
+      role: 'Super Admin',
+      status: 'Active'
+    });
+  }
+  // Also ensure default roles exist (so User Create form has options)
+  if (!Array.isArray(DB.roles) || DB.roles.length === 0) {
+    DB.roles = [
+      { id: 1, name: 'Super Admin', permissions: 'Full Access' },
+      { id: 2, name: 'Branch Manager', permissions: 'Dashboard, Inventory, Reports (Own Branch)' },
+      { id: 3, name: 'Inventory Officer', permissions: 'Inventory, Delivery, Adjustment' },
+      { id: 4, name: 'Finance Officer', permissions: 'Cash Book, Reports' },
+      { id: 5, name: 'Viewer', permissions: 'Dashboard, Reports (Read Only)' }
+    ];
+  }
+}
+
 // ==================== LOGIN / LOGOUT ====================
 
 // Build the login page (shown when not authenticated)
@@ -4434,6 +4474,8 @@ function showUserMenu() {
 
 // Load saved data BEFORE rendering the first page
 loadDB();
+// Always ensure a default admin user exists (so the user can never get locked out)
+ensureDefaultAdmin();
 
 // Try to restore the user's previous session (if "Remember me" was used)
 var sessionRestored = restoreSession();
