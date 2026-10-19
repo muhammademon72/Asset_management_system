@@ -52,3 +52,17 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Database (contains user-entered data, persisted to local storage anyway)
+/db/*.db
+/db/*.db-journal
+/db/*.db-wal
+/db/*.db-shm
+
+# Backup/restore JSON exports (may contain user data)
+/download/*.json
+/upload/
+
+# Tool/results cache
+/tool-results/
+/tests/
