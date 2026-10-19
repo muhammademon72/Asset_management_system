@@ -4165,7 +4165,9 @@ function renderPage() {
 // read-cache for the first paint, but the source of truth is the server.
 
 var DB_SAVE_TIMER = null;
-var DB_LAST_SAVED_AT = null;
+var DB_LAST_SAVED_AT = null;     // ISO timestamp of last successful server save
+var DB_LOCAL_DIRTY = false;      // true if there are unsaved local changes
+var DB_BOOT_DONE = false;        // false until the first server fetch completes
 
 // Build the JSON-serializable snapshot of DB
 function buildDBSnapshot() {
@@ -4198,6 +4200,7 @@ function buildDBSnapshot() {
 
 // Save to server (debounced — 800ms after the last change)
 function saveDB() {
+  DB_LOCAL_DIRTY = true;
   // Clear any pending save
   if (DB_SAVE_TIMER) clearTimeout(DB_SAVE_TIMER);
   // Schedule a new save in 800ms — coalesces rapid edits into one request
@@ -4209,6 +4212,7 @@ function saveDB() {
 function saveDBNow(onDone) {
   try {
     var payload = buildDBSnapshot();
+    DB_LOCAL_DIRTY = false; // optimistic — set true again if save fails
     // Optimistically also cache in localStorage so the next page load
     // can paint quickly before the server round-trip completes.
     try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
@@ -4222,27 +4226,37 @@ function saveDBNow(onDone) {
         DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
       } else {
         console.warn('saveDB: server returned error', res);
+        DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
       }
       if (onDone) onDone(res);
     }).catch(function(err) {
       console.warn('saveDB: network error', err);
+      DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
       if (onDone) onDone({ ok: false, error: err && err.message });
     });
   } catch (e) {
     console.warn('saveDB failed:', e);
+    DB_LOCAL_DIRTY = true;
     if (onDone) onDone({ ok: false, error: e && e.message });
   }
 }
 
 // Load DB from server. Falls back to localStorage cache if the server is unreachable.
 // This is ASYNC — caller must continue in the callback.
+//
+// IMPORTANT: if we have local unsaved changes (DB_LOCAL_DIRTY), we DON'T overwrite
+// the DB with the server copy — instead we push our local copy to the server.
+// This prevents data loss when the user makes changes and refreshes before the
+// debounced save fires.
 function loadDB(onDone) {
   // Step 1: try to paint quickly from localStorage cache (best-effort)
+  var hadLocalCache = false;
   try {
     var cached = localStorage.getItem('itAssetDB');
     if (cached) {
       var cachedData = JSON.parse(cached);
       applyDBData(cachedData);
+      hadLocalCache = true;
     }
   } catch (e) { /* ignore cache read errors */ }
 
@@ -4251,18 +4265,42 @@ function loadDB(onDone) {
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.ok && res.data) {
-        applyDBData(res.data);
         DB_LAST_SAVED_AT = res.updatedAt || null;
+        // If we have unsaved local changes, DON'T overwrite — push our version
+        // to the server instead. This protects the user's recent edits.
+        if (DB_LOCAL_DIRTY || hadLocalCache) {
+          // We have local data — check if it's newer than the server
+          // by comparing timestamps. If local _savedAt > server updatedAt,
+          // keep local and push to server.
+          var localSnapshot = buildDBSnapshot();
+          var localTime = localSnapshot._savedAt || '';
+          var serverTime = res.updatedAt || '';
+          if (localTime > serverTime || DB_LOCAL_DIRTY) {
+            // Local is newer OR has unsaved changes — keep local, sync to server
+            console.log('loadDB: local data is newer/dirty — syncing to server');
+            // Don't apply server data; push our local copy
+            saveDBNow(function() {
+              DB_BOOT_DONE = true;
+              if (onDone) onDone(true);
+            });
+            return;
+          }
+        }
+        // No local changes — apply server data (authoritative)
+        applyDBData(res.data);
         // Refresh the local cache too
         try { localStorage.setItem('itAssetDB', JSON.stringify(res.data)); } catch (e) {}
+        DB_BOOT_DONE = true;
         if (onDone) onDone(true);
       } else {
         console.warn('loadDB: server returned error', res);
+        DB_BOOT_DONE = true;
         if (onDone) onDone(false);
       }
     })
     .catch(function(err) {
       console.warn('loadDB: network error, using cached/localStorage data', err);
+      DB_BOOT_DONE = true;
       if (onDone) onDone(false);
     });
 }
@@ -4277,6 +4315,48 @@ function applyDBData(data) {
   }
   if (data.company && typeof data.company === 'object') DB.company = data.company;
   if (data._lastBackup) DB._lastBackup = data._lastBackup;
+}
+
+// Flush any pending save before the page unloads (refresh / close / navigate).
+// Uses both sendBeacon (works during unload) and a synchronous fetch fallback.
+function flushPendingSave() {
+  if (!DB_LOCAL_DIRTY) return;
+  // Cancel the debounced timer — we're saving NOW
+  if (DB_SAVE_TIMER) { clearTimeout(DB_SAVE_TIMER); DB_SAVE_TIMER = null; }
+  var payload = buildDBSnapshot();
+  try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
+  // sendBeacon works even during page unload (fire-and-forget)
+  if (navigator.sendBeacon) {
+    try {
+      var blob = new Blob([JSON.stringify({ data: payload })], { type: 'application/json' });
+      navigator.sendBeacon('/api/db', blob);
+      DB_LOCAL_DIRTY = false;
+      return;
+    } catch (e) { /* fall through to fetch */ }
+  }
+  // Fallback: best-effort fetch (may not complete during unload, but worth trying)
+  try {
+    fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: payload }),
+      keepalive: true
+    });
+    DB_LOCAL_DIRTY = false;
+  } catch (e) {}
+}
+
+// Wire up flush-on-unload listeners (set up once, after the script loads)
+if (!window._flushWired) {
+  window._flushWired = true;
+  // 'pagehide' is the most reliable cross-browser unload event
+  window.addEventListener('pagehide', flushPendingSave);
+  // 'beforeunload' fires earlier and gives sendBeacon more time
+  window.addEventListener('beforeunload', flushPendingSave);
+  // 'visibilitychange' (hidden) fires on tab switch / minimize — good for mobile
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') flushPendingSave();
+  });
 }
 
 // Clear saved data — used by "Delete All Data" button. Clears both server and localStorage.
