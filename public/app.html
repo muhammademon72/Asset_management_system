@@ -4198,13 +4198,14 @@ function buildDBSnapshot() {
   };
 }
 
-// Save to server (debounced — 800ms after the last change)
+// Save to server (debounced — 300ms after the last change)
 function saveDB() {
   DB_LOCAL_DIRTY = true;
   // Clear any pending save
   if (DB_SAVE_TIMER) clearTimeout(DB_SAVE_TIMER);
-  // Schedule a new save in 800ms — coalesces rapid edits into one request
-  DB_SAVE_TIMER = setTimeout(function() { saveDBNow(); }, 800);
+  // Schedule a new save in 300ms — coalesces rapid edits into one request
+  // (shorter than 800ms because user data loss on refresh is worse than a few extra POSTs)
+  DB_SAVE_TIMER = setTimeout(function() { saveDBNow(); }, 300);
 }
 
 // Save immediately (no debounce). Called by saveDB debouncer and explicitly
@@ -4244,62 +4245,52 @@ function saveDBNow(onDone) {
 // Load DB from server. Falls back to localStorage cache if the server is unreachable.
 // This is ASYNC — caller must continue in the callback.
 //
-// IMPORTANT: if we have local unsaved changes (DB_LOCAL_DIRTY), we DON'T overwrite
-// the DB with the server copy — instead we push our local copy to the server.
-// This prevents data loss when the user makes changes and refreshes before the
-// debounced save fires.
+// CRITICAL: the SERVER is always the source of truth.
+// - On boot, we ALWAYS apply whatever the server returns (replacing localStorage cache).
+// - We never push local data to the server during boot — that would overwrite other
+//   browsers' changes. Local-to-server push only happens via saveDB() which is
+//   called after a user action (Add/Edit/Delete), not on load.
+//
+// The only exception: if the server is unreachable, we fall back to the localStorage
+// cache (best-effort) so the app remains usable offline.
 function loadDB(onDone) {
-  // Step 1: try to paint quickly from localStorage cache (best-effort)
-  var hadLocalCache = false;
-  try {
-    var cached = localStorage.getItem('itAssetDB');
-    if (cached) {
-      var cachedData = JSON.parse(cached);
-      applyDBData(cachedData);
-      hadLocalCache = true;
-    }
-  } catch (e) { /* ignore cache read errors */ }
-
-  // Step 2: fetch the authoritative copy from the server
+  // Step 1: fetch the authoritative copy from the server FIRST
   fetch('/api/db', { method: 'GET' })
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.ok && res.data) {
-        DB_LAST_SAVED_AT = res.updatedAt || null;
-        // If we have unsaved local changes, DON'T overwrite — push our version
-        // to the server instead. This protects the user's recent edits.
-        if (DB_LOCAL_DIRTY || hadLocalCache) {
-          // We have local data — check if it's newer than the server
-          // by comparing timestamps. If local _savedAt > server updatedAt,
-          // keep local and push to server.
-          var localSnapshot = buildDBSnapshot();
-          var localTime = localSnapshot._savedAt || '';
-          var serverTime = res.updatedAt || '';
-          if (localTime > serverTime || DB_LOCAL_DIRTY) {
-            // Local is newer OR has unsaved changes — keep local, sync to server
-            console.log('loadDB: local data is newer/dirty — syncing to server');
-            // Don't apply server data; push our local copy
-            saveDBNow(function() {
-              DB_BOOT_DONE = true;
-              if (onDone) onDone(true);
-            });
-            return;
-          }
-        }
-        // No local changes — apply server data (authoritative)
+        // Server is the source of truth — always apply server data
         applyDBData(res.data);
-        // Refresh the local cache too
+        DB_LAST_SAVED_AT = res.updatedAt || null;
+        DB_LOCAL_DIRTY = false; // we just synced — no unsaved changes
+        // Refresh the local cache so future loads are fast
         try { localStorage.setItem('itAssetDB', JSON.stringify(res.data)); } catch (e) {}
         DB_BOOT_DONE = true;
         if (onDone) onDone(true);
       } else {
-        console.warn('loadDB: server returned error', res);
+        console.warn('loadDB: server returned error, falling back to localStorage cache', res);
+        // Server returned an error — fall back to localStorage cache (best-effort)
+        try {
+          var cached = localStorage.getItem('itAssetDB');
+          if (cached) {
+            var cachedData = JSON.parse(cached);
+            applyDBData(cachedData);
+          }
+        } catch (e2) { /* ignore */ }
         DB_BOOT_DONE = true;
         if (onDone) onDone(false);
       }
     })
     .catch(function(err) {
       console.warn('loadDB: network error, using cached/localStorage data', err);
+      // Network error — fall back to localStorage cache (best-effort)
+      try {
+        var cached2 = localStorage.getItem('itAssetDB');
+        if (cached2) {
+          var cachedData2 = JSON.parse(cached2);
+          applyDBData(cachedData2);
+        }
+      } catch (e3) { /* ignore */ }
       DB_BOOT_DONE = true;
       if (onDone) onDone(false);
     });
