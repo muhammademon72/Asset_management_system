@@ -186,15 +186,20 @@
           <span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid var(--card);"></span>
         </div>
         <div style="width:1px;height:28px;background:var(--border);"></div>
-        <div style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-          <div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;">
-            <span style="color:white;font-size:13px;font-weight:700;">AD</span>
+        <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="showUserMenu()" id="topbar-user-area">
+          <div id="topbar-user-avatar" style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;">
+            <span style="color:white;font-size:13px;font-weight:700;">—</span>
           </div>
           <div>
-            <div style="font-size:13px;font-weight:600;">Admin User</div>
-            <div style="font-size:11px;color:var(--muted);">Super Admin</div>
+            <div id="topbar-user-name" style="font-size:13px;font-weight:600;">Not signed in</div>
+            <div id="topbar-user-role" style="font-size:11px;color:var(--muted);"></div>
           </div>
+          <i class="fas fa-chevron-down" style="color:var(--muted);font-size:11px;margin-left:4px;"></i>
         </div>
+        <button onclick="logoutUser()" title="Sign out" style="background:none;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:13px;padding:8px 10px;border-radius:8px;display:flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)';" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';">
+          <i class="fas fa-sign-out-alt"></i>
+          <span style="font-size:12px;font-weight:600;">Logout</span>
+        </button>
       </div>
     </div>
     <div id="page-content" style="padding:28px;"></div>
@@ -226,10 +231,22 @@ const DB = {
   transfers: [],
   cashIn: [],
   cashOut: [],
-  users: [],
-  roles: [],
+  users: [
+    { id: 1, name: 'Admin User', username: 'admin', email: 'admin@itassets.com', password: 'admin123', role: 'Super Admin', status: 'Active' }
+  ],
+  roles: [
+    { id: 1, name: 'Super Admin', permissions: 'Full Access' },
+    { id: 2, name: 'Branch Manager', permissions: 'Dashboard, Inventory, Reports (Own Branch)' },
+    { id: 3, name: 'Inventory Officer', permissions: 'Inventory, Delivery, Adjustment' },
+    { id: 4, name: 'Finance Officer', permissions: 'Cash Book, Reports' },
+    { id: 5, name: 'Viewer', permissions: 'Dashboard, Reports (Read Only)' }
+  ],
   company: { name: '', address: '', phone: '', email: '', website: '' }
 };
+
+// ==================== SESSION / AUTH ====================
+let currentUser = null;            // Holds the logged-in user object, or null if logged out
+const SESSION_KEY = 'itAssetSession'; // localStorage key for the persisted session
 
 // ==================== NAVIGATION ====================
 const NAV = [
@@ -3692,10 +3709,11 @@ function renderUserList() {
   html += '<div style="font-size:20px;font-weight:800;">User List</div>';
   html += '<button class="btn btn-primary" id="btn-add-user"><i class="fas fa-plus"></i> Create User</button></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Full Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.users.length; i++) {
     var u = DB.users[i];
-    html += '<tr><td style="font-weight:600;">' + u.name + '</td><td>' + u.username + '</td><td>' + u.email + '</td><td><span class="badge badge-blue">' + u.role + '</span></td><td>' + statusBadge(u.status) + '</td>';
+    var passDisplay = u.password ? ('•••••• (' + u.password.length + ' chars)') : '-';
+    html += '<tr><td style="font-weight:600;">' + u.name + '</td><td>' + (u.username || '-') + '</td><td style="font-family:monospace;font-size:12px;color:var(--muted);">' + passDisplay + '</td><td>' + (u.email || '-') + '</td><td><span class="badge badge-blue">' + (u.role || '-') + '</span></td><td>' + statusBadge(u.status || 'Active') + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-user="' + u.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
@@ -3712,14 +3730,23 @@ function bindUserEvents() {
     html += '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-user-name"></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Username</label><input class="form-input" id="f-user-uname"></div>';
     html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-user-email"></div></div>';
+    html += '<div class="form-group"><label class="form-label">Password</label><input type="text" class="form-input" id="f-user-pass" placeholder="Set a login password" value=""></div>';
     html += '<div class="form-group"><label class="form-label">Role</label><select class="form-input" id="f-user-role">' + roleOpts + '</select></div>';
     html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
     html += '<button class="btn btn-primary" id="btn-save-user"><i class="fas fa-save"></i> Create</button></div></div>';
     openModal(html);
     document.getElementById('btn-save-user').addEventListener('click', function() {
       var name = document.getElementById('f-user-name').value.trim();
+      var uname = document.getElementById('f-user-uname').value.trim();
+      var pass = document.getElementById('f-user-pass').value;
       if (!name) { showToast('Name required', 'error'); return; }
-      DB.users.push({ id: Date.now(), name: name, username: document.getElementById('f-user-uname').value.trim(), email: document.getElementById('f-user-email').value.trim(), role: document.getElementById('f-user-role').value, status: 'Active' });
+      if (!uname) { showToast('Username required', 'error'); return; }
+      if (!pass) { showToast('Password required', 'error'); return; }
+      // Prevent duplicate usernames
+      for (var i = 0; i < DB.users.length; i++) {
+        if (DB.users[i].username.toLowerCase() === uname.toLowerCase()) { showToast('Username already exists', 'error'); return; }
+      }
+      DB.users.push({ id: Date.now(), name: name, username: uname, email: document.getElementById('f-user-email').value.trim(), password: pass, role: document.getElementById('f-user-role').value, status: 'Active' });
       closeModal(); showToast('User created'); renderPage();
     });
   });
@@ -4028,7 +4055,8 @@ function confirmDeleteAllData() {
       DB.products = []; DB.categories = []; DB.brands = []; DB.uoms = [];
       DB.conditions = []; DB.warranties = []; DB.suppliers = []; DB.purchases = [];
       DB.deliveries = []; DB.adjustments = []; DB.damages = []; DB.transfers = [];
-      DB.cashIn = []; DB.cashOut = []; DB.users = []; DB.roles = [];
+      DB.cashIn = []; DB.cashOut = [];
+      // Note: Keep users & roles so the admin can still log in after wiping data
       DB.company = { name: '', address: '', phone: '', email: '', website: '' };
       // Also clear localStorage so deleted data doesn't come back on refresh
       clearSavedDB();
@@ -4178,11 +4206,248 @@ function clearSavedDB() {
   try { localStorage.removeItem('itAssetDB'); } catch (e) {}
 }
 
+// ==================== LOGIN / LOGOUT ====================
+
+// Build the login page (shown when not authenticated)
+function renderLoginPage() {
+  // If a login page already exists, don't duplicate it
+  if (document.getElementById('login-screen')) return;
+
+  var html = '';
+  html += '<div id="login-screen" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0f1f0f 0%,#1a2e1a 50%,#2d4a2d 100%);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">';
+  html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background-image:radial-gradient(circle at 20% 30%,rgba(45,138,78,0.15) 0,transparent 40%),radial-gradient(circle at 80% 70%,rgba(94,234,126,0.10) 0,transparent 40%);pointer-events:none;"></div>';
+  // Card
+  html += '<div style="position:relative;width:100%;max-width:440px;background:#fff;border-radius:20px;box-shadow:0 30px 60px rgba(0,0,0,0.4);overflow:hidden;">';
+  // Top accent banner
+  html += '<div style="background:linear-gradient(135deg,#2d8a4e 0%,#1a5c30 100%);padding:32px 28px 28px;text-align:center;">';
+  html += '<div style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,0.18);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;border:1px solid rgba(255,255,255,0.25);">';
+  html += '<i class="fas fa-microchip" style="color:white;font-size:30px;"></i>';
+  html += '</div>';
+  html += '<div style="color:white;font-size:22px;font-weight:800;letter-spacing:0.5px;">IT Asset Management</div>';
+  html += '<div style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:500;letter-spacing:2px;margin-top:4px;">SYSTEM</div>';
+  html += '</div>';
+  // Form body
+  html += '<div style="padding:28px 32px 32px;">';
+  html += '<div style="font-size:18px;font-weight:700;color:#1a2e1a;margin-bottom:6px;">Welcome back 👋</div>';
+  html += '<div style="font-size:13px;color:#6b7c6b;margin-bottom:24px;">Please sign in to your account to continue.</div>';
+  // Form
+  html += '<form id="login-form" autocomplete="off" style="display:flex;flex-direction:column;gap:16px;">';
+  // Username
+  html += '<div>';
+  html += '<label style="display:block;font-size:12px;font-weight:600;color:#1a5c30;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Username</label>';
+  html += '<div style="position:relative;">';
+  html += '<i class="fas fa-user" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#6b7c6b;font-size:14px;"></i>';
+  html += '<input type="text" id="login-username" placeholder="Enter your username" autocomplete="off" style="width:100%;padding:12px 14px 12px 40px;border:1.5px solid #d4ddd4;border-radius:10px;font-size:14px;font-family:Outfit,sans-serif;color:#1a2e1a;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" onfocus="this.style.borderColor=\'#2d8a4e\';this.style.boxShadow=\'0 0 0 3px rgba(45,138,78,0.12)\'" onblur="this.style.borderColor=\'#d4ddd4\';this.style.boxShadow=\'none\'">';
+  html += '</div>';
+  html += '</div>';
+  // Password
+  html += '<div>';
+  html += '<label style="display:block;font-size:12px;font-weight:600;color:#1a5c30;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Password</label>';
+  html += '<div style="position:relative;">';
+  html += '<i class="fas fa-lock" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#6b7c6b;font-size:14px;"></i>';
+  html += '<input type="password" id="login-password" placeholder="Enter your password" autocomplete="off" style="width:100%;padding:12px 40px 12px 40px;border:1.5px solid #d4ddd4;border-radius:10px;font-size:14px;font-family:Outfit,sans-serif;color:#1a2e1a;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" onfocus="this.style.borderColor=\'#2d8a4e\';this.style.boxShadow=\'0 0 0 3px rgba(45,138,78,0.12)\'" onblur="this.style.borderColor=\'#d4ddd4\';this.style.boxShadow=\'none\'">';
+  html += '<i class="fas fa-eye" id="login-toggle-pass" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#6b7c6b;font-size:14px;cursor:pointer;" onclick="toggleLoginPassword()"></i>';
+  html += '</div>';
+  html += '</div>';
+  // Remember + forgot row
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">';
+  html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#6b7c6b;"><input type="checkbox" id="login-remember" checked style="cursor:pointer;accent-color:#2d8a4e;"> Remember me</label>';
+  html += '<a href="#" onclick="showToast(\'Contact your administrator to reset password\',\'info\');return false;" style="color:#2d8a4e;font-weight:600;text-decoration:none;">Forgot password?</a>';
+  html += '</div>';
+  // Submit
+  html += '<button type="submit" id="login-submit" style="margin-top:8px;padding:13px;background:linear-gradient(135deg,#2d8a4e 0%,#1a5c30 100%);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:Outfit,sans-serif;cursor:pointer;letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(45,138,78,0.25);">';
+  html += '<i class="fas fa-sign-in-alt"></i> Sign In';
+  html += '</button>';
+  html += '</form>';
+  // Demo credentials box
+  html += '<div style="margin-top:22px;padding:14px;background:#f5f9f5;border:1px dashed #2d8a4e;border-radius:10px;font-size:12px;color:#1a5c30;">';
+  html += '<div style="font-weight:700;margin-bottom:4px;"><i class="fas fa-info-circle"></i> Default Login</div>';
+  html += '<div style="font-family:monospace;font-size:11px;line-height:1.6;">Username: <strong>admin</strong><br>Password: <strong>admin123</strong></div>';
+  html += '</div>';
+  // Footer
+  html += '<div style="margin-top:20px;text-align:center;font-size:11px;color:#6b7c6b;">© ' + new Date().getFullYear() + ' IT Asset Management System. All rights reserved.</div>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Append to body (overlay on top of the app)
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstChild);
+
+  // Focus username field
+  setTimeout(function() { var un = document.getElementById('login-username'); if (un) un.focus(); }, 50);
+
+  // Hook form submit
+  var form = document.getElementById('login-form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      attemptLogin();
+    });
+  }
+}
+
+// Show/hide password on login screen
+function toggleLoginPassword() {
+  var pwd = document.getElementById('login-password');
+  var icon = document.getElementById('login-toggle-pass');
+  if (!pwd || !icon) return;
+  if (pwd.type === 'password') {
+    pwd.type = 'text';
+    icon.classList.remove('fa-eye');
+    icon.classList.add('fa-eye-slash');
+  } else {
+    pwd.type = 'password';
+    icon.classList.remove('fa-eye-slash');
+    icon.classList.add('fa-eye');
+  }
+}
+
+// Attempt login with provided credentials
+function attemptLogin() {
+  var username = (document.getElementById('login-username').value || '').trim();
+  var password = document.getElementById('login-password').value || '';
+  var remember = document.getElementById('login-remember').checked;
+  if (!username || !password) {
+    showLoginError('Please enter both username and password');
+    return;
+  }
+  // Find user
+  var user = null;
+  for (var i = 0; i < DB.users.length; i++) {
+    if (DB.users[i].username && DB.users[i].username.toLowerCase() === username.toLowerCase() && DB.users[i].password === password) {
+      user = DB.users[i];
+      break;
+    }
+  }
+  if (!user) {
+    showLoginError('Invalid username or password');
+    return;
+  }
+  if (user.status !== 'Active') {
+    showLoginError('Account is ' + (user.status || 'inactive') + '. Contact administrator.');
+    return;
+  }
+  // Success — set current user and persist session if "remember me"
+  currentUser = user;
+  if (remember) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id, at: Date.now() })); } catch (e) {}
+  } else {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+  }
+  // Remove login screen
+  var ls = document.getElementById('login-screen');
+  if (ls) ls.remove();
+  // Update top bar with logged-in user
+  updateTopBarUser();
+  // Welcome toast
+  showToast('Welcome, ' + (user.name || user.username) + '! 👋');
+  // Render the first page (dashboard)
+  renderPage();
+}
+
+// Display an error message on the login form
+function showLoginError(msg) {
+  var existing = document.getElementById('login-error-msg');
+  if (existing) existing.remove();
+  var form = document.getElementById('login-form');
+  if (!form) return;
+  var err = document.createElement('div');
+  err.id = 'login-error-msg';
+  err.style.cssText = 'background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.30);color:#dc2626;padding:10px 12px;border-radius:8px;font-size:12px;display:flex;align-items:center;gap:8px;margin-bottom:4px;';
+  err.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + msg;
+  form.insertBefore(err, form.firstChild);
+  // Shake the password field for feedback
+  var pwd = document.getElementById('login-password');
+  if (pwd) { pwd.value = ''; pwd.focus(); }
+}
+
+// Restore session from localStorage (called on page load)
+function restoreSession() {
+  try {
+    var raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    if (!data || !data.userId) return false;
+    for (var i = 0; i < DB.users.length; i++) {
+      if (DB.users[i].id === data.userId) {
+        // Verify account is still active
+        if (DB.users[i].status === 'Active') {
+          currentUser = DB.users[i];
+          return true;
+        }
+        localStorage.removeItem(SESSION_KEY);
+        return false;
+      }
+    }
+    // User no longer exists — clear stale session
+    localStorage.removeItem(SESSION_KEY);
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Update the top bar to show the logged-in user
+function updateTopBarUser() {
+  var avatarEl = document.getElementById('topbar-user-avatar');
+  var nameEl = document.getElementById('topbar-user-name');
+  var roleEl = document.getElementById('topbar-user-role');
+  if (!currentUser) return;
+  var initials = '';
+  if (currentUser.name) {
+    var parts = currentUser.name.trim().split(/\s+/);
+    initials = (parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : '');
+    initials = initials.toUpperCase();
+  } else if (currentUser.username) {
+    initials = currentUser.username.substring(0, 2).toUpperCase();
+  }
+  if (avatarEl) avatarEl.textContent = initials;
+  if (nameEl) nameEl.textContent = currentUser.name || currentUser.username || 'User';
+  if (roleEl) roleEl.textContent = currentUser.role || 'User';
+}
+
+// Logout — clear session and show login screen
+function logoutUser() {
+  // Confirm before logout
+  if (!confirm('Are you sure you want to sign out?')) return;
+  currentUser = null;
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+  // Show the login screen again
+  renderLoginPage();
+  // Clear top bar user info
+  var avatarEl = document.getElementById('topbar-user-avatar');
+  var nameEl = document.getElementById('topbar-user-name');
+  var roleEl = document.getElementById('topbar-user-role');
+  if (avatarEl) avatarEl.textContent = '—';
+  if (nameEl) nameEl.textContent = 'Not signed in';
+  if (roleEl) roleEl.textContent = '';
+  showToast('Signed out successfully');
+}
+
+// Show a small dropdown with current user info (placeholder — could link to profile)
+function showUserMenu() {
+  if (!currentUser) { renderLoginPage(); return; }
+  showToast('Signed in as: ' + (currentUser.name || currentUser.username) + ' (' + currentUser.role + ')', 'info');
+}
+
 // Load saved data BEFORE rendering the first page
 loadDB();
 
+// Try to restore the user's previous session (if "Remember me" was used)
+var sessionRestored = restoreSession();
+
 renderNav();
-renderPage();
+if (sessionRestored) {
+  // User was previously logged in — show the app
+  updateTopBarUser();
+  renderPage();
+} else {
+  // Not logged in — show the login screen on top of the app
+  renderPage(); // render app underneath so it's ready when login succeeds
+  renderLoginPage();
+}
 </script>
 </body>
 </html>
