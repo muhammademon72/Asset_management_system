@@ -2235,9 +2235,10 @@ function openAdjustmentModal(adjId, readOnly) {
       var ref = document.getElementById('f-adj-ref').value.trim();
       var date = document.getElementById('f-adj-date').value;
       if (!date) { showToast('Date required', 'error'); return; }
-      var branch = document.getElementById('f-adj-branch').value;
+      var branch = ''; // Branch removed from modal
       var status = document.getElementById('f-adj-status').value;
-      var note = document.getElementById('f-adj-note').value.trim();
+      var noteEl = document.getElementById('f-adj-note');
+      var note = noteEl ? noteEl.value.trim() : '';
       // Read first valid row
       var rows = document.querySelectorAll('#pur-entries-body tr');
       var firstValid = null;
