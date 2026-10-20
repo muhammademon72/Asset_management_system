@@ -1069,8 +1069,10 @@ function renderInventoryStock() {
     var condition = (latestPur && latestPur.condition) || '-';
     var warranty = (latestPur && latestPur.warranty) || '-';
     var remarks = (latestPur && latestPur.remarks) || '-';
+    var invoice = (latestPur && latestPur.invoice) || '-';
     rows += '<tr>';
     rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + visibleCount + '</td>';
+    rows += '<td style="font-weight:600;color:var(--info);">' + invoice + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
     rows += '<td>' + (p.category || '-') + '</td>';
     rows += '<td>' + (p.brand || '-') + '</td>';
@@ -1098,12 +1100,12 @@ function renderInventoryStock() {
   // Table — show empty state message if no products with stock
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
-  html += '<th style="text-align:center;width:50px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
+  html += '<th style="text-align:center;width:50px;">SN</th><th>Invoice</th><th>Product</th><th>Category</th><th>Brand</th>';
   html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
   html += '<th style="text-align:center;">Current Stock</th><th>Remarks</th>';
   html += '</tr></thead><tbody>';
   if (rows === '') {
-    html += '<tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--muted);"><i class="fas fa-boxes" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i><div style="font-size:14px;font-weight:600;margin-bottom:4px;">No products in stock</div><div style="font-size:12px;">All products currently have zero stock. Add purchases or reduce deliveries/damages to see stock here.</div></td></tr>';
+    html += '<tr><td colspan="11" style="text-align:center;padding:40px 20px;color:var(--muted);"><i class="fas fa-boxes" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i><div style="font-size:14px;font-weight:600;margin-bottom:4px;">No products in stock</div><div style="font-size:12px;">All products currently have zero stock. Add purchases or reduce deliveries/damages to see stock here.</div></td></tr>';
   } else {
     html += rows;
   }
@@ -1147,8 +1149,10 @@ function printInventoryStock() {
     var condition = (latestPur && latestPur.condition) || '-';
     var warranty = (latestPur && latestPur.warranty) || '-';
     var remarks = (latestPur && latestPur.remarks) || '-';
+    var invoice = (latestPur && latestPur.invoice) || '-';
     rows += '<tr>';
     rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
+    rows += '<td style="font-weight:600;">' + invoice + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
     rows += '<td>' + (p.category || '-') + '</td>';
     rows += '<td>' + (p.brand || '-') + '</td>';
@@ -1204,7 +1208,7 @@ function printInventoryStock() {
   html += '</div>';
   // Table
   html += '<table><thead><tr>';
-  html += '<th style="text-align:center;width:40px;">SN</th><th>Product</th><th>Category</th><th>Brand</th>';
+  html += '<th style="text-align:center;width:40px;">SN</th><th>Invoice</th><th>Product</th><th>Category</th><th>Brand</th>';
   html += '<th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th>';
   html += '<th style="text-align:center;">Current Stock</th><th>Remarks</th>';
   html += '</tr></thead><tbody>' + rows + '</tbody></table>';
