@@ -19,8 +19,11 @@ const globalForLibsql = globalThis as unknown as { libsqlClient?: ReturnType<typ
 function getLibsqlClient() {
   if (globalForLibsql.libsqlClient) return globalForLibsql.libsqlClient;
 
-  const url = process.env.DATABASE_URL || "file:./db/custom.db";
-  const authToken = process.env.DATABASE_AUTH_TOKEN || "";
+  // Support both variable name patterns:
+  // DATABASE_URL / DATABASE_AUTH_TOKEN  (standard Prisma naming)
+  // TURSO_DATABASE_URL / TURSO_AUTH_TOKEN (Turso marketplace naming)
+  const url = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL || "file:./db/custom.db";
+  const authToken = process.env.DATABASE_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN || "";
 
   const client = createClient({
     url,
