@@ -2126,11 +2126,13 @@ function openAdjustmentModal(adjId, readOnly) {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (adj.date || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (adj.ref || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (adj.branch || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Type</label><div style="padding:8px 0;"><span class="badge ' + (adj.type==='Increase'?'badge-green':'badge-red') + '">' + (adj.type || '-') + '</span></div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Status</label><div style="padding:8px 0;">' + statusBadge(adj.status || 'Pending') + '</div></div>';
   } else {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-adj-date" value="' + (adj ? adj.date || '' : '') + '"></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><input class="form-input" style="color:var(--muted);" id="f-adj-ref" value="' + refVal + '" readonly></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><select class="form-input" id="f-adj-branch">' + brOpts + '</select></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Type</label><select class="form-input" id="f-adj-type"><option value="Decrease"' + (adj && adj.type === 'Decrease' ? ' selected' : '') + '>Decrease (−)</option><option value="Increase"' + (adj && adj.type === 'Increase' ? ' selected' : '') + '>Increase (+)</option></select></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Status</label><select class="form-input" id="f-adj-status"><option' + (adj && adj.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (adj && adj.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (adj && adj.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select></div>';
   }
   html += '</div>';
@@ -2256,9 +2258,8 @@ function openAdjustmentModal(adjId, readOnly) {
       var qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
       var remarks = firstValid.querySelector('[data-f="remarks"]').value;
       var bqtyVal = parseFloat(firstValid.querySelector('[data-f="bqty"]').value) || 0;
-      // Determine type based on qty sign convention (Increase/Decrease chosen by user via Remarks hint or kept as 'Increase' default)
-      // For backward compat, use 'Increase' if qty positive, 'Decrease' if negative; user can also use Remarks to clarify
-      var type = (qty >= 0) ? 'Increase' : 'Decrease';
+      // Read Type from the dropdown (Decrease = minus from stock, Increase = add to stock)
+      var type = document.getElementById('f-adj-type') ? document.getElementById('f-adj-type').value : 'Decrease';
       var absQty = Math.abs(qty);
       if (adj) {
         adj.ref = ref; adj.date = date; adj.branch = branch;
