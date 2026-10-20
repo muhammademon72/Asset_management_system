@@ -3668,13 +3668,6 @@ function renderReport(type) {
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
 
   var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
-  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">';
-  html += '<div class="stat-card green" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Total</div><div style="font-size:24px;font-weight:800;">' + (type==='purchase' ? fmt(total) : total) + '</div></div>';
-  html += '<div class="stat-card blue" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Approved</div><div style="font-size:24px;font-weight:800;color:var(--info);">' + approved + '</div></div>';
-  html += '<div class="stat-card amber" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Pending</div><div style="font-size:24px;font-weight:800;color:var(--warning);">' + pending + '</div></div>';
-  html += '<div class="stat-card red" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Rejected</div><div style="font-size:24px;font-weight:800;color:var(--danger);">' + rejected + '</div></div>';
-  html += '</div>';
-  html += '<div class="stat-card" style="padding:20px;margin-bottom:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Status Distribution</div><canvas id="reportPie" width="400" height="200"></canvas></div>';
 
   // Detailed Records table — different columns for purchase vs others
   html += '<div class="stat-card" style="padding:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Detailed Records</div>';
