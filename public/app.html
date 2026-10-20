@@ -3658,6 +3658,41 @@ function bindApprovalEvents() {
 }
 
 // ==================== REPORT PAGES ====================
+
+// Delivery Report filter functions
+function filterDeliveryReport() {
+  var branchFilter = (document.getElementById('filter-branch') || {}).value || '';
+  var empFilter = (document.getElementById('filter-emp') || {}).value || '';
+  var deptFilter = (document.getElementById('filter-dept') || {}).value || '';
+  var rows = document.querySelectorAll('#main-table tbody tr');
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    // Skip grand total rows
+    if (row.style.background && row.style.background.indexOf('accent') !== -1) continue;
+    var cells = row.querySelectorAll('td');
+    if (cells.length < 5) continue;
+    // Delivery columns: #, Date, Branch, Employee Name, Employee ID, Department, ...
+    var branch = (cells[2] || {}).textContent || '';
+    var emp = (cells[3] || {}).textContent || '';
+    var dept = (cells[5] || {}).textContent || '';
+    var matchBranch = !branchFilter || branch.indexOf(branchFilter) !== -1;
+    var matchEmp = !empFilter || emp.indexOf(empFilter) !== -1;
+    var matchDept = !deptFilter || dept.indexOf(deptFilter) !== -1;
+    if (matchBranch && matchEmp && matchDept) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  }
+}
+
+function clearDeliveryFilters() {
+  var bf = document.getElementById('filter-branch'); if (bf) bf.value = '';
+  var ef = document.getElementById('filter-emp'); if (ef) ef.value = '';
+  var df = document.getElementById('filter-dept'); if (df) df.value = '';
+  filterDeliveryReport();
+}
+
 function renderReport(type) {
   var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
   var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
@@ -3667,7 +3702,35 @@ function renderReport(type) {
   var pending = data.filter(function(d){return d.status==='Pending';}).length;
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
 
-  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">' + labels[type] + ' Report</div>';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '</div>';
+
+  // Filter dropdowns for Delivery Report (Branch, Employee Name, Department)
+  if (type === 'delivery') {
+    html += '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">';
+    // Branch filter
+    var branchSet = {};
+    for (var bi = 0; bi < data.length; bi++) { if (data[bi].branch) branchSet[data[bi].branch] = true; }
+    html += '<select class="form-input" id="filter-branch" style="width:180px;border-radius:8px;" onchange="filterDeliveryReport()"><option value="">All Branches</option>';
+    for (var b in branchSet) html += '<option value="' + b + '">' + b + '</option>';
+    html += '</select>';
+    // Employee Name filter
+    var empSet = {};
+    for (var ei = 0; ei < data.length; ei++) { if (data[ei].receivedBy) empSet[data[ei].receivedBy] = true; }
+    html += '<select class="form-input" id="filter-emp" style="width:180px;border-radius:8px;" onchange="filterDeliveryReport()"><option value="">All Employees</option>';
+    for (var e in empSet) html += '<option value="' + e + '">' + e + '</option>';
+    html += '</select>';
+    // Department filter
+    var deptSet = {};
+    for (var di = 0; di < data.length; di++) { if (data[di].department) deptSet[data[di].department] = true; }
+    html += '<select class="form-input" id="filter-dept" style="width:180px;border-radius:8px;" onchange="filterDeliveryReport()"><option value="">All Departments</option>';
+    for (var d in deptSet) html += '<option value="' + d + '">' + d + '</option>';
+    html += '</select>';
+    html += '<button class="btn btn-secondary" style="border-radius:8px;font-size:12px;" onclick="clearDeliveryFilters()"><i class="fas fa-undo"></i> Clear</button>';
+    html += '</div>';
+  }
 
   // Detailed Records table — different columns for purchase vs others
   html += '<div class="stat-card" style="padding:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Detailed Records</div>';
