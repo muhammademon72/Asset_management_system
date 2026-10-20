@@ -3919,9 +3919,36 @@ function renderReport(type) {
       html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
       html += '</tr>';
     }
+  } else if (type === 'adjustment') {
+    // Adjustment Report columns as requested:
+    // Date, Invoice(Ref), Product, Brand, Model, Serial, Qty, Remarks
+    html += '<th>#</th>';
+    html += '<th>Date</th>';
+    html += '<th>Invoice</th>';
+    html += '<th>Product</th>';
+    html += '<th>Brand</th>';
+    html += '<th>Model</th>';
+    html += '<th>Serial</th>';
+    html += '<th style="text-align:center;">Qty</th>';
+    html += '<th>Remarks</th>';
+    html += '<th>Status</th>';
+    html += '</tr></thead><tbody>';
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      html += '<tr>';
+      html += '<td style="text-align:center;color:var(--muted);font-weight:600;">' + (i+1) + '</td>';
+      html += '<td>' + (d.date || '-') + '</td>';
+      html += '<td style="font-weight:600;color:var(--info);">' + (d.ref || '-') + '</td>';
+      html += '<td style="font-weight:600;">' + (d.product || '-') + '</td>';
+      html += '<td>' + (d.brand || '-') + '</td>';
+      html += '<td>' + (d.model || '-') + '</td>';
+      html += '<td>' + (d.serial || '-') + '</td>';
+      html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
+      html += '<td>' + (d.remarks || d.reason || '-') + '</td>';
+      html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '</tr>';
+    }
   } else {
-    // Other report types — keep simple columns
-    html += '<th>#</th><th>Reference</th><th>Date</th><th>' + (type==='purchase' ? 'Amount' : 'Qty') + '</th><th>Status</th>';
     html += '</tr></thead><tbody>';
     for (var i = 0; i < data.length; i++) {
       var d = data[i];
