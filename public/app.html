@@ -5585,18 +5585,24 @@ function hideBootSplash() {
 // Start the boot sequence
 showBootSplash();
 loadDB(function() {
-  // Server data loaded (or fallback used) — finish booting
-  ensureDefaultAdmin();
-  var sessionRestored = restoreSession();
-  renderNav();
-  if (sessionRestored) {
-    updateTopBarUser();
-    renderPage();
+  try {
+    // Server data loaded (or fallback used) — finish booting
+    ensureDefaultAdmin();
+    var sessionRestored = restoreSession();
+    renderNav();
+    if (sessionRestored) {
+      updateTopBarUser();
+      renderPage();
+      hideBootSplash();
+    } else {
+      renderPage();
+      renderLoginPage();
+      hideBootSplash();
+    }
+  } catch(e) {
+    console.error('Boot error:', e);
     hideBootSplash();
-  } else {
-    renderPage();
     renderLoginPage();
-    hideBootSplash();
   }
 });
 </script>
