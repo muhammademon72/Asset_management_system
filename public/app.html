@@ -2003,7 +2003,7 @@ function renderAdjustmentList() {
   var rows = '';
   for (var i = 0; i < DB.adjustments.length; i++) {
     var a = DB.adjustments[i];
-    rows += '<tr><td style="font-weight:600;">' + a.ref + '</td><td>' + (a.date || '-') + '</td><td>' + (a.product || '-') + '</td><td>' + (a.branch || '-') + '</td><td><span class="badge ' + (a.type==='Increase'?'badge-green':'badge-red') + '">' + (a.type || '-') + '</span></td><td style="text-align:center;font-weight:700;color:var(--info);">' + (a.bqty !== undefined ? a.bqty : 0) + '</td><td style="text-align:center;font-weight:600;color:var(--accent-dark);">' + (a.qty || 0) + '</td><td>' + (a.reason || '-') + '</td><td>' + statusBadge(a.status) + '</td>';
+    rows += '<tr><td style="font-weight:600;">' + a.ref + '</td><td>' + (a.date || '-') + '</td><td>' + (a.product || '-') + '</td><td><span class="badge ' + (a.type==='Increase'?'badge-green':'badge-red') + '">' + (a.type || '-') + '</span></td><td style="text-align:center;font-weight:600;color:var(--accent-dark);">' + (a.qty || 0) + '</td><td>' + (a.reason || '-') + '</td><td>' + statusBadge(a.status) + '</td>';
     rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-adj="' + a.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-adj="' + a.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-adj="' + a.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-adj="' + a.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -2013,7 +2013,7 @@ function renderAdjustmentList() {
   html += '<button class="btn btn-primary" id="btn-add-adjustment"><i class="fas fa-plus"></i> Add New</button>';
   html += '<button class="btn btn-secondary" id="btn-print-adjustment-list" title="Print Adjustment List"><i class="fas fa-print"></i> Print</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th>Type</th><th style="text-align:center;">B.QTY</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Type</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -2125,13 +2125,11 @@ function openAdjustmentModal(adjId, readOnly) {
   if (readOnly) {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (adj.date || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (adj.ref || '-') + '</div></div>';
-    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (adj.branch || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Type</label><div style="padding:8px 0;"><span class="badge ' + (adj.type==='Increase'?'badge-green':'badge-red') + '">' + (adj.type || '-') + '</span></div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Status</label><div style="padding:8px 0;">' + statusBadge(adj.status || 'Pending') + '</div></div>';
   } else {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-adj-date" value="' + (adj ? adj.date || '' : '') + '"></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><input class="form-input" style="color:var(--muted);" id="f-adj-ref" value="' + refVal + '" readonly></div>';
-    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><select class="form-input" id="f-adj-branch">' + brOpts + '</select></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Type</label><select class="form-input" id="f-adj-type"><option value="Decrease"' + (adj && adj.type === 'Decrease' ? ' selected' : '') + '>Decrease (−)</option><option value="Increase"' + (adj && adj.type === 'Increase' ? ' selected' : '') + '>Increase (+)</option></select></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Status</label><select class="form-input" id="f-adj-status"><option' + (adj && adj.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (adj && adj.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (adj && adj.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select></div>';
   }
