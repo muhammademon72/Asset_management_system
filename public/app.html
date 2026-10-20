@@ -3721,6 +3721,47 @@ function renderReport(type) {
     html += '<td style="text-align:right;padding:10px;font-size:14px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td>';
     html += '<td colspan="2"></td>';
     html += '</tr>';
+  } else if (type === 'delivery') {
+    // Delivery Report columns as requested:
+    // Date, Branch, Employee Name, Employee ID, Department, Product, Brand, Model, Serial, Condition, Warranty, Price, Qty, Remarks
+    html += '<th>#</th>';
+    html += '<th>Date</th>';
+    html += '<th>Branch</th>';
+    html += '<th>Employee Name</th>';
+    html += '<th>Employee ID</th>';
+    html += '<th>Department</th>';
+    html += '<th>Product</th>';
+    html += '<th>Brand</th>';
+    html += '<th>Model</th>';
+    html += '<th>Serial</th>';
+    html += '<th>Condition</th>';
+    html += '<th>Warranty</th>';
+    html += '<th style="text-align:right;">Price</th>';
+    html += '<th style="text-align:center;">Qty</th>';
+    html += '<th>Remarks</th>';
+    html += '<th>Status</th>';
+    html += '</tr></thead><tbody>';
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      html += '<tr>';
+      html += '<td style="text-align:center;color:var(--muted);font-weight:600;">' + (i+1) + '</td>';
+      html += '<td>' + (d.date || '-') + '</td>';
+      html += '<td>' + (d.branch || '-') + '</td>';
+      html += '<td style="font-weight:600;">' + (d.receivedBy || '-') + '</td>';
+      html += '<td>' + (d.empId || '-') + '</td>';
+      html += '<td>' + (d.department || '-') + '</td>';
+      html += '<td style="font-weight:600;">' + (d.product || '-') + '</td>';
+      html += '<td>' + (d.brand || '-') + '</td>';
+      html += '<td>' + (d.model || '-') + '</td>';
+      html += '<td>' + (d.serial || '-') + '</td>';
+      html += '<td>' + (d.condition || '-') + '</td>';
+      html += '<td>' + (d.warranty || '-') + '</td>';
+      html += '<td style="text-align:right;">' + fmt(d.unitPrice || 0) + '</td>';
+      html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
+      html += '<td>' + (d.remarks || '-') + '</td>';
+      html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '</tr>';
+    }
   } else {
     // Other report types — keep simple columns
     html += '<th>#</th><th>Reference</th><th>Date</th><th>' + (type==='purchase' ? 'Amount' : 'Qty') + '</th><th>Status</th>';
