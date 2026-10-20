@@ -3717,10 +3717,7 @@ function renderReport(type) {
   var pending = data.filter(function(d){return d.status==='Pending';}).length;
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
 
-  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
-  html += '<div style="font-size:20px;font-weight:800;">' + labels[type] + ' Report</div>';
-  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
-  html += '</div>';
+  var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
 
   // Filter dropdowns for Delivery Report (Branch, Employee Name, Department)
   // Each filter has a search box inside the dropdown for easy searching
@@ -3755,7 +3752,11 @@ function renderReport(type) {
   }
 
   // Detailed Records table — different columns for purchase vs others
-  html += '<div class="stat-card" style="padding:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Detailed Records</div>';
+  html += '<div class="stat-card" style="padding:20px;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+  html += '<div style="font-size:15px;font-weight:700;">Detailed Records</div>';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search records..." oninput="filterTable(this.value)"></div>';
+  html += '</div>';
   html += '<div style="overflow-x:auto;max-height:calc(100vh - 480px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
 
