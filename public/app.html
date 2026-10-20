@@ -2049,9 +2049,32 @@ function openAdjustmentModal(adjId, readOnly) {
   if (adjId) { for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } } }
   var title = adj ? (readOnly ? 'Adjustment Details' : 'Edit Adjustment') : 'Add New Adjustment';
 
-  // Build option arrays (same as Delivery/Purchase)
+  // Build option arrays — include stock for B.QTY auto-fill
   var prdArr = [];
-  for (var k = 0; k < DB.products.length; k++) prdArr.push({ value: DB.products[k].name, label: DB.products[k].name, category: DB.products[k].category });
+  for (var k = 0; k < DB.products.length; k++) {
+    var p = DB.products[k];
+    // Compute current stock
+    var pur = 0, del = 0, dmg = 0, adj2 = 0;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
+    var stk = pur - del - dmg + adj2; if (stk < 0) stk = 0;
+    // Pull latest purchase for brand/model/serial/condition/warranty
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
+    prdArr.push({
+      value: p.name,
+      label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''),
+      category: p.category || (latestPur && latestPur.category) || '',
+      brand: p.brand || (latestPur && latestPur.brand) || '',
+      model: (latestPur && latestPur.model) || '',
+      serial: (latestPur && latestPur.serial) || '',
+      condition: (latestPur && latestPur.condition) || '',
+      warranty: (latestPur && latestPur.warranty) || '',
+      stock: stk
+    });
+  }
   var catOpts = '<option value="">Select</option>';
   for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
   var brandOpts = '<option value="">Select</option>';
@@ -2061,11 +2084,27 @@ function openAdjustmentModal(adjId, readOnly) {
   var brOpts = '<option value="">Select Branch</option>';
   for (var k = 0; k < DB.branches.length; k++) brOpts += '<option' + (adj && DB.branches[k].name === adj.branch ? ' selected' : '') + '>' + DB.branches[k].name + '</option>';
 
-  // Auto-fill Category callback
+  // Auto-fill callback: Category, Brand, Model, Serial, Condition, Warranty, B.QTY
   var adjProductSelectCb = function(val, lbl, cat, wrapper) {
-    if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+    if (wrapper.getAttribute('data-sr') === 'product') {
       var row = wrapper.closest('tr');
-      if (row) { var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = cat; }
+      if (row) {
+        // Find the product in prdArr to get all attributes
+        var prod = null;
+        for (var pi = 0; pi < prdArr.length; pi++) { if (prdArr[pi].value === val) { prod = prdArr[pi]; break; } }
+        if (prod) {
+          var cs = row.querySelector('[data-f="category"]'); if (cs && prod.category) cs.value = prod.category;
+          var bs = row.querySelector('[data-f="brand"]'); if (bs && prod.brand) bs.value = prod.brand;
+          var mi = row.querySelector('[data-f="model"]'); if (mi && prod.model) mi.value = prod.model;
+          var si = row.querySelector('[data-f="serial"]'); if (si && prod.serial) si.value = prod.serial;
+          var cd = row.querySelector('[data-f="condition"]'); if (cd && prod.condition) cd.value = prod.condition;
+          var ws = row.querySelector('[data-f="warranty"]'); if (ws && prod.warranty) ws.value = prod.warranty;
+          var bq = row.querySelector('[data-f="bqty"]'); if (bq && prod.stock !== undefined) bq.value = prod.stock;
+        }
+        // Override trigger to show only the Product name
+        var pTrigger = wrapper.querySelector('.pur-sr-trigger');
+        if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+      }
     }
   };
 
@@ -2114,6 +2153,7 @@ function openAdjustmentModal(adjId, readOnly) {
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.serial || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.condition || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.warranty || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (adj.bqty !== undefined ? adj.bqty : 0) + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:600;color:var(--accent-dark);">' + (adj.qty || 0) + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.remarks || '-') + '</td>';
     html += '</tr>';
@@ -2213,6 +2253,7 @@ function openAdjustmentModal(adjId, readOnly) {
       var warranty = firstValid.querySelector('[data-f="warranty"]').value;
       var qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
       var remarks = firstValid.querySelector('[data-f="remarks"]').value;
+      var bqtyVal = parseFloat(firstValid.querySelector('[data-f="bqty"]').value) || 0;
       // Determine type based on qty sign convention (Increase/Decrease chosen by user via Remarks hint or kept as 'Increase' default)
       // For backward compat, use 'Increase' if qty positive, 'Decrease' if negative; user can also use Remarks to clarify
       var type = (qty >= 0) ? 'Increase' : 'Decrease';
@@ -2222,6 +2263,7 @@ function openAdjustmentModal(adjId, readOnly) {
         adj.product = product; adj.category = category; adj.brand = brand;
         adj.model = model; adj.serial = serial; adj.condition = condition;
         adj.warranty = warranty; adj.qty = absQty; adj.type = type;
+        adj.bqty = bqtyVal;
         adj.reason = remarks; adj.remarks = remarks; adj.note = note; adj.status = status;
         closeModal(); showToast('Adjustment updated'); renderPage();
       } else {
@@ -2229,7 +2271,7 @@ function openAdjustmentModal(adjId, readOnly) {
           id: Date.now(), ref: ref, date: date, branch: branch,
           product: product, category: category, brand: brand, model: model,
           serial: serial, condition: condition, warranty: warranty,
-          qty: absQty, type: type, reason: remarks, remarks: remarks, note: note, status: status
+          bqty: bqtyVal, qty: absQty, type: type, reason: remarks, remarks: remarks, note: note, status: status
         });
         closeModal(); showToast('Adjustment added'); renderPage();
       }
@@ -2241,12 +2283,15 @@ function adjustmentTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
   var h = '<tr>';
   h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
   h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
-  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
-  h += '<td class="pur-td"><input data-f="model" placeholder="Model"></td>';
-  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number"></td>';
-  h += '<td class="pur-td"><select data-f="condition"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
-  h += '<td class="pur-td"><select data-f="warranty">' + warOpts + '</select></td>';
-  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="adjustmentCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><select data-f="brand" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Auto" readonly style="background:#f5f7f5;color:var(--muted);"></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Auto" readonly style="background:#f5f7f5;color:var(--muted);"></td>';
+  h += '<td class="pur-td"><select data-f="condition" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td class="pur-td"><select data-f="warranty" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + warOpts + '</select></td>';
+  // B.QTY (Balance Quantity) — auto-filled from inventory stock, read-only
+  h += '<td class="pur-td"><input type="text" data-f="bqty" value="0" readonly style="text-align:center;font-weight:700;color:var(--info);background:#f0f7ff;"></td>';
+  // Editable fields
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
   h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
   h += '</tr>';
