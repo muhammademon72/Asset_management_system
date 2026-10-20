@@ -731,6 +731,8 @@ function renderEmployeeList() {
   html += '<div style="font-size:20px;font-weight:800;">Employee List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search employees..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-export-employee" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
+  html += '<button class="btn btn-secondary" id="btn-import-employee" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
   html += '<button class="btn btn-primary" id="btn-add-employee"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
@@ -742,6 +744,7 @@ function renderEmployeeList() {
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-emp="' + e.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
+  html += '<input type="file" id="file-import-employee" accept=".csv,.xlsx,.xls" style="display:none;">';
   return html;
 }
 
@@ -760,6 +763,84 @@ function bindEmployeeEvents() {
       btn.addEventListener('click', function() { deleteItem('employees', parseInt(btn.getAttribute('data-del-emp')), 'employee-list'); });
     })(delBtns[j]);
   }
+  // Export/Import for Employee List
+  var exportEmpBtn = document.getElementById('btn-export-employee');
+  if (exportEmpBtn) exportEmpBtn.addEventListener('click', exportEmployeesExcel);
+  var importEmpBtn = document.getElementById('btn-import-employee');
+  var importEmpFile = document.getElementById('file-import-employee');
+  if (importEmpBtn && importEmpFile) {
+    importEmpBtn.addEventListener('click', function() { importEmpFile.click(); });
+    importEmpFile.addEventListener('change', importEmployeesExcel);
+  }
+}
+
+// Export employees to CSV
+function exportEmployeesExcel() {
+  var headers = ['Emp ID','Name','Department','Designation','Branch','Phone','Email','Status'];
+  var csv = headers.join(',') + '\n';
+  for (var i = 0; i < DB.employees.length; i++) {
+    var e = DB.employees[i];
+    var row = ['"'+(e.empId||'').replace(/"/g,'""')+'"','"'+(e.name||'').replace(/"/g,'""')+'"','"'+(e.department||'').replace(/"/g,'""')+'"','"'+(e.designation||'').replace(/"/g,'""')+'"','"'+(e.branch||'').replace(/"/g,'""')+'"','"'+(e.phone||'').replace(/"/g,'""')+'"','"'+(e.email||'').replace(/"/g,'""')+'"','"'+(e.status||'Active').replace(/"/g,'""')+'"'];
+    csv += row.join(',') + '\n';
+  }
+  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url;
+  a.download = 'employees-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},100);
+  showToast('Exported '+DB.employees.length+' employees to Excel');
+}
+
+// Import employees from CSV
+function importEmployeesExcel(evt) {
+  var fileInput = evt.target;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+      var lines = text.split(/\r?\n/);
+      if (lines.length < 2) { showToast('File is empty', 'error'); return; }
+      var headers = parseCSVLine(lines[0]);
+      var empIdIdx = findColIndex(headers, ['Emp ID','empId','Employee ID','EmpID']);
+      var nameIdx = findColIndex(headers, ['Name','name','Employee Name']);
+      if (nameIdx === -1) { showToast('Could not find "Name" column', 'error'); return; }
+      var deptIdx = findColIndex(headers, ['Department','department','Dept']);
+      var desigIdx = findColIndex(headers, ['Designation','designation']);
+      var branchIdx = findColIndex(headers, ['Branch','branch']);
+      var phoneIdx = findColIndex(headers, ['Phone','phone','Contact','contact']);
+      var emailIdx = findColIndex(headers, ['Email','email']);
+      var statusIdx = findColIndex(headers, ['Status','status']);
+      var imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        var line = lines[i].trim(); if (!line) continue;
+        var cols = parseCSVLine(line);
+        var name = (cols[nameIdx]||'').trim(); if (!name) continue;
+        var empId = (empIdIdx>=0?(cols[empIdIdx]||'').trim():'EMP-'+(DB.employees.length+imported+1));
+        if (!empId) empId = 'EMP-'+(Date.now()+i);
+        var exists = false;
+        for (var j = 0; j < DB.employees.length; j++) { if (DB.employees[j].empId.toLowerCase() === empId.toLowerCase()) { exists = true; break; } }
+        if (exists) continue;
+        DB.employees.push({
+          id: Date.now()+i, empId: empId, name: name,
+          department: (deptIdx>=0?(cols[deptIdx]||'').trim():''),
+          designation: (desigIdx>=0?(cols[desigIdx]||'').trim():''),
+          branch: (branchIdx>=0?(cols[branchIdx]||'').trim():''),
+          phone: (phoneIdx>=0?(cols[phoneIdx]||'').trim():''),
+          email: (emailIdx>=0?(cols[emailIdx]||'').trim():''),
+          status: (statusIdx>=0?(cols[statusIdx]||'').trim():'Active')
+        });
+        imported++;
+      }
+      fileInput.value = '';
+      if (imported > 0) { closeModal(); showToast('Imported '+imported+' employee'+(imported===1?'':'s')+' successfully'); renderPage(); }
+      else { showToast('No new employees to import', 'info'); }
+    } catch (err) { showToast('Import failed: '+err.message, 'error'); }
+  };
+  reader.readAsText(file, 'UTF-8');
 }
 
 function openEmployeeModal(editId) {
