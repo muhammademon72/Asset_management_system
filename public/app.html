@@ -293,6 +293,8 @@ const NAV = [
     { id: 'report-delivery', label: 'Delivery' },
     { id: 'report-adjustment', label: 'Adjustment' },
     { id: 'report-damage', label: 'Damage' },
+    { id: 'report-cash-in', label: 'Cash In' },
+    { id: 'report-cash-out', label: 'Cash Out' },
   ]},
   { id: 'settings', label: 'Manage Settings', icon: 'fa-gear', children: [
     { id: 'company-profile', label: 'Company Profile' },
@@ -3798,10 +3800,10 @@ function clearDeliveryFilters() {
 }
 
 function renderReport(type) {
-  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
-  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
-  var data = map[type];
-  var total = type === 'purchase' ? data.reduce(function(s,d){return s+(d.total||0);}, 0) : data.reduce(function(s,d){return s+(d.qty||0);}, 0);
+  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages, cashIn: DB.cashIn, cashOut: DB.cashOut };
+  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
+  var data = map[type] || [];
+  var total = (type === 'purchase') ? data.reduce(function(s,d){return s+(d.total||0);}, 0) : (type === 'cashIn' || type === 'cashOut') ? data.reduce(function(s,d){return s+(d.amount||0);}, 0) : data.reduce(function(s,d){return s+(d.qty||0);}, 0);
   var approved = data.filter(function(d){return d.status==='Approved';}).length;
   var pending = data.filter(function(d){return d.status==='Pending';}).length;
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
@@ -4024,6 +4026,36 @@ function renderReport(type) {
       html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
       html += '</tr>';
     }
+  } else if (type === 'cashIn' || type === 'cashOut') {
+    // Cash In / Cash Out Report columns:
+    // Date, Voucher, Amount, Description, Status
+    var isCashIn = (type === 'cashIn');
+    html += '<th>#</th>';
+    html += '<th>Date</th>';
+    html += '<th>Voucher</th>';
+    html += '<th style="text-align:right;">Amount</th>';
+    html += '<th>Description</th>';
+    html += '<th>Status</th>';
+    html += '</tr></thead><tbody>';
+    var cashGrandTotal = 0;
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      cashGrandTotal += (d.amount || 0);
+      html += '<tr>';
+      html += '<td style="text-align:center;color:var(--muted);font-weight:600;">' + (i+1) + '</td>';
+      html += '<td>' + (d.date || '-') + '</td>';
+      html += '<td style="font-weight:600;color:var(--info);">' + (d.voucher || '-') + '</td>';
+      html += '<td style="text-align:right;font-weight:700;color:' + (isCashIn ? 'var(--accent)' : 'var(--danger)') + ';">' + fmt(d.amount || 0) + '</td>';
+      html += '<td>' + (d.description || '-') + '</td>';
+      html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '</tr>';
+    }
+    // Grand total row
+    html += '<tr style="background:var(--accent-light);font-weight:800;">';
+    html += '<td colspan="3" style="text-align:right;padding:10px;font-size:13px;color:var(--accent-dark);">Grand Total (' + data.length + ' entries):</td>';
+    html += '<td style="text-align:right;padding:10px;font-size:14px;color:' + (isCashIn ? 'var(--accent-dark)' : 'var(--danger)') + ';">' + fmt(cashGrandTotal) + '</td>';
+    html += '<td colspan="2"></td>';
+    html += '</tr>';
   } else {
     html += '</tr></thead><tbody>';
     for (var i = 0; i < data.length; i++) {
@@ -4510,6 +4542,8 @@ function renderPage() {
     'report-delivery': function() { return renderReport('delivery'); },
     'report-adjustment': function() { return renderReport('adjustment'); },
     'report-damage': function() { return renderReport('damage'); },
+    'report-cash-in': function() { return renderReport('cashIn'); },
+    'report-cash-out': function() { return renderReport('cashOut'); },
     'company-profile': renderCompanyProfile,
     'user-list': renderUserList,
     'role-list': renderRoleList,
