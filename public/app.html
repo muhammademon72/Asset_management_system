@@ -736,20 +736,27 @@ function openEmployeeModal(editId) {
 function renderSimpleList(title, arr, collection, addPlaceholder, fieldKey) {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">' + title + '</div>';
+  html += '<div style="display:flex;gap:10px;align-items:center;">';
+  html += '<button class="btn btn-secondary" id="btn-export-simple" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
+  html += '<button class="btn btn-secondary" id="btn-import-simple" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
   html += '<button class="btn btn-primary" id="btn-add-simple"><i class="fas fa-plus"></i> Add New</button>';
-  html += '</div>';
+  html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>#</th><th>Name</th>' + (fieldKey === 'description' ? '<th>Description</th>' : '') + (fieldKey === 'category' ? '<th>Category</th>' : '') + '<th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < arr.length; i++) {
     var itemStatus = (typeof arr[i] === 'string' ? 'Active' : (arr[i].status || 'Active'));
     html += '<tr><td style="font-weight:600;">' + (i+1) + '</td><td>' + (typeof arr[i] === 'string' ? arr[i] : arr[i].name) + '</td>';
-    if (fieldKey === 'description') html += '<td>' + arr[i].description + '</td>';
-    if (fieldKey === 'category') html += '<td>' + arr[i].category + '</td>';
+    if (fieldKey === 'description') html += '<td>' + (arr[i].description||'-') + '</td>';
+    if (fieldKey === 'category') html += '<td>' + (arr[i].category||'-') + '</td>';
     html += '<td>' + statusBadge(itemStatus) + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-simple="' + i + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-simple="' + i + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
+  html += '<input type="file" id="file-import-simple" accept=".csv,.xlsx,.xls" style="display:none;">';
+  // Store collection name for export/import handlers
+  html += '<input type="hidden" id="simple-collection" value="' + collection + '">';
+  html += '<input type="hidden" id="simple-fieldkey" value="' + (fieldKey||'') + '">';
   return html;
 }
 
@@ -831,6 +838,95 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
       });
     })(delBtns[i], parseInt(delBtns[i].getAttribute('data-del-simple')));
   }
+  // Export/Import for simple lists
+  var exportBtn = document.getElementById('btn-export-simple');
+  if (exportBtn) exportBtn.addEventListener('click', function() { exportSimpleListExcel(collection, fieldKey); });
+  var importBtn = document.getElementById('btn-import-simple');
+  var importFile = document.getElementById('file-import-simple');
+  if (importBtn && importFile) {
+    importBtn.addEventListener('click', function() { importFile.click(); });
+    importFile.addEventListener('change', function(evt) { importSimpleListExcel(evt, collection, fieldKey); });
+  }
+}
+
+// Export simple list to CSV (Excel-compatible)
+function exportSimpleListExcel(collection, fieldKey) {
+  var arr = DB[collection] || [];
+  var headers = fieldKey === 'description' ? ['Name','Description','Status'] : (fieldKey === 'category' ? ['Name','Category','Status'] : ['Name','Status']);
+  var csv = headers.join(',') + '\n';
+  for (var i = 0; i < arr.length; i++) {
+    var item = arr[i];
+    var name = typeof item === 'string' ? item : (item.name || '');
+    var status = typeof item === 'string' ? 'Active' : (item.status || 'Active');
+    var row = ['"' + name.replace(/"/g,'""') + '"'];
+    if (fieldKey === 'description') row.push('"' + (item.description||'').replace(/"/g,'""') + '"');
+    if (fieldKey === 'category') row.push('"' + (item.category||'').replace(/"/g,'""') + '"');
+    row.push('"' + status.replace(/"/g,'""') + '"');
+    csv += row.join(',') + '\n';
+  }
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = collection + '-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+  showToast('Exported ' + arr.length + ' records to Excel');
+}
+
+// Import simple list from CSV
+function importSimpleListExcel(evt, collection, fieldKey) {
+  var fileInput = evt.target;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+      var lines = text.split(/\r?\n/);
+      if (lines.length < 2) { showToast('File is empty or has no data rows', 'error'); return; }
+      var headers = parseCSVLine(lines[0]);
+      var nameIdx = findColIndex(headers, ['Name','name','NAME']);
+      if (nameIdx === -1) { showToast('Could not find "Name" column', 'error'); return; }
+      var descIdx = fieldKey === 'description' ? findColIndex(headers, ['Description','description','DESC']) : -1;
+      var catIdx = fieldKey === 'category' ? findColIndex(headers, ['Category','category','CAT']) : -1;
+      var statusIdx = findColIndex(headers, ['Status','status','STATUS']);
+      var imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line) continue;
+        var cols = parseCSVLine(line);
+        var name = (cols[nameIdx]||'').trim();
+        if (!name) continue;
+        // Check duplicate
+        var exists = false;
+        for (var j = 0; j < DB[collection].length; j++) {
+          var existing = typeof DB[collection][j] === 'string' ? DB[collection][j] : DB[collection][j].name;
+          if (existing.toLowerCase() === name.toLowerCase()) { exists = true; break; }
+        }
+        if (exists) continue;
+        var item = { id: Date.now() + i, name: name, status: (statusIdx >= 0 ? (cols[statusIdx]||'').trim() : 'Active') };
+        if (fieldKey === 'description' && descIdx >= 0) item.description = (cols[descIdx]||'').trim();
+        if (fieldKey === 'category' && catIdx >= 0) item.category = (cols[catIdx]||'').trim();
+        DB[collection].push(item);
+        imported++;
+      }
+      fileInput.value = '';
+      if (imported > 0) {
+        closeModal();
+        showToast('Imported ' + imported + ' record' + (imported===1?'':'s') + ' successfully');
+        renderPage();
+      } else {
+        showToast('No new records to import (all duplicates)', 'info');
+      }
+    } catch (err) {
+      showToast('Import failed: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
 }
 
 function renderDepartment() { return renderSimpleList('Department List', DB.departments, 'departments', 'Department name', null); }
@@ -847,6 +943,8 @@ function renderProductList() {
   html += '<div style="font-size:20px;font-weight:800;">Product List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search products..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-export-product" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
+  html += '<button class="btn btn-secondary" id="btn-import-product" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
   html += '<button class="btn btn-primary" id="btn-add-product"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
@@ -858,6 +956,7 @@ function renderProductList() {
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-prod="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
+  html += '<input type="file" id="file-import-product" accept=".csv,.xlsx,.xls" style="display:none;">';
   return html;
 }
 
@@ -915,6 +1014,79 @@ function bindProductEvents() {
       btn.addEventListener('click', function() { deleteItem('products', parseInt(btn.getAttribute('data-del-prod')), 'product-list'); });
     })(delBtns[i]);
   }
+  // Export/Import for Product List
+  var exportProdBtn = document.getElementById('btn-export-product');
+  if (exportProdBtn) exportProdBtn.addEventListener('click', exportProductsExcel);
+  var importProdBtn = document.getElementById('btn-import-product');
+  var importProdFile = document.getElementById('file-import-product');
+  if (importProdBtn && importProdFile) {
+    importProdBtn.addEventListener('click', function() { importProdFile.click(); });
+    importProdFile.addEventListener('change', importProductsExcel);
+  }
+}
+
+// Export products to CSV
+function exportProductsExcel() {
+  var headers = ['Name','Category','Brand','UoM','Price','Status'];
+  var csv = headers.join(',') + '\n';
+  for (var i = 0; i < DB.products.length; i++) {
+    var p = DB.products[i];
+    var row = ['"'+(p.name||'').replace(/"/g,'""')+'"','"'+(p.category||'').replace(/"/g,'""')+'"','"'+(p.brand||'').replace(/"/g,'""')+'"','"'+(p.uom||'').replace(/"/g,'""')+'"',(p.price||0),'"'+(p.status||'Active').replace(/"/g,'""')+'"'];
+    csv += row.join(',') + '\n';
+  }
+  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url;
+  a.download = 'products-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},100);
+  showToast('Exported '+DB.products.length+' products to Excel');
+}
+
+// Import products from CSV
+function importProductsExcel(evt) {
+  var fileInput = evt.target;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+      var lines = text.split(/\r?\n/);
+      if (lines.length < 2) { showToast('File is empty', 'error'); return; }
+      var headers = parseCSVLine(lines[0]);
+      var nameIdx = findColIndex(headers, ['Name','name','Product','product']);
+      if (nameIdx === -1) { showToast('Could not find "Name" column', 'error'); return; }
+      var catIdx = findColIndex(headers, ['Category','category']);
+      var brandIdx = findColIndex(headers, ['Brand','brand']);
+      var uomIdx = findColIndex(headers, ['UoM','uom','Unit','unit']);
+      var priceIdx = findColIndex(headers, ['Price','price']);
+      var statusIdx = findColIndex(headers, ['Status','status']);
+      var imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        var line = lines[i].trim(); if (!line) continue;
+        var cols = parseCSVLine(line);
+        var name = (cols[nameIdx]||'').trim(); if (!name) continue;
+        var exists = false;
+        for (var j = 0; j < DB.products.length; j++) { if (DB.products[j].name.toLowerCase() === name.toLowerCase()) { exists = true; break; } }
+        if (exists) continue;
+        DB.products.push({
+          id: Date.now()+i, name: name,
+          category: (catIdx>=0?(cols[catIdx]||'').trim():''),
+          brand: (brandIdx>=0?(cols[brandIdx]||'').trim():''),
+          uom: (uomIdx>=0?(cols[uomIdx]||'').trim():'Piece'),
+          price: (priceIdx>=0?parseFloat(cols[priceIdx])||0:0),
+          status: (statusIdx>=0?(cols[statusIdx]||'').trim():'Active')
+        });
+        imported++;
+      }
+      fileInput.value = '';
+      if (imported > 0) { closeModal(); showToast('Imported '+imported+' product'+(imported===1?'':'s')+' successfully'); renderPage(); }
+      else { showToast('No new products to import', 'info'); }
+    } catch (err) { showToast('Import failed: '+err.message, 'error'); }
+  };
+  reader.readAsText(file, 'UTF-8');
 }
 
 // ==================== READ-ONLY TABLE PAGES ====================
