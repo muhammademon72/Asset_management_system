@@ -3694,8 +3694,8 @@ function renderReport(type) {
     html += '<th>Serial</th>';
     html += '<th>Condition</th>';
     html += '<th>Warranty</th>';
-    html += '<th style="text-align:right;">Price</th>';
     html += '<th style="text-align:center;">Qty</th>';
+    html += '<th style="text-align:right;">Price</th>';
     html += '<th style="text-align:right;">Total Amount</th>';
     html += '<th>Remarks</th>';
     html += '<th>Status</th>';
@@ -3715,8 +3715,8 @@ function renderReport(type) {
       html += '<td>' + (d.serial || '-') + '</td>';
       html += '<td>' + (d.condition || '-') + '</td>';
       html += '<td>' + (d.warranty || '-') + '</td>';
-      html += '<td style="text-align:right;">' + fmt(d.unitPrice || 0) + '</td>';
       html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
+      html += '<td style="text-align:right;">' + fmt(d.unitPrice || 0) + '</td>';
       html += '<td style="text-align:right;font-weight:700;color:var(--accent);">' + fmt(d.total || 0) + '</td>';
       html += '<td>' + (d.remarks || '-') + '</td>';
       html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
