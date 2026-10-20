@@ -3662,7 +3662,7 @@ function renderReport(type) {
   var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages };
   var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
   var data = map[type];
-  var total = type === 'purchase' ? data.reduce(function(s,d){return s+d.total;}, 0) : data.reduce(function(s,d){return s+d.qty;}, 0);
+  var total = type === 'purchase' ? data.reduce(function(s,d){return s+(d.total||0);}, 0) : data.reduce(function(s,d){return s+(d.qty||0);}, 0);
   var approved = data.filter(function(d){return d.status==='Approved';}).length;
   var pending = data.filter(function(d){return d.status==='Pending';}).length;
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
@@ -3675,13 +3675,69 @@ function renderReport(type) {
   html += '<div class="stat-card red" style="padding:18px;"><div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Rejected</div><div style="font-size:24px;font-weight:800;color:var(--danger);">' + rejected + '</div></div>';
   html += '</div>';
   html += '<div class="stat-card" style="padding:20px;margin-bottom:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Status Distribution</div><canvas id="reportPie" width="400" height="200"></canvas></div>';
+
+  // Detailed Records table — different columns for purchase vs others
   html += '<div class="stat-card" style="padding:20px;"><div style="font-size:15px;font-weight:700;margin-bottom:12px;">Detailed Records</div>';
-  html += '<table class="data-table"><thead><tr><th>#</th><th>Reference</th><th>Date</th><th>' + (type==='purchase' ? 'Amount' : 'Qty') + '</th><th>Status</th></tr></thead><tbody>';
-  for (var i = 0; i < data.length; i++) {
-    var d = data[i];
-    html += '<tr><td>' + (i+1) + '</td><td style="font-weight:600;">' + (d.invoice || d.chalan || d.ref) + '</td><td>' + d.date + '</td><td style="font-weight:600;">' + (type==='purchase' ? fmt(d.total) : d.qty) + '</td><td>' + statusBadge(d.status) + '</td></tr>';
+  html += '<div style="overflow-x:auto;max-height:calc(100vh - 480px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr>';
+
+  if (type === 'purchase') {
+    // Purchase Report columns as requested:
+    // Supplier, Date, Invoice, Product, Brand, Model, Serial, Condition, Warranty, Price, Qty, Total Amount, Remarks
+    html += '<th>#</th>';
+    html += '<th>Supplier</th>';
+    html += '<th>Date</th>';
+    html += '<th>Invoice</th>';
+    html += '<th>Product</th>';
+    html += '<th>Brand</th>';
+    html += '<th>Model</th>';
+    html += '<th>Serial</th>';
+    html += '<th>Condition</th>';
+    html += '<th>Warranty</th>';
+    html += '<th style="text-align:right;">Price</th>';
+    html += '<th style="text-align:center;">Qty</th>';
+    html += '<th style="text-align:right;">Total Amount</th>';
+    html += '<th>Remarks</th>';
+    html += '<th>Status</th>';
+    html += '</tr></thead><tbody>';
+    var grandTotal = 0;
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      grandTotal += (d.total || 0);
+      html += '<tr>';
+      html += '<td style="text-align:center;color:var(--muted);font-weight:600;">' + (i+1) + '</td>';
+      html += '<td>' + (d.supplier || '-') + '</td>';
+      html += '<td>' + (d.date || '-') + '</td>';
+      html += '<td style="font-weight:600;color:var(--info);">' + (d.invoice || '-') + '</td>';
+      html += '<td style="font-weight:600;">' + (d.product || '-') + '</td>';
+      html += '<td>' + (d.brand || '-') + '</td>';
+      html += '<td>' + (d.model || '-') + '</td>';
+      html += '<td>' + (d.serial || '-') + '</td>';
+      html += '<td>' + (d.condition || '-') + '</td>';
+      html += '<td>' + (d.warranty || '-') + '</td>';
+      html += '<td style="text-align:right;">' + fmt(d.unitPrice || 0) + '</td>';
+      html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
+      html += '<td style="text-align:right;font-weight:700;color:var(--accent);">' + fmt(d.total || 0) + '</td>';
+      html += '<td>' + (d.remarks || '-') + '</td>';
+      html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '</tr>';
+    }
+    // Grand total row
+    html += '<tr style="background:var(--accent-light);font-weight:800;">';
+    html += '<td colspan="12" style="text-align:right;padding:10px;font-size:13px;color:var(--accent-dark);">Grand Total (' + data.length + ' items):</td>';
+    html += '<td style="text-align:right;padding:10px;font-size:14px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td>';
+    html += '<td colspan="2"></td>';
+    html += '</tr>';
+  } else {
+    // Other report types — keep simple columns
+    html += '<th>#</th><th>Reference</th><th>Date</th><th>' + (type==='purchase' ? 'Amount' : 'Qty') + '</th><th>Status</th>';
+    html += '</tr></thead><tbody>';
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      html += '<tr><td>' + (i+1) + '</td><td style="font-weight:600;">' + (d.invoice || d.chalan || d.ref) + '</td><td>' + d.date + '</td><td style="font-weight:600;">' + (type==='purchase' ? fmt(d.total) : d.qty) + '</td><td>' + statusBadge(d.status) + '</td></tr>';
+    }
   }
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   return html;
 }
 
