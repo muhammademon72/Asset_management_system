@@ -971,15 +971,20 @@ function renderPurchaseList() {
 function renderSupplier() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Supplier List</div>';
-  html += '<button class="btn btn-primary" id="btn-add-supplier"><i class="fas fa-plus"></i> Add New</button></div>';
+  html += '<div style="display:flex;gap:10px;align-items:center;">';
+  html += '<button class="btn btn-secondary" id="btn-export-supplier" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
+  html += '<button class="btn btn-secondary" id="btn-import-supplier" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
+  html += '<button class="btn btn-primary" id="btn-add-supplier"><i class="fas fa-plus"></i> Add New</button>';
+  html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Name</th><th>Address</th><th>Contact</th><th>Email</th><th>Status</th><th style="width:90px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.suppliers.length; i++) {
     var s = DB.suppliers[i];
-    html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + s.address + '</td><td>' + s.contact + '</td><td>' + s.email + '</td><td>' + statusBadge(s.status || 'Active') + '</td>';
+    html += '<tr><td style="font-weight:600;">' + s.name + '</td><td>' + (s.address||'-') + '</td><td>' + (s.contact||'-') + '</td><td>' + (s.email||'-') + '</td><td>' + statusBadge(s.status || 'Active') + '</td>';
     html += '<td style="width:90px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-edit-sup="' + s.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-sup="' + s.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
+  html += '<input type="file" id="file-import-supplier" accept=".xlsx,.xls,.csv" style="display:none;">';
   return html;
 }
 
@@ -1029,6 +1034,135 @@ function bindSupplierEvents() {
       btn.addEventListener('click', function() { deleteItem('suppliers', parseInt(btn.getAttribute('data-del-sup')), 'supplier'); });
     })(delBtns[i]);
   }
+  // Export to Excel (CSV format — opens in Excel)
+  var exportBtn = document.getElementById('btn-export-supplier');
+  if (exportBtn) exportBtn.addEventListener('click', exportSuppliersExcel);
+  // Import from Excel (CSV)
+  var importBtn = document.getElementById('btn-import-supplier');
+  var importFile = document.getElementById('file-import-supplier');
+  if (importBtn && importFile) {
+    importBtn.addEventListener('click', function() { importFile.click(); });
+    importFile.addEventListener('change', importSuppliersExcel);
+  }
+}
+
+// Export suppliers to CSV (Excel-compatible)
+function exportSuppliersExcel() {
+  var headers = ['Name', 'Address', 'Contact', 'Email', 'Status'];
+  var csv = headers.join(',') + '\n';
+  for (var i = 0; i < DB.suppliers.length; i++) {
+    var s = DB.suppliers[i];
+    var row = [
+      '"' + (s.name || '').replace(/"/g, '""') + '"',
+      '"' + (s.address || '').replace(/"/g, '""') + '"',
+      '"' + (s.contact || '').replace(/"/g, '""') + '"',
+      '"' + (s.email || '').replace(/"/g, '""') + '"',
+      '"' + (s.status || 'Active').replace(/"/g, '""') + '"'
+    ];
+    csv += row.join(',') + '\n';
+  }
+  // Add BOM for Excel UTF-8 support
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var stamp = new Date().toISOString().slice(0, 10);
+  a.download = 'suppliers-' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+  showToast('Exported ' + DB.suppliers.length + ' suppliers to Excel');
+}
+
+// Import suppliers from CSV (Excel-compatible)
+function importSuppliersExcel(evt) {
+  var fileInput = evt.target;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      // Remove BOM if present
+      if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+      var lines = text.split(/\r?\n/);
+      if (lines.length < 2) { showToast('File is empty or has no data rows', 'error'); return; }
+      // Parse header row to find column positions
+      var headerLine = lines[0];
+      var headers = parseCSVLine(headerLine);
+      var nameIdx = findColIndex(headers, ['Name', 'name', 'NAME', 'Supplier', 'supplier']);
+      var addrIdx = findColIndex(headers, ['Address', 'address', 'ADDRESS']);
+      var contactIdx = findColIndex(headers, ['Contact', 'contact', 'Phone', 'phone', 'PHONE']);
+      var emailIdx = findColIndex(headers, ['Email', 'email', 'EMAIL']);
+      var statusIdx = findColIndex(headers, ['Status', 'status', 'STATUS']);
+      if (nameIdx === -1) { showToast('Could not find "Name" column in the file', 'error'); return; }
+      var imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line) continue;
+        var cols = parseCSVLine(line);
+        var name = (cols[nameIdx] || '').trim();
+        if (!name) continue;
+        // Check for duplicate
+        var exists = false;
+        for (var j = 0; j < DB.suppliers.length; j++) { if (DB.suppliers[j].name.toLowerCase() === name.toLowerCase()) { exists = true; break; } }
+        if (exists) continue;
+        DB.suppliers.push({
+          id: Date.now() + i,
+          name: name,
+          address: (addrIdx >= 0 ? (cols[addrIdx] || '').trim() : ''),
+          contact: (contactIdx >= 0 ? (cols[contactIdx] || '').trim() : ''),
+          email: (emailIdx >= 0 ? (cols[emailIdx] || '').trim() : ''),
+          status: (statusIdx >= 0 ? (cols[statusIdx] || '').trim() : 'Active')
+        });
+        imported++;
+      }
+      fileInput.value = '';
+      if (imported > 0) {
+        closeModal();
+        showToast('Imported ' + imported + ' supplier' + (imported === 1 ? '' : 's') + ' successfully');
+        renderPage();
+      } else {
+        showToast('No new suppliers to import (all duplicates)', 'info');
+      }
+    } catch (err) {
+      showToast('Import failed: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Parse a single CSV line (handles quoted fields with commas)
+function parseCSVLine(line) {
+  var result = [];
+  var current = '';
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+// Find column index by matching against multiple possible header names
+function findColIndex(headers, possibleNames) {
+  for (var i = 0; i < headers.length; i++) {
+    var h = headers[i].trim().toLowerCase();
+    for (var j = 0; j < possibleNames.length; j++) {
+      if (h === possibleNames[j].toLowerCase()) return i;
+    }
+  }
+  return -1;
 }
 
 function renderInventoryStock() {
