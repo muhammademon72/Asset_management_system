@@ -2049,7 +2049,7 @@ function openAdjustmentModal(adjId, readOnly) {
   if (adjId) { for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } } }
   var title = adj ? (readOnly ? 'Adjustment Details' : 'Edit Adjustment') : 'Add New Adjustment';
 
-  // Build option arrays — include stock for B.QTY auto-fill
+  // Build option arrays — only show products with stock > 0 (same as Delivery)
   var prdArr = [];
   for (var k = 0; k < DB.products.length; k++) {
     var p = DB.products[k];
@@ -2060,6 +2060,8 @@ function openAdjustmentModal(adjId, readOnly) {
     for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
     for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
     var stk = pur - del - dmg + adj2; if (stk < 0) stk = 0;
+    // Skip products with zero stock — only show in-stock products for adjustment
+    if (stk === 0) continue;
     // Pull latest purchase for brand/model/serial/condition/warranty
     var latestPur = null;
     for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
