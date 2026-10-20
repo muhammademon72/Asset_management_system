@@ -3659,6 +3659,48 @@ function bindApprovalEvents() {
 
 // ==================== REPORT PAGES ====================
 
+// Purchase Report filter functions
+function filterPurchaseReport() {
+  var dateFrom = (document.getElementById('filter-date-from') || {}).value || '';
+  var dateTo = (document.getElementById('filter-date-to') || {}).value || '';
+  var supEl = document.querySelector('[data-sr="filter-supplier"] input[type="hidden"]');
+  var invEl = document.querySelector('[data-sr="filter-invoice"] input[type="hidden"]');
+  var supplierFilter = supEl ? supEl.value : '';
+  var invoiceFilter = invEl ? invEl.value : '';
+  var rows = document.querySelectorAll('#main-table tbody tr');
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    // Skip grand total rows
+    if (row.style.background && row.style.background.indexOf('accent') !== -1) continue;
+    var cells = row.querySelectorAll('td');
+    if (cells.length < 5) continue;
+    // Purchase columns: #, Supplier, Date, Invoice, Product, ...
+    var supplier = (cells[1] || {}).textContent || '';
+    var date = (cells[2] || {}).textContent || '';
+    var invoice = (cells[3] || {}).textContent || '';
+    var matchDate = true;
+    if (dateFrom && date < dateFrom) matchDate = false;
+    if (dateTo && date > dateTo) matchDate = false;
+    var matchSupplier = !supplierFilter || supplier.indexOf(supplierFilter) !== -1;
+    var matchInvoice = !invoiceFilter || invoice.indexOf(invoiceFilter) !== -1;
+    if (matchDate && matchSupplier && matchInvoice) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  }
+}
+
+function clearPurchaseFilters() {
+  var df = document.getElementById('filter-date-from'); if (df) df.value = '';
+  var dt = document.getElementById('filter-date-to'); if (dt) dt.value = '';
+  var sw = document.querySelector('[data-sr="filter-supplier"]');
+  var iw = document.querySelector('[data-sr="filter-invoice"]');
+  if (sw) { var st = sw.querySelector('.pur-sr-trigger'); if (st) st.innerHTML = '<span style="color:var(--muted);">All Suppliers</span><i class="fas fa-chevron-down pur-sr-caret"></i>'; var sh = sw.querySelector('input[type="hidden"]'); if (sh) sh.value = ''; }
+  if (iw) { var it = iw.querySelector('.pur-sr-trigger'); if (it) it.innerHTML = '<span style="color:var(--muted);">All Invoices</span><i class="fas fa-chevron-down pur-sr-caret"></i>'; var ih = iw.querySelector('input[type="hidden"]'); if (ih) ih.value = ''; }
+  filterPurchaseReport();
+}
+
 // Delivery Report filter functions
 function filterDeliveryReport() {
   var branchFilter = '';
@@ -3718,6 +3760,35 @@ function renderReport(type) {
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
 
   var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
+
+  // Filter dropdowns for Purchase Report (Date Range, Supplier, Invoice)
+  if (type === 'purchase') {
+    html += '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;">';
+    // Date range filter
+    html += '<div style="display:flex;gap:6px;align-items:center;">';
+    html += '<div><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">From Date</div><input type="date" class="form-input" id="filter-date-from" style="width:150px;border-radius:8px;" onchange="filterPurchaseReport()"></div>';
+    html += '<div style="font-size:12px;color:var(--muted);padding-bottom:8px;">to</div>';
+    html += '<div><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">To Date</div><input type="date" class="form-input" id="filter-date-to" style="width:150px;border-radius:8px;" onchange="filterPurchaseReport()"></div>';
+    html += '</div>';
+    // Supplier filter — searchable dropdown
+    var supSet = {};
+    var supArr = [];
+    for (var si = 0; si < data.length; si++) { if (data[si].supplier && !supSet[data[si].supplier]) { supSet[data[si].supplier] = true; supArr.push({ value: data[si].supplier, label: data[si].supplier }); } }
+    html += '<div style="position:relative;">';
+    html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">Supplier</div>';
+    html += purSearchableHTML('filter-supplier', 'id="filter-supplier"', supArr, '', 'All Suppliers', 'Search supplier...');
+    html += '</div>';
+    // Invoice filter — searchable dropdown
+    var invSet = {};
+    var invArr = [];
+    for (var ii = 0; ii < data.length; ii++) { if (data[ii].invoice && !invSet[data[ii].invoice]) { invSet[data[ii].invoice] = true; invArr.push({ value: data[ii].invoice, label: data[ii].invoice }); } }
+    html += '<div style="position:relative;">';
+    html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">Invoice</div>';
+    html += purSearchableHTML('filter-invoice', 'id="filter-invoice"', invArr, '', 'All Invoices', 'Search invoice...');
+    html += '</div>';
+    html += '<button class="btn btn-secondary" style="border-radius:8px;font-size:12px;" onclick="clearPurchaseFilters()"><i class="fas fa-undo"></i> Clear</button>';
+    html += '</div>';
+  }
 
   // Filter dropdowns for Delivery Report (Branch, Employee Name, Department)
   // Each filter has a search box inside the dropdown for easy searching
@@ -4385,8 +4456,17 @@ function renderPage() {
       var reportBox = document.getElementById('page-content');
       if (reportBox) {
         bindAllPurSearchable(reportBox, function(val, lbl, cat, wrapper) {
-          // When any filter is selected, apply the filter
           filterDeliveryReport();
+        });
+      }
+    }
+    // Bind searchable dropdown filters for Purchase Report
+    if (currentPage === 'report-purchase') {
+      injectPurStyles();
+      var purBox = document.getElementById('page-content');
+      if (purBox) {
+        bindAllPurSearchable(purBox, function(val, lbl, cat, wrapper) {
+          filterPurchaseReport();
         });
       }
     }
