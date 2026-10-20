@@ -576,6 +576,8 @@ function renderBranchList() {
   html += '<div style="font-size:20px;font-weight:800;">Branch List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search branches..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-export-branch" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
+  html += '<button class="btn btn-secondary" id="btn-import-branch" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
   html += '<button class="btn btn-primary" id="btn-add-branch"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
@@ -587,10 +589,9 @@ function renderBranchList() {
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-delete-branch="' + b.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
+  html += '<input type="file" id="file-import-branch" accept=".csv,.xlsx,.xls" style="display:none;">';
   return html;
-}
-
-// Branch event binding — runs AFTER HTML is inserted into DOM
+} — runs AFTER HTML is inserted into DOM
 function bindBranchEvents() {
   var addBtn = document.getElementById('btn-add-branch');
   if (addBtn) {
@@ -608,6 +609,77 @@ function bindBranchEvents() {
       btn.addEventListener('click', function() { deleteItem('branches', parseInt(btn.getAttribute('data-delete-branch')), 'branch-list'); });
     })(delBtns[j]);
   }
+  // Export/Import for Branch List
+  var exportBrBtn = document.getElementById('btn-export-branch');
+  if (exportBrBtn) exportBrBtn.addEventListener('click', exportBranchesExcel);
+  var importBrBtn = document.getElementById('btn-import-branch');
+  var importBrFile = document.getElementById('file-import-branch');
+  if (importBrBtn && importBrFile) {
+    importBrBtn.addEventListener('click', function() { importBrFile.click(); });
+    importBrFile.addEventListener('change', importBranchesExcel);
+  }
+}
+
+// Export branches to CSV
+function exportBranchesExcel() {
+  var headers = ['Name','Address','Phone','Manager','Status'];
+  var csv = headers.join(',') + '\n';
+  for (var i = 0; i < DB.branches.length; i++) {
+    var b = DB.branches[i];
+    var row = ['"'+(b.name||'').replace(/"/g,'""')+'"','"'+(b.address||'').replace(/"/g,'""')+'"','"'+(b.phone||'').replace(/"/g,'""')+'"','"'+(b.manager||'').replace(/"/g,'""')+'"','"'+(b.status||'Active').replace(/"/g,'""')+'"'];
+    csv += row.join(',') + '\n';
+  }
+  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url;
+  a.download = 'branches-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},100);
+  showToast('Exported '+DB.branches.length+' branches to Excel');
+}
+
+// Import branches from CSV
+function importBranchesExcel(evt) {
+  var fileInput = evt.target;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+      var lines = text.split(/\r?\n/);
+      if (lines.length < 2) { showToast('File is empty', 'error'); return; }
+      var headers = parseCSVLine(lines[0]);
+      var nameIdx = findColIndex(headers, ['Name','name','Branch','branch']);
+      if (nameIdx === -1) { showToast('Could not find "Name" column', 'error'); return; }
+      var addrIdx = findColIndex(headers, ['Address','address']);
+      var phoneIdx = findColIndex(headers, ['Phone','phone','Contact','contact']);
+      var mgrIdx = findColIndex(headers, ['Manager','manager']);
+      var statusIdx = findColIndex(headers, ['Status','status']);
+      var imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        var line = lines[i].trim(); if (!line) continue;
+        var cols = parseCSVLine(line);
+        var name = (cols[nameIdx]||'').trim(); if (!name) continue;
+        var exists = false;
+        for (var j = 0; j < DB.branches.length; j++) { if (DB.branches[j].name.toLowerCase() === name.toLowerCase()) { exists = true; break; } }
+        if (exists) continue;
+        DB.branches.push({
+          id: Date.now()+i, name: name,
+          address: (addrIdx>=0?(cols[addrIdx]||'').trim():''),
+          phone: (phoneIdx>=0?(cols[phoneIdx]||'').trim():''),
+          manager: (mgrIdx>=0?(cols[mgrIdx]||'').trim():''),
+          status: (statusIdx>=0?(cols[statusIdx]||'').trim():'Active')
+        });
+        imported++;
+      }
+      fileInput.value = '';
+      if (imported > 0) { closeModal(); showToast('Imported '+imported+' branch'+(imported===1?'':'es')+' successfully'); renderPage(); }
+      else { showToast('No new branches to import', 'info'); }
+    } catch (err) { showToast('Import failed: '+err.message, 'error'); }
+  };
+  reader.readAsText(file, 'UTF-8');
 }
 
 function openBranchModal(editId) {
