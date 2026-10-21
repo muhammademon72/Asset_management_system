@@ -523,6 +523,71 @@ function previewAttachment(attachInfo) {
   win.document.close();
 }
 
+// Re-upload a missing file attachment for older entries (purchases, deliveries,
+// cash-in, cash-out). Reads the new file as base64 and patches all matching
+// rows in DB.<collection> so the existing entry now has full file content.
+// `type` is one of: 'purchase', 'delivery', 'cashIn', 'cashOut'.
+function reuploadAttachment(type) {
+  var fileInput = document.getElementById('reupload-' + type + '-file');
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    showToast('No file selected', 'error');
+    return;
+  }
+  var f = fileInput.files[0];
+  if (f.size > 5 * 1024 * 1024) {
+    showToast('File too large (max 5 MB)', 'error');
+    return;
+  }
+  var ctx = window._reuploadContext || {};
+  showToast('Reading new file...', 'info');
+  readFileAsDataURL(f).then(function(dataUrl) {
+    var newAttach = {
+      name: f.name,
+      type: f.type || 'File',
+      size: (f.size / 1024).toFixed(1) + ' KB',
+      data: dataUrl
+    };
+    var updated = 0;
+    if (type === 'purchase') {
+      // Update all rows with the same invoice
+      for (var i = 0; i < DB.purchases.length; i++) {
+        if (DB.purchases[i].invoice === ctx.invoice) {
+          DB.purchases[i].attachment = (i === 0) ? newAttach : null;
+          updated++;
+        }
+      }
+    } else if (type === 'delivery') {
+      for (var j = 0; j < DB.deliveries.length; j++) {
+        if (DB.deliveries[j].chalan === ctx.chalan) {
+          DB.deliveries[j].attachment = (j === 0) ? newAttach : null;
+          updated++;
+        }
+      }
+    } else if (type === 'cashIn') {
+      for (var k = 0; k < DB.cashIn.length; k++) {
+        if (DB.cashIn[k].id === ctx.id) {
+          DB.cashIn[k].attachment = newAttach;
+          updated++;
+          break;
+        }
+      }
+    } else if (type === 'cashOut') {
+      for (var m = 0; m < DB.cashOut.length; m++) {
+        if (DB.cashOut[m].id === ctx.id) {
+          DB.cashOut[m].attachment = newAttach;
+          updated++;
+          break;
+        }
+      }
+    }
+    closeModal();
+    showToast('Attachment updated on ' + updated + ' row(s) — re-open the paperclip to View/Download');
+    renderPage();
+  }).catch(function(err) {
+    showToast('Could not read file: ' + err.message, 'error');
+  });
+}
+
 function showToast(msg, type) {
   type = type || 'success';
   var c = document.getElementById('toast-container');
@@ -3983,9 +4048,14 @@ function bindPurchaseEvents() {
             html += '<button class="btn btn-primary" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
             html += '<button class="btn btn-secondary" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
           } else {
-            html += '<div style="font-size:12px;color:var(--warning);padding:8px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;">';
-            html += '<i class="fas fa-exclamation-triangle"></i> File content was saved as metadata only (older purchase). Re-save this purchase to enable preview/download.';
+            // Older purchase — metadata only. Offer a "Re-upload File" button so the user
+            // can recover the missing content right from this view modal.
+            window._reuploadContext = { type: 'purchase', invoice: pur.invoice, attachName: attach.name, attachType: attach.type, attachSize: attach.size };
+            html += '<div style="font-size:12px;color:var(--warning);padding:10px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;margin-bottom:8px;">';
+            html += '<i class="fas fa-exclamation-triangle"></i> <strong>File content is missing.</strong> This purchase was saved before the attachment fix. Re-upload the file to enable View + Download.';
             html += '</div>';
+            html += '<input type="file" id="reupload-purchase-file" style="display:none;" onchange="reuploadAttachment(\'purchase\')">';
+            html += '<button class="btn btn-primary" onclick="document.getElementById(\'reupload-purchase-file\').click()"><i class="fas fa-upload"></i> Re-upload File</button>';
           }
           html += '</div>';
         } else {
