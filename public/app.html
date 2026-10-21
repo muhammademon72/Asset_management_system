@@ -1744,6 +1744,10 @@ function renderInventoryStock() {
     var latestPur = null;
     for (var j = 0; j < DB.purchases.length; j++) {
       if (DB.purchases[j].product === p.name) {
+        // Only count APPROVED purchases in Inventory Stock.
+        // Draft purchases stay only in Purchase List.
+        // Submitted purchases go to Purchase Approval (not yet counted as stock).
+        if (DB.purchases[j].status !== 'Approved') continue;
         purchased += (DB.purchases[j].qty || 0);
         if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
       }
@@ -4536,9 +4540,15 @@ function bindCashOutEvents() {
 
 // ==================== APPROVAL PAGES ====================
 function renderApprovalList(type, data) {
-  var pending = data.filter(function(d){ return d.status === 'Pending'; });
+  // Approval pipeline:
+  // - Submitted: needs review (shown as pending approval)
+  // - Pending: legacy status — also shown as pending approval
+  // - Approved / Rejected: shown as already-decided rows
+  var pendingStatuses = ['Submitted', 'Pending'];
+  var pending = data.filter(function(d){ return pendingStatuses.indexOf(d.status) !== -1; });
   var approved = data.filter(function(d){ return d.status === 'Approved'; });
   var rejected = data.filter(function(d){ return d.status === 'Rejected'; });
+  var draft = data.filter(function(d){ return d.status === 'Draft'; });
   var cols, labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
   if (type === 'purchase') cols = ['Invoice', 'Date', 'Supplier', 'Product', 'Amount', 'Branch', 'Status'];
   else if (type === 'delivery') cols = ['Chalan', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'];
@@ -4547,7 +4557,10 @@ function renderApprovalList(type, data) {
 
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">' + labels[type] + ' Approval</div>';
-  html += '<div style="display:flex;gap:16px;align-items:center;">';
+  html += '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">';
+  if (type === 'purchase') {
+    html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--muted);"></div><span style="font-weight:600;">' + draft.length + ' Draft</span></div>';
+  }
   html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--warning);"></div><span style="font-weight:600;">' + pending.length + ' Pending</span></div>';
   html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--accent);"></div><span style="font-weight:600;">' + approved.length + ' Approved</span></div>';
   html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;"><div class="pulse-dot" style="background:var(--danger);"></div><span style="font-weight:600;">' + rejected.length + ' Rejected</span></div>';
@@ -4555,20 +4568,36 @@ function renderApprovalList(type, data) {
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
   for (var c = 0; c < cols.length; c++) html += '<th>' + cols[c] + '</th>';
-  html += '<th style="width:200px;">Action</th></tr></thead><tbody>';
+  html += '<th style="width:240px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < data.length; i++) {
     var item = data[i];
+    // Skip Draft purchases — they belong only to Purchase List, not Approval
+    if (item.status === 'Draft') continue;
     html += '<tr>';
     if (type === 'purchase') html += '<td style="font-weight:600;">' + item.invoice + '</td><td>' + item.date + '</td><td>' + item.supplier + '</td><td>' + item.product + '</td><td style="font-weight:600;">' + fmt(item.total) + '</td><td>' + item.branch + '</td>';
     else if (type === 'delivery') html += '<td style="font-weight:600;">' + item.chalan + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.branch + '</td><td>' + item.receivedBy + '</td>';
     else if (type === 'adjustment') html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td><span class="badge ' + (item.type==='Increase'?'badge-green':'badge-red') + '">' + item.type + '</span></td><td style="text-align:center;">' + item.qty + '</td>';
     else html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.reason + '</td>';
 
-    if (item.status === 'Pending') {
-      html += '<td><button class="btn btn-primary btn-sm" data-approve="' + type + '-' + item.id + '"><i class="fas fa-check"></i> Approve</button> <button class="btn btn-danger btn-sm" data-reject="' + type + '-' + item.id + '"><i class="fas fa-times"></i> Reject</button></td>';
-    } else {
-      html += '<td>' + statusBadge(item.status) + '</td>';
+    // Status cell (7th column)
+    html += '<td>' + statusBadge(item.status) + '</td>';
+
+    // Actions cell — View + Approve + Edit + Delete for all statuses
+    html += '<td style="white-space:nowrap;">';
+    // View button (always shown)
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-view="' + type + '-' + item.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> ';
+    // Approve button (shown for pending/submitted only)
+    if (pendingStatuses.indexOf(item.status) !== -1) {
+      html += '<button class="btn btn-primary btn-sm btn-icon" data-approve="' + type + '-' + item.id + '" title="Approve" style="background:var(--accent);border-color:var(--accent);"><i class="fas fa-check" style="font-size:11px;"></i></button> ';
     }
+    // Edit button (shown for pending/submitted only — Approved rows can't be edited)
+    if (pendingStatuses.indexOf(item.status) !== -1) {
+      var editTarget = (type === 'purchase') ? 'pur' : (type === 'delivery' ? 'del' : (type === 'adjustment' ? 'adj' : 'dmg'));
+      html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-edit-' + editTarget + '="' + item.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+    }
+    // Delete button (always shown — Draft excluded above so this is for pending/approved/rejected)
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-del-' + type + '="' + item.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button>';
+    html += '</td>';
     html += '</tr>';
   }
   html += '</tbody></table></div></div>';
@@ -4599,6 +4628,155 @@ function bindApprovalEvents() {
         if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); }
       });
     })(rejectBtns[j]);
+  }
+
+  // ===== View buttons (open read-only modal) =====
+  // For purchases and deliveries, we trigger a synthetic click on the matching
+  // data-view-pur / data-view-del button that lives on the Purchase List /
+  // Delivery List page — but those aren't visible here. So we render the view
+  // modal directly inline.
+  var viewBtns = document.querySelectorAll('[data-approve-view]');
+  for (var v = 0; v < viewBtns.length; v++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var parts = btn.getAttribute('data-approve-view').split('-');
+        var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+        var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
+        var item = DB[map[type]].find(function(x){ return x.id === id; });
+        if (!item) { showToast('Item not found', 'error'); return; }
+        // Build a simple view modal showing the item's fields (read-only)
+        var cols, rowsHTML = '';
+        if (type === 'purchase') {
+          var allRows = [];
+          for (var k = 0; k < DB.purchases.length; k++) {
+            if (DB.purchases[k].invoice === item.invoice) allRows.push(DB.purchases[k]);
+          }
+          var totalQty = 0, grandTotal = 0;
+          for (var r = 0; r < allRows.length; r++) { totalQty += allRows[r].qty; grandTotal += allRows[r].total; }
+          var html = '<div style="padding:24px;max-width:760px;">' + modalHeader('Purchase — ' + item.invoice) + '<div style="padding-top:16px;">';
+          html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-bottom:16px;font-size:13px;">';
+          html += '<div><span style="color:var(--muted);">Date:</span> <strong>' + (item.date || '-') + '</strong></div>';
+          html += '<div><span style="color:var(--muted);">Supplier:</span> <strong>' + (item.supplier || '-') + '</strong></div>';
+          html += '<div><span style="color:var(--muted);">Branch:</span> <strong>' + (item.branch || '-') + '</strong></div>';
+          html += '<div><span style="color:var(--muted);">Status:</span> ' + statusBadge(item.status) + '</div>';
+          html += '</div>';
+          html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;">';
+          html += '<table class="data-table" style="font-size:12px;"><thead><tr><th>Product</th><th>Brand</th><th>Model</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>';
+          for (var rr = 0; rr < allRows.length; rr++) {
+            var row = allRows[rr];
+            html += '<tr><td>' + (row.product || '-') + '</td><td>' + (row.brand || '-') + '</td><td>' + (row.model || '-') + '</td><td style="text-align:center;">' + row.qty + '</td><td>' + fmt(row.unitPrice) + '</td><td>' + fmt(row.total) + '</td></tr>';
+          }
+          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="3" style="text-align:right;">Total:</td><td style="text-align:center;">' + totalQty + '</td><td></td><td>' + fmt(grandTotal) + '</td></tr>';
+          html += '</tbody></table></div>';
+          if (item.attachment && item.attachment.name) {
+            html += '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+            html += '<i class="fas fa-paperclip" style="color:var(--accent);"></i>';
+            html += '<div style="flex:1;font-size:13px;"><strong>' + item.attachment.name + '</strong> <span style="color:var(--muted);font-size:11px;">(' + (item.attachment.size || '') + ')</span></div>';
+            if (item.attachment.data) {
+              window._currentAttachView = item.attachment;
+              html += '<button class="btn btn-secondary btn-sm" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
+              html += '<button class="btn btn-secondary btn-sm" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i></button>';
+            }
+            html += '</div>';
+          }
+          html += '<div style="display:flex;gap:10px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div></div>';
+          openModal(html);
+          var modalBox = document.getElementById('modal-box');
+          if (modalBox) { modalBox.style.width = '760px'; modalBox.style.maxWidth = '95vw'; }
+        } else if (type === 'delivery') {
+          openDeliveryModal(id, true);
+        } else if (type === 'adjustment') {
+          openAdjustmentModal(id, true);
+        } else if (type === 'damage') {
+          openDamageModal(id, true);
+        }
+      });
+    })(viewBtns[v]);
+  }
+
+  // ===== Edit buttons (open editable modal) =====
+  // Purchase edit — go to purchase list and trigger the matching data-edit-pur button
+  var purEditBtns = document.querySelectorAll('[data-approve-edit-pur]');
+  for (var pe = 0; pe < purEditBtns.length; pe++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var id = parseInt(btn.getAttribute('data-approve-edit-pur'));
+        var pur = DB.purchases.find(function(x){ return x.id === id; });
+        if (!pur) return;
+        showToast('Editing purchase — redirecting to Purchase List', 'info');
+        navigate('purchase-list');
+        // After navigation completes, renderPage will run bindPurchaseEvents.
+        // We can't easily auto-open the edit modal from here without coupling.
+        // Better: store the pending edit ID and let bindPurchaseEvents check it.
+        window._pendingPurchaseEditId = id;
+        // Wait for navigation then click edit
+        setTimeout(function() {
+          var editBtn = document.querySelector('[data-edit-pur="' + id + '"]');
+          if (editBtn) editBtn.click();
+          else showToast('Edit button not found — open from Purchase List', 'info');
+        }, 500);
+      });
+    })(purEditBtns[pe]);
+  }
+  // Delivery edit
+  var delEditBtns = document.querySelectorAll('[data-approve-edit-del]');
+  for (var de = 0; de < delEditBtns.length; de++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var id = parseInt(btn.getAttribute('data-approve-edit-del'));
+        navigate('delivery-list');
+        setTimeout(function() {
+          var editBtn = document.querySelector('[data-edit-del="' + id + '"]');
+          if (editBtn) editBtn.click();
+          else showToast('Edit button not found — open from Delivery List', 'info');
+        }, 500);
+      });
+    })(delEditBtns[de]);
+  }
+  // Adjustment edit
+  var adjEditBtns = document.querySelectorAll('[data-approve-edit-adj]');
+  for (var ae = 0; ae < adjEditBtns.length; ae++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var id = parseInt(btn.getAttribute('data-approve-edit-adj'));
+        navigate('adjustment-list');
+        setTimeout(function() {
+          var editBtn = document.querySelector('[data-edit-adj="' + id + '"]');
+          if (editBtn) editBtn.click();
+          else showToast('Edit button not found — open from Adjustment List', 'info');
+        }, 500);
+      });
+    })(adjEditBtns[ae]);
+  }
+  // Damage edit
+  var dmgEditBtns = document.querySelectorAll('[data-approve-edit-dmg]');
+  for (var dm = 0; dm < dmgEditBtns.length; dm++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var id = parseInt(btn.getAttribute('data-approve-edit-dmg'));
+        navigate('damage-list');
+        setTimeout(function() {
+          var editBtn = document.querySelector('[data-edit-dmg="' + id + '"]');
+          if (editBtn) editBtn.click();
+          else showToast('Edit button not found — open from Damage List', 'info');
+        }, 500);
+      });
+    })(dmgEditBtns[dm]);
+  }
+
+  // ===== Delete buttons =====
+  var delSelectors = ['[data-approve-del-purchase]', '[data-approve-del-delivery]', '[data-approve-del-adjustment]', '[data-approve-del-damage]'];
+  var delCollections = ['purchases', 'deliveries', 'adjustments', 'damages'];
+  var delPages = ['approval-purchase', 'approval-delivery', 'approval-adjustment', 'approval-damage'];
+  for (var ds = 0; ds < delSelectors.length; ds++) {
+    var delBtnList = document.querySelectorAll(delSelectors[ds]);
+    for (var di = 0; di < delBtnList.length; di++) {
+      (function(btn, collection, page) {
+        btn.addEventListener('click', function() {
+          deleteItem(collection, parseInt(btn.getAttribute('data-approve-del-' + (collection === 'purchases' ? 'purchase' : collection === 'deliveries' ? 'delivery' : collection === 'adjustments' ? 'adjustment' : 'damage'))), page);
+        });
+      })(delBtnList[di], delCollections[ds], delPages[ds]);
+    }
   }
 }
 
