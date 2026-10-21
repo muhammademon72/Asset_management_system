@@ -316,6 +316,8 @@ function renderNav() {
   const c = document.getElementById('nav-container');
   let html = '';
   NAV.forEach(item => {
+    // Permission check: hide top-level menu if user can't view this module
+    if (!can(item.id, 'view')) return;
     const hasChildren = item.children && item.children.length;
     const isOpen = openMenus[item.id];
     const isActive = !hasChildren && currentPage === item.id;
@@ -328,6 +330,8 @@ function renderNav() {
     if (hasChildren) {
       html += '<div class="submenu ' + (isOpen ? 'open' : '') + '">';
       item.children.forEach(function(ch) {
+        // Sub-items inherit the parent module's view permission
+        // (the top-level filter already covers this, but we keep this for safety)
         html += '<div class="nav-item ' + (currentPage === ch.id ? 'active' : '') + '" onclick="event.stopPropagation();navigate(\'' + ch.id + '\')">';
         html += '<i class="fas fa-circle" style="font-size:5px;margin-right:12px;"></i>';
         html += '<span class="nav-text">' + ch.label + '</span>';
@@ -422,6 +426,12 @@ function filterTable(q) {
 }
 
 function deleteItem(collection, id, page) {
+  // Defense-in-depth: verify user has 'delete' permission for this module
+  var module = pageToModule(page);
+  if (module && !can(module, 'delete')) {
+    showToast('Access denied — you do not have delete permission for ' + module, 'error');
+    return;
+  }
   openModal(
     '<div style="padding:24px;text-align:center;">' +
     '<div style="width:56px;height:56px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-trash" style="color:var(--danger);font-size:22px;"></i></div>' +
@@ -4768,6 +4778,82 @@ function can(module, action) {
   return modulePerms.indexOf(action) !== -1;
 }
 
+// Map a page ID (e.g. 'branch-list') to its parent NAV module ID (e.g. 'branch')
+function pageToModule(pageId) {
+  for (var i = 0; i < NAV.length; i++) {
+    var item = NAV[i];
+    if (item.id === pageId) return item.id;
+    if (item.children) {
+      for (var j = 0; j < item.children.length; j++) {
+        if (item.children[j].id === pageId) return item.id;
+      }
+    }
+  }
+  return null;
+}
+
+// Enforce permission checks on the currently-rendered page.
+// Hides Add/Edit/Delete/Export/Import/Print buttons based on the user's role.
+// Super Admin is always allowed everything (early return).
+function enforceActionPermissions() {
+  if (!currentUser || currentUser.role === 'Super Admin') return;
+  var module = pageToModule(currentPage);
+  if (!module) return;
+
+  // Hide "Add New" / "Create" buttons
+  if (!can(module, 'add')) {
+    document.querySelectorAll('[id^="btn-add-"], [id^="btn-create-"]').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+
+  // Hide row-level Edit buttons (data-edit-*) and modal Edit buttons
+  if (!can(module, 'edit')) {
+    document.querySelectorAll('[data-edit-branch], [data-edit-emp], [data-edit-prod], [data-edit-sup], [id^="btn-edit-"]').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+
+  // Hide row-level Delete buttons (data-del-*) and modal Delete buttons
+  if (!can(module, 'delete')) {
+    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-role], [data-del-user], [id^="btn-del-"], [id^="btn-delete-"]').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+
+  // Hide Export buttons
+  if (!can(module, 'export')) {
+    document.querySelectorAll('[id^="btn-export-"]').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+
+  // Hide Import buttons
+  if (!can(module, 'import')) {
+    document.querySelectorAll('[id^="btn-import-"]').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+
+  // Hide Print buttons
+  if (!can(module, 'print')) {
+    document.querySelectorAll('[id^="btn-print-"], [onclick*="print"], [onclick*="Print"]').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+}
+
+// Render "Access Denied" placeholder for pages the user lacks permission to view
+function renderAccessDenied(moduleName) {
+  var html = '<div style="padding:60px 20px;text-align:center;">';
+  html += '<div style="width:88px;height:88px;border-radius:50%;background:rgba(220,38,38,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;"><i class="fas fa-lock" style="color:var(--danger);font-size:34px;"></i></div>';
+  html += '<div style="font-size:22px;font-weight:800;color:var(--fg);margin-bottom:10px;">Access Denied</div>';
+  html += '<div style="font-size:14px;color:var(--muted);max-width:520px;margin:0 auto 24px;line-height:1.6;">You do not have permission to view the <strong style="color:var(--fg);">' + (moduleName || 'this') + '</strong> module. Please contact your administrator if you believe this is an error.</div>';
+  html += '<div style="display:inline-flex;gap:8px;align-items:center;padding:10px 16px;background:var(--accent-light);border:1px solid var(--accent);border-radius:10px;font-size:13px;color:var(--accent-dark);"><i class="fas fa-user-shield"></i> Signed in as: <strong>' + (currentUser ? (currentUser.name + ' / ' + currentUser.role) : 'guest') + '</strong></div>';
+  html += '</div>';
+  return html;
+}
+
 // Render the Create/Edit Role modal with full privilege matrix
 function openRoleModal(editId) {
   var r = null;
@@ -5250,6 +5336,20 @@ function renderPage() {
   saveDB();
   document.getElementById('breadcrumb').textContent = getBreadcrumb();
   var pc = document.getElementById('page-content');
+
+  // ============ PERMISSION ENFORCEMENT ============
+  // Block access to pages the current user can't view
+  var module = pageToModule(currentPage);
+  if (module && !can(module, 'view')) {
+    // Find the human-readable module label for the Access Denied message
+    var moduleLabel = module;
+    for (var i = 0; i < NAV.length; i++) {
+      if (NAV[i].id === module) { moduleLabel = NAV[i].label; break; }
+    }
+    pc.innerHTML = '<div class="page-content">' + renderAccessDenied(moduleLabel) + '</div>';
+    return; // Stop here — don't render the page, don't bind any events
+  }
+
   var pageMap = {
     'dashboard': renderDashboard,
     'branch-list': renderBranchList,
@@ -5289,6 +5389,10 @@ function renderPage() {
 
   var renderFn = pageMap[currentPage] || renderDashboard;
   pc.innerHTML = '<div class="page-content">' + renderFn() + '</div>';
+
+  // ============ ACTION PERMISSION ENFORCEMENT ============
+  // Hide Add/Edit/Delete/Export/Import/Print buttons based on user's role
+  enforceActionPermissions();
 
   // Bind events AFTER DOM is ready — this is the KEY FIX
   var bindMap = {
@@ -5811,8 +5915,26 @@ function attemptLogin() {
   updateTopBarUser();
   // Welcome toast
   showToast('Welcome, ' + (user.name || user.username) + '! 👋');
-  // Render the first page (dashboard)
-  renderPage();
+  // Re-render nav so permission filtering takes effect for this user
+  renderNav();
+  // If the user doesn't have view permission for the dashboard, redirect them
+  // to the first module they CAN view
+  if (!can('dashboard', 'view')) {
+    var firstAllowed = null;
+    for (var i = 0; i < NAV.length; i++) {
+      if (can(NAV[i].id, 'view')) { firstAllowed = NAV[i].id; break; }
+    }
+    if (firstAllowed) {
+      navigate(firstAllowed);
+    } else {
+      // User has no view permissions at all — show access denied
+      currentPage = 'dashboard';
+      renderPage();
+    }
+  } else {
+    // Render the first page (dashboard)
+    renderPage();
+  }
 }
 
 // Display an error message on the login form
