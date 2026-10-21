@@ -4800,46 +4800,52 @@ function enforceActionPermissions() {
   var module = pageToModule(currentPage);
   if (!module) return;
 
-  // Hide "Add New" / "Create" buttons
+  // Helper to hide an element
+  function hide(el) { if (el) el.style.display = 'none'; }
+
+  // ===== HIDE: Add New / Create buttons =====
   if (!can(module, 'add')) {
-    document.querySelectorAll('[id^="btn-add-"], [id^="btn-create-"]').forEach(function(el) {
-      el.style.display = 'none';
-    });
+    // Top-level Add New / Create buttons
+    document.querySelectorAll('[id^="btn-add-"], [id^="btn-create-"]').forEach(hide);
   }
 
-  // Hide row-level Edit buttons (data-edit-*) and modal Edit buttons
+  // ===== HIDE: Edit buttons (both top-level and row-level) =====
   if (!can(module, 'edit')) {
-    document.querySelectorAll('[data-edit-branch], [data-edit-emp], [data-edit-prod], [data-edit-sup], [id^="btn-edit-"]').forEach(function(el) {
-      el.style.display = 'none';
-    });
+    // Row-level Edit buttons (various naming conventions used across modules)
+    // Pattern: data-edit-<module>  or  data-edit-simple  or  data-edit-del  etc.
+    document.querySelectorAll('[data-edit-branch], [data-edit-emp], [data-edit-prod], [data-edit-sup], [data-edit-pur], [data-edit-del], [data-edit-adj], [data-edit-dmg], [data-edit-trf], [data-edit-simple], [data-edit-role], [data-edit-user]').forEach(hide);
+    // Top-level Edit buttons (rare, but safety)
+    document.querySelectorAll('[id^="btn-edit-"]').forEach(hide);
   }
 
-  // Hide row-level Delete buttons (data-del-*) and modal Delete buttons
+  // ===== HIDE: Delete buttons (both naming variants) =====
   if (!can(module, 'delete')) {
-    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-role], [data-del-user], [id^="btn-del-"], [id^="btn-delete-"]').forEach(function(el) {
-      el.style.display = 'none';
-    });
+    // data-del-* (short form used by most modules)
+    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-pur], [data-del-del], [data-del-adj], [data-del-dmg], [data-del-trf], [data-del-simple], [data-del-role], [data-del-user]').forEach(hide);
+    // data-delete-* (full word form, used by branch)
+    document.querySelectorAll('[data-delete-branch], [data-delete-emp], [data-delete-prod], [data-delete-sup], [data-delete-pur], [data-delete-del], [data-delete-adj], [data-delete-dmg], [data-delete-trf], [data-delete-role], [data-delete-user]').forEach(hide);
+    // Top-level Delete buttons
+    document.querySelectorAll('[id^="btn-del-"], [id^="btn-delete-"]').forEach(hide);
   }
 
-  // Hide Export buttons
+  // ===== HIDE: Export buttons =====
   if (!can(module, 'export')) {
-    document.querySelectorAll('[id^="btn-export-"]').forEach(function(el) {
-      el.style.display = 'none';
-    });
+    document.querySelectorAll('[id^="btn-export-"], [id^="btn-backup-db"], [data-export]').forEach(hide);
   }
 
-  // Hide Import buttons
+  // ===== HIDE: Import buttons =====
   if (!can(module, 'import')) {
-    document.querySelectorAll('[id^="btn-import-"]').forEach(function(el) {
-      el.style.display = 'none';
-    });
+    document.querySelectorAll('[id^="btn-import-"], [id^="btn-restore-db"], [data-import]').forEach(hide);
   }
 
-  // Hide Print buttons
+  // ===== HIDE: Print buttons =====
   if (!can(module, 'print')) {
-    document.querySelectorAll('[id^="btn-print-"], [onclick*="print"], [onclick*="Print"]').forEach(function(el) {
-      el.style.display = 'none';
-    });
+    // Row-level Print buttons: data-print-<module>
+    document.querySelectorAll('[data-print-del], [data-print-adj], [data-print-dmg], [data-print-trf], [data-print-pur], [data-print-branch], [data-print-emp], [data-print-prod], [data-print-sup]').forEach(hide);
+    // Top-level Print buttons
+    document.querySelectorAll('[id^="btn-print-"]').forEach(hide);
+    // Inline onclick print buttons
+    document.querySelectorAll('[onclick*="print"], [onclick*="Print"]').forEach(hide);
   }
 }
 
