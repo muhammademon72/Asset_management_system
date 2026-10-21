@@ -365,3 +365,38 @@ Stage Summary:
 - ✅ Commit a141f85 pushed to GitHub
 - User can now rotate their Turso token anytime via:
     bash scripts/rotate-turso-token.sh
+
+---
+Task ID: 11
+Agent: main
+Task: User said "koro" (do it) — referring to my offer to deploy to Vercel so the app is accessible via internet and uses the same Turso cloud DB.
+
+Work Log:
+- Installed Vercel CLI via `bun add -g vercel` → v65.0.0
+- Pushed 2 pending commits to GitHub (was ahead by 2 commits)
+- Tried `vercel whoami` → no credentials found (sandbox can't do browser login)
+- Created scripts/deploy-vercel.sh — automated deployment script that:
+  1. Verifies Vercel CLI is installed
+  2. Reads VERCEL_TOKEN env var or prompts user to paste token
+  3. Verifies the token works (`vercel whoami --token`)
+  4. Reads Turso credentials from local .env
+  5. Creates Vercel project 'it-asset-management-system' (or uses existing)
+  6. Removes existing env vars (idempotent — safe to re-run)
+  7. Adds DATABASE_URL, DATABASE_AUTH_TOKEN, NEXT_TELEMETRY_DISABLED
+  8. Triggers production deployment via `vercel --prod --yes --token`
+  9. Extracts production URL from output
+  10. Tests /app.html and /api/db endpoints (gives 5s warmup)
+- Updated vercel.json (removed empty crons array, more compact format)
+- Committed and pushed: "feat: add Vercel auto-deploy script" (commit ff24617)
+
+Stage Summary:
+- ✅ Vercel CLI installed (v65.0.0)
+- ✅ scripts/deploy-vercel.sh ready to use (8.9 KB)
+- ✅ All latest code pushed to GitHub (commit ff24617)
+- ⏳ Blocked on user providing Vercel token
+  - User needs to create a token at https://vercel.com/account/tokens
+  - Or sign up first at https://vercel.com/signup if no account yet
+- After receiving token: script will deploy in ~2-3 minutes and return URL like
+  https://it-asset-management-system.vercel.app
+- That URL will use the same Turso cloud DB → data is shared between sandbox
+  and Vercel deployment
