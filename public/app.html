@@ -4666,37 +4666,302 @@ function renderRoleList() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Role List</div>';
   html += '<button class="btn btn-primary" id="btn-add-role"><i class="fas fa-plus"></i> Create Role</button></div>';
-  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Role Name</th><th>Permissions</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+
+  // Info banner explaining the privilege system
+  html += '<div style="background:var(--accent-light);border:1px solid var(--accent);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;gap:12px;align-items:flex-start;">';
+  html += '<i class="fas fa-shield-halved" style="color:var(--accent);font-size:18px;margin-top:2px;"></i>';
+  html += '<div style="flex:1;font-size:13px;color:var(--accent-dark);line-height:1.55;">';
+  html += '<strong>Role-Based Privilege System</strong><br>';
+  html += 'Each role has fine-grained permissions for every module. Users inherit privileges from their assigned role. Super Admin always has full access and cannot be restricted.';
+  html += '</div></div>';
+
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 280px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Role Name</th><th>Permissions</th><th style="width:120px;">Privileges</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.roles.length; i++) {
     var r = DB.roles[i];
-    html += '<tr><td style="font-weight:600;">' + r.name + '</td><td>' + r.permissions + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-role="' + r.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    var perms = r.permissions || {};
+    var permCount = countRolePermissions(perms);
+    var isSuperAdmin = (r.name === 'Super Admin');
+    var permBadge = isSuperAdmin
+      ? '<span class="badge badge-green"><i class="fas fa-crown" style="font-size:10px;margin-right:4px;"></i>Full Access</span>'
+      : '<span class="badge badge-' + (permCount === 0 ? 'red' : (permCount < 5 ? 'amber' : 'blue')) + '">' + permCount + ' module(s)</span>';
+    html += '<tr><td style="font-weight:600;">' + r.name + (isSuperAdmin ? ' <span style="color:var(--muted);font-size:11px;">(system)</span>' : '') + '</td>';
+    html += '<td style="font-size:12px;color:var(--muted);">' + summarizePermissions(perms) + '</td>';
+    html += '<td style="text-align:center;">' + permBadge + '</td>';
+    html += '<td>';
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-edit-role="' + r.id + '" title="Edit privileges"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+    if (!isSuperAdmin) {
+      html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-role="' + r.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button>';
+    } else {
+      html += '<button class="btn btn-secondary btn-sm btn-icon" title="Cannot delete Super Admin" style="opacity:0.4;cursor:not-allowed;"><i class="fas fa-lock" style="font-size:11px;"></i></button>';
+    }
+    html += '</td></tr>';
   }
   html += '</tbody></table></div></div>';
   return html;
 }
 
-function bindRoleEvents() {
-  var btn = document.getElementById('btn-add-role');
-  if (!btn) return;
-  btn.addEventListener('click', function() {
-    var html = '<div style="padding:24px;">' + modalHeader('Create Role') + '<div style="padding-top:16px;">';
-    html += '<div class="form-group"><label class="form-label">Role Name</label><input class="form-input" id="f-role-name"></div>';
-    html += '<div class="form-group"><label class="form-label">Permissions</label><input class="form-input" id="f-role-perm" placeholder="e.g. Dashboard, Inventory, Reports"></div>';
-    html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
-    html += '<button class="btn btn-primary" id="btn-save-role"><i class="fas fa-save"></i> Create</button></div></div>';
-    openModal(html);
-    document.getElementById('btn-save-role').addEventListener('click', function() {
-      var name = document.getElementById('f-role-name').value.trim();
-      if (!name) { showToast('Role name required', 'error'); return; }
-      DB.roles.push({ id: Date.now(), name: name, permissions: document.getElementById('f-role-perm').value.trim() });
-      closeModal(); showToast('Role created'); renderPage();
-    });
+// Count active privileges in a role's permissions object
+function countRolePermissions(perms) {
+  if (!perms || typeof perms !== 'object') return 0;
+  if (perms.fullAccess) return 99; // special marker for full access
+  var count = 0;
+  for (var k in perms) {
+    if (perms[k] && perms[k].length > 0) count++;
+  }
+  return count;
+}
+
+// Human-readable summary of a role's permissions
+function summarizePermissions(perms) {
+  if (!perms || typeof perms !== 'object') return 'No permissions set';
+  if (perms.fullAccess) return 'Full access to all modules';
+  var parts = [];
+  for (var k in perms) {
+    if (perms[k] && perms[k].length > 0) {
+      parts.push(k + ' (' + perms[k].length + ')');
+    }
+  }
+  return parts.length ? parts.join(', ') : 'No permissions set';
+}
+
+// All privilege modules — used by the role modal to render checkboxes
+var PRIVILEGE_MODULES = [
+  { id: 'dashboard',  label: 'Dashboard',         icon: 'fa-grid-2' },
+  { id: 'branch',     label: 'Branch',            icon: 'fa-building' },
+  { id: 'employee',   label: 'Employee',          icon: 'fa-users' },
+  { id: 'product',    label: 'Product',           icon: 'fa-box-open' },
+  { id: 'purchase',   label: 'Purchase',          icon: 'fa-cart-shopping' },
+  { id: 'inventory',  label: 'Inventory',          icon: 'fa-warehouse' },
+  { id: 'cashbook',   label: 'Cash Book',         icon: 'fa-money-bill-wave' },
+  { id: 'approval',   label: 'Approval',          icon: 'fa-clipboard-check' },
+  { id: 'report',     label: 'Report',             icon: 'fa-chart-pie' },
+  { id: 'settings',   label: 'Settings',          icon: 'fa-gear' }
+];
+
+// Per-module operations — these are the actions that can be granted per module
+var PRIVILEGE_ACTIONS = [
+  { id: 'view',   label: 'View',    icon: 'fa-eye' },
+  { id: 'add',    label: 'Add',     icon: 'fa-plus' },
+  { id: 'edit',   label: 'Edit',    icon: 'fa-pen' },
+  { id: 'delete', label: 'Delete', icon: 'fa-trash' },
+  { id: 'export', label: 'Export',  icon: 'fa-file-export' },
+  { id: 'import', label: 'Import',  icon: 'fa-file-import' },
+  { id: 'print',  label: 'Print',   icon: 'fa-print' }
+];
+
+// Check if current user has permission to do an action on a module
+// Returns true if allowed, false otherwise. Super Admin always returns true.
+function can(module, action) {
+  if (!currentUser) return false;
+  if (currentUser.role === 'Super Admin') return true;
+  // Find the user's role in DB.roles
+  var roleObj = null;
+  for (var i = 0; i < DB.roles.length; i++) {
+    if (DB.roles[i].name === currentUser.role) { roleObj = DB.roles[i]; break; }
+  }
+  if (!roleObj) return false;
+  var perms = roleObj.permissions || {};
+  if (perms.fullAccess) return true;
+  var modulePerms = perms[module];
+  if (!modulePerms || !Array.isArray(modulePerms)) return false;
+  return modulePerms.indexOf(action) !== -1;
+}
+
+// Render the Create/Edit Role modal with full privilege matrix
+function openRoleModal(editId) {
+  var r = null;
+  var title = 'Create Role';
+  if (editId) {
+    for (var i = 0; i < DB.roles.length; i++) {
+      if (DB.roles[i].id === editId) { r = DB.roles[i]; break; }
+    }
+    if (r) title = 'Edit Role: ' + r.name;
+  }
+
+  var isSuperAdmin = r && r.name === 'Super Admin';
+  var perms = (r && r.permissions && typeof r.permissions === 'object') ? r.permissions : {};
+  var fullAccess = perms.fullAccess || isSuperAdmin;
+
+  var html = '<div style="padding:24px;max-width:780px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+
+  // Role name + description
+  html += '<div class="form-group"><label class="form-label">Role Name</label>';
+  html += '<input class="form-input" id="f-role-name" value="' + (r ? r.name : '') + '" placeholder="e.g. Super Admin, Admin, Manager, General User"' + (isSuperAdmin ? ' readonly' : '') + '></div>';
+
+  html += '<div class="form-group"><label class="form-label">Description</label>';
+  html += '<input class="form-input" id="f-role-desc" value="' + (r ? (r.description || '') : '') + '" placeholder="Brief description of this role\'s purpose"></div>';
+
+  // Full access toggle
+  html += '<div style="background:' + (fullAccess ? 'var(--accent-light)' : '#f6f8f6') + ';border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">';
+  html += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;">';
+  html += '<input type="checkbox" id="f-role-fullaccess" ' + (fullAccess ? 'checked' : '') + ' style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent);"' + (isSuperAdmin ? ' disabled' : '') + '>';
+  html += '<div>';
+  html += '<div style="font-weight:600;color:var(--fg);font-size:14px;"><i class="fas fa-crown" style="color:var(--warning);margin-right:6px;"></i>Full Access</div>';
+  html += '<div style="font-size:12px;color:var(--muted);">Grant all permissions to every module (overrides individual selections)</div>';
+  html += '</div></label></div>';
+
+  // Privilege matrix header
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  html += '<div style="font-size:14px;font-weight:700;color:var(--fg);"><i class="fas fa-shield-halved" style="color:var(--accent);margin-right:8px;"></i>Module Privileges</div>';
+  html += '<div style="font-size:12px;color:var(--muted);">Select which actions each module can perform</div>';
+  html += '</div>';
+
+  // Build the matrix
+  html += '<div id="privilege-matrix" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);max-height:400px;overflow-y:auto;' + (fullAccess ? 'opacity:0.5;pointer-events:none;' : '') + '">';
+
+  // Header row with action labels
+  html += '<div style="display:grid;grid-template-columns:180px repeat(' + PRIVILEGE_ACTIONS.length + ',1fr);background:#f6f8f6;border-bottom:2px solid var(--border);position:sticky;top:0;z-index:5;">';
+  html += '<div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">Module</div>';
+  for (var ai = 0; ai < PRIVILEGE_ACTIONS.length; ai++) {
+    html += '<div style="padding:10px 4px;text-align:center;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;" title="' + PRIVILEGE_ACTIONS[ai].label + '"><i class="fas ' + PRIVILEGE_ACTIONS[ai].icon + '"></i></div>';
+  }
+  html += '</div>';
+
+  // One row per module
+  for (var mi = 0; mi < PRIVILEGE_MODULES.length; mi++) {
+    var mod = PRIVILEGE_MODULES[mi];
+    var modPerms = perms[mod.id] || [];
+    if (!Array.isArray(modPerms)) modPerms = [];
+
+    html += '<div style="display:grid;grid-template-columns:180px repeat(' + PRIVILEGE_ACTIONS.length + ',1fr);border-bottom:1px solid var(--border);' + (mi % 2 === 1 ? 'background:#fafdfa;' : '') + '">';
+    html += '<div style="padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:var(--fg);"><i class="fas ' + mod.icon + '" style="color:var(--accent);width:16px;text-align:center;"></i>' + mod.label + '</div>';
+
+    for (var bi = 0; bi < PRIVILEGE_ACTIONS.length; bi++) {
+      var act = PRIVILEGE_ACTIONS[bi];
+      var checked = modPerms.indexOf(act.id) !== -1;
+      html += '<div style="padding:8px;text-align:center;">';
+      html += '<label style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;" title="' + act.label + '">';
+      html += '<input type="checkbox" class="priv-checkbox" data-module="' + mod.id + '" data-action="' + act.id + '" ' + (checked ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">';
+      html += '</label></div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Quick presets
+  html += '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+  html += '<span style="font-size:12px;color:var(--muted);margin-right:4px;">Quick presets:</span>';
+  html += '<button type="button" class="btn btn-secondary btn-sm" id="preset-all"><i class="fas fa-check-double"></i> Select All</button>';
+  html += '<button type="button" class="btn btn-secondary btn-sm" id="preset-view-only"><i class="fas fa-eye"></i> View Only</button>';
+  html += '<button type="button" class="btn btn-secondary btn-sm" id="preset-clear"><i class="fas fa-eraser"></i> Clear All</button>';
+  html += '</div>';
+
+  // Footer
+  html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;margin-top:18px;">';
+  html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<button class="btn btn-primary" id="btn-save-role"><i class="fas fa-save"></i> ' + (r ? 'Update Role' : 'Create Role') + '</button>';
+  html += '</div></div>';
+
+  openModal(html);
+
+  // Modal box should be wider
+  var modalBox = document.getElementById('modal-box');
+  if (modalBox) { modalBox.style.width = '780px'; modalBox.style.maxWidth = '95vw'; }
+
+  // Wire up "Select All" / "View Only" / "Clear All" preset buttons
+  var presetAll = document.getElementById('preset-all');
+  var presetView = document.getElementById('preset-view-only');
+  var presetClear = document.getElementById('preset-clear');
+  var fullAccessToggle = document.getElementById('f-role-fullaccess');
+  var matrix = document.getElementById('privilege-matrix');
+
+  function setAllCheckboxes(values) {
+    var cbs = matrix.querySelectorAll('.priv-checkbox');
+    for (var i = 0; i < cbs.length; i++) {
+      var cb = cbs[i];
+      cb.checked = values.indexOf(cb.getAttribute('data-action')) !== -1;
+    }
+  }
+
+  if (presetAll) presetAll.addEventListener('click', function() {
+    setAllCheckboxes(['view','add','edit','delete','export','import','print']);
   });
+  if (presetView) presetView.addEventListener('click', function() {
+    setAllCheckboxes(['view']);
+  });
+  if (presetClear) presetClear.addEventListener('click', function() {
+    setAllCheckboxes([]);
+  });
+
+  // When Full Access is toggled, dim the matrix
+  if (fullAccessToggle) fullAccessToggle.addEventListener('change', function() {
+    if (matrix) {
+      if (this.checked) {
+        matrix.style.opacity = '0.5';
+        matrix.style.pointerEvents = 'none';
+      } else {
+        matrix.style.opacity = '1';
+        matrix.style.pointerEvents = 'auto';
+      }
+    }
+  });
+
+  // Save handler
+  document.getElementById('btn-save-role').addEventListener('click', function() {
+    var name = document.getElementById('f-role-name').value.trim();
+    var desc = document.getElementById('f-role-desc').value.trim();
+    var isFullAccess = fullAccessToggle ? fullAccessToggle.checked : false;
+    if (!name) { showToast('Role name required', 'error'); return; }
+
+    // Check duplicate (only when creating new)
+    if (!r) {
+      for (var i = 0; i < DB.roles.length; i++) {
+        if (DB.roles[i].name.toLowerCase() === name.toLowerCase()) { showToast('Role name already exists', 'error'); return; }
+      }
+    }
+
+    // Build permissions object from checkbox state
+    var newPerms = {};
+    if (isFullAccess) {
+      newPerms.fullAccess = true;
+    } else {
+      var cbs = matrix.querySelectorAll('.priv-checkbox');
+      for (var j = 0; j < cbs.length; j++) {
+        var cb = cbs[j];
+        if (cb.checked) {
+          var mod = cb.getAttribute('data-module');
+          var act = cb.getAttribute('data-action');
+          if (!newPerms[mod]) newPerms[mod] = [];
+          newPerms[mod].push(act);
+        }
+      }
+    }
+
+    // For Super Admin, force fullAccess=true
+    if (isSuperAdmin) newPerms.fullAccess = true;
+
+    if (r) {
+      // Update existing role
+      r.name = name;
+      r.description = desc;
+      r.permissions = newPerms;
+      showToast('Role updated successfully');
+    } else {
+      // Create new role
+      DB.roles.push({
+        id: Date.now(),
+        name: name,
+        description: desc,
+        permissions: newPerms
+      });
+      showToast('Role created successfully');
+    }
+    closeModal();
+    renderPage();
+  });
+}
+
+function bindRoleEvents() {
+  var addBtn = document.getElementById('btn-add-role');
+  if (addBtn) addBtn.addEventListener('click', function() { openRoleModal(null); });
+  var editBtns = document.querySelectorAll('[data-edit-role]');
+  for (var i = 0; i < editBtns.length; i++) {
+    (function(btn) { btn.addEventListener('click', function() { openRoleModal(parseInt(btn.getAttribute('data-edit-role'))); }); })(editBtns[i]);
+  }
   var delBtns = document.querySelectorAll('[data-del-role]');
-  for (var i = 0; i < delBtns.length; i++) {
-    (function(btn) { btn.addEventListener('click', function() { deleteItem('roles', parseInt(btn.getAttribute('data-del-role')), 'role-list'); }); })(delBtns[i]);
+  for (var j = 0; j < delBtns.length; j++) {
+    (function(btn) { btn.addEventListener('click', function() { deleteItem('roles', parseInt(btn.getAttribute('data-del-role')), 'role-list'); }); })(delBtns[j]);
   }
 }
 
@@ -5335,13 +5600,78 @@ function ensureDefaultAdmin() {
     });
   }
   // Also ensure default roles exist (so User Create form has options)
+  // Migration: if roles have string permissions, migrate to object format
+  var needsMigration = false;
+  if (Array.isArray(DB.roles)) {
+    for (var mi = 0; mi < DB.roles.length; mi++) {
+      if (typeof DB.roles[mi].permissions === 'string') { needsMigration = true; break; }
+    }
+  }
+  if (needsMigration) {
+    // Convert old string-based permissions to new object-based permissions
+    for (var mi2 = 0; mi2 < DB.roles.length; mi2++) {
+      var roleName = DB.roles[mi2].name;
+      var oldPerm = DB.roles[mi2].permissions;
+      var newPerms = {};
+      if (roleName === 'Super Admin' || oldPerm === 'Full Access') {
+        newPerms.fullAccess = true;
+      } else {
+        // Try to map old string to module permissions (best-effort migration)
+        var allModules = ['dashboard','branch','employee','product','purchase','inventory','cashbook','approval','report','settings'];
+        for (var am = 0; am < allModules.length; am++) {
+          // Default: grant view + add + edit + export (read-write)
+          if (oldPerm && oldPerm.toLowerCase().indexOf(allModules[am]) !== -1) {
+            newPerms[allModules[am]] = ['view', 'add', 'edit', 'export', 'print'];
+          }
+        }
+        // Special case for "Viewer" role — read-only on dashboard + report
+        if (roleName === 'Viewer') {
+          newPerms = { dashboard: ['view'], report: ['view', 'print'] };
+        }
+      }
+      DB.roles[mi2].permissions = newPerms;
+    }
+  }
   if (!Array.isArray(DB.roles) || DB.roles.length === 0) {
     DB.roles = [
-      { id: 1, name: 'Super Admin', permissions: 'Full Access' },
-      { id: 2, name: 'Branch Manager', permissions: 'Dashboard, Inventory, Reports (Own Branch)' },
-      { id: 3, name: 'Inventory Officer', permissions: 'Inventory, Delivery, Adjustment' },
-      { id: 4, name: 'Finance Officer', permissions: 'Cash Book, Reports' },
-      { id: 5, name: 'Viewer', permissions: 'Dashboard, Reports (Read Only)' }
+      { id: 1, name: 'Super Admin', description: 'Full system access — can do everything', permissions: { fullAccess: true } },
+      { id: 2, name: 'Admin',      description: 'System administration — all modules except settings', permissions: {
+        dashboard: ['view','add','edit','delete','export','import','print'],
+        branch: ['view','add','edit','delete','export','import'],
+        employee: ['view','add','edit','delete','export','import'],
+        product: ['view','add','edit','delete','export','import'],
+        purchase: ['view','add','edit','delete','export','import','print'],
+        inventory: ['view','add','edit','delete','export','print'],
+        cashbook: ['view','add','edit','delete','export'],
+        approval: ['view','add','edit','print'],
+        report: ['view','print','export'],
+        settings: ['view'] // Admin can view settings but not edit
+      } },
+      { id: 3, name: 'Manager',    description: 'Branch-level management — operations + reports', permissions: {
+        dashboard: ['view'],
+        branch: ['view'],
+        employee: ['view','add','edit','export','import'],
+        product: ['view','add','edit','export','import'],
+        purchase: ['view','add','edit','export','print'],
+        inventory: ['view','add','edit','print'],
+        cashbook: ['view','add','edit','export'],
+        approval: ['view','add','edit','print'],
+        report: ['view','print','export']
+      } },
+      { id: 4, name: 'General User', description: 'Daily operations — limited to assigned tasks', permissions: {
+        dashboard: ['view'],
+        branch: ['view'],
+        employee: ['view'],
+        product: ['view'],
+        purchase: ['view','add','export'],
+        inventory: ['view','add','print'],
+        cashbook: ['view','add'],
+        report: ['view','print']
+      } },
+      { id: 5, name: 'Viewer',     description: 'Read-only access — can view reports and data', permissions: {
+        dashboard: ['view'],
+        report: ['view','print']
+      } }
     ];
   }
 }
