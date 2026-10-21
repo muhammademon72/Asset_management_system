@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "bun install",
+  "outputDirectory": ".next",
+  "regions": [
+    "sin1"
+  ],
+  "github": {
+    "silent": false,
+    "autoAlias": true,
+    "autoJobCanceling": true
+  },
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1",
+      "SKIP_ENV_VALIDATION": "1"
+    }
+  },
+  "crons": []
+}
