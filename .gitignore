@@ -71,3 +71,6 @@ server.log
 /scripts/auto-push.log
 /scripts/auto-push.stdout
 /scripts/.github_token
+.env
+.env.bak.*
+!.env.example
