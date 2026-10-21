@@ -372,6 +372,99 @@ function toggleSidebar() {
 }
 
 // ==================== TOAST ====================
+// ==================== DATE FORMATTING (DD-MM-YYYY) ====================
+// Convert any date value (YYYY-MM-DD string, Date object, ISO string, or epoch)
+// into a "DD-MM-YYYY" formatted string. Returns '' for empty/invalid input.
+function formatDateDDMMYYYY(value) {
+  if (!value) return '';
+  // Already in DD-MM-YYYY format? Return as-is.
+  if (typeof value === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(value)) return value;
+  // Parse YYYY-MM-DD string
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    var parts = value.substring(0, 10).split('-');
+    return parts[2] + '-' + parts[1] + '-' + parts[0];
+  }
+  // Try Date object / ISO string
+  var d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  var dd = String(d.getDate()).padStart(2, '0');
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  var yyyy = d.getFullYear();
+  return dd + '-' + mm + '-' + yyyy;
+}
+
+// Convert a "DD-MM-YYYY" string back to "YYYY-MM-DD" (for storage / <input type=date>).
+// Returns '' if input is empty/invalid.
+function parseDDMMYYYYToDate(value) {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  var m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  if (!m) return '';
+  return m[3] + '-' + m[2] + '-' + m[1];
+}
+
+// Build a date input that DISPLAYS as DD-MM-YYYY but stores the value as YYYY-MM-DD.
+//
+// Usage in HTML:  buildDDMMYYYYDateInput('f-pur-date', pur ? pur.date : '', 'Pick a date')
+// Or with options:  buildDDMMYYYYDateInput('f-del-date', '', '', { placeholder: 'Select date' })
+//
+// Returns HTML string containing:
+//   - a read-only text input showing DD-MM-YYYY (clickable to open picker)
+//   - a hidden <input type="date"> that holds the real YYYY-MM-DD value
+//   - a calendar icon button that also opens the picker
+// Both inputs share the same id-prefix; the text input is what users see.
+function buildDDMMYYYYDateInput(id, initialValue, placeholder, options) {
+  options = options || {};
+  placeholder = placeholder || 'DD-MM-YYYY';
+  var isoValue = parseDDMMYYYYToDate(initialValue) || (initialValue && /^\d{4}-\d{2}-\d{2}$/.test(initialValue) ? initialValue : '');
+  var displayValue = formatDateDDMMYYYY(initialValue);
+  var dataTopAttr = options.dataTop ? ' data-top="' + options.dataTop + '"' : '';
+  var html = '';
+  html += '<div style="position:relative;display:flex;align-items:center;">';
+  // Visible text input showing DD-MM-YYYY
+  html += '<input type="text" id="' + id + '-display" class="form-input" value="' + displayValue + '" placeholder="' + placeholder + '" readonly style="cursor:pointer;flex:1;background:white;' + (options.style || '') + '" onclick="openDateDDMMYYYYPicker(\'' + id + '\')">';
+  // Calendar icon
+  html += '<i class="fas fa-calendar-alt" style="position:absolute;right:12px;pointer-events:none;color:var(--muted);font-size:13px;"></i>';
+  // Hidden real date input (YYYY-MM-DD) — carries data-top if provided
+  // oninput/onchange bind immediately so external value changes sync the display
+  html += '<input type="date" id="' + id + '" value="' + isoValue + '"' + dataTopAttr + ' oninput="syncDDMMYYYYDisplay(\'' + id + '\')" onchange="syncDDMMYYYYDisplay(\'' + id + '\')" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;">';
+  html += '</div>';
+  return html;
+}
+
+// Open the native date picker for a hidden <input type="date"> and sync
+// the visible DD-MM-YYYY display input when the user picks a date.
+function openDateDDMMYYYYPicker(id) {
+  var hiddenInput = document.getElementById(id);
+  if (!hiddenInput) return;
+  // Use showPicker() if available (modern browsers); fall back to focus+click
+  try {
+    if (typeof hiddenInput.showPicker === 'function') {
+      hiddenInput.showPicker();
+    } else {
+      hiddenInput.style.position = 'static';
+      hiddenInput.style.opacity = '1';
+      hiddenInput.style.width = 'auto';
+      hiddenInput.style.height = 'auto';
+      hiddenInput.focus();
+      hiddenInput.click();
+    }
+  } catch (e) {
+    hiddenInput.focus();
+    hiddenInput.click();
+  }
+  syncDDMMYYYYDisplay(id);
+}
+
+// Sync the visible DD-MM-YYYY display input with the hidden date input's value
+function syncDDMMYYYYDisplay(id) {
+  var hiddenInput = document.getElementById(id);
+  var display = document.getElementById(id + '-display');
+  if (hiddenInput && display) {
+    display.value = formatDateDDMMYYYY(hiddenInput.value);
+  }
+}
+
 function showToast(msg, type) {
   type = type || 'success';
   var c = document.getElementById('toast-container');
@@ -2024,7 +2117,7 @@ function openDeliveryModal(delId, readOnly) {
     html += purFieldRow('Employee ID', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.empId : (del.empId || '-')) + '</span>');
     html += purFieldRow('Department', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.department : (del.department || '-')) + '</span>');
   } else {
-    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="del-date" value="' + (del.date || '') + '">');
+    html += purFieldRow('Date', buildDDMMYYYYDateInput('f-del-date', del.date || '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'del-date' }));
     html += purFieldRow('Chalan No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" data-top="del-chalan" value="' + (del.chalan || '') + '" readonly>');
     html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="del-branch">' + brOpts + '</select>');
     html += purFieldRow('Received By', purSearchableHTML('receiver', 'data-top="del-received"', empArr, del.receivedBy || '', 'Select Receiver', 'Search name or ID...'));
@@ -2333,7 +2426,7 @@ function openDeliveryAddModal() {
   html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;">';
   // Row 1: Date | Received By
-  html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" data-top="del-date"></div>';
+  html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label>' + buildDDMMYYYYDateInput('f-del-date', '', 'DD-MM-YYYY', { dataTop: 'del-date' }) + '</div>';
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Received By</label>' + purSearchableHTML('receiver', 'data-top="del-received"', empArr, '', 'Select Receiver', 'Search name or ID...') + '</div>';
   // Row 2: Chalan No | Employee ID
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Chalan No</label><input class="form-input" style="color:var(--muted);" data-top="del-chalan" value="' + autoChalan + '" readonly></div>';
@@ -3302,7 +3395,7 @@ function bindPurchaseEvents() {
 
     // Top fields section
     html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date">');
+    html += purFieldRow('Date', buildDDMMYYYYDateInput('f-pur-date', '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'date' }));
     html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" placeholder="Enter Invoice No">');
     html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, '', 'Select Supplier', 'Search supplier...'));
     html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
@@ -3551,7 +3644,7 @@ function bindPurchaseEvents() {
 
         // Top fields
         html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-        html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="date" value="' + (pur.date || '') + '">');
+        html += purFieldRow('Date', buildDDMMYYYYDateInput('f-pur-date', pur.date || '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'date' }));
         html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" value="' + (pur.invoice || '') + '">');
         html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, pur.supplier || '', 'Select Supplier', 'Search supplier...'));
         html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
