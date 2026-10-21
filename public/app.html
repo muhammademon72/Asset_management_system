@@ -465,6 +465,64 @@ function syncDDMMYYYYDisplay(id) {
   }
 }
 
+// ==================== FILE ATTACHMENT HELPERS ====================
+// Read a File object and return a Promise that resolves to a data-URL
+// (base64-encoded). Used to store attachment contents inside the DB blob.
+function readFileAsDataURL(file) {
+  return new Promise(function(resolve, reject) {
+    if (!file) { resolve(null); return; }
+    var reader = new FileReader();
+    reader.onload = function() { resolve(reader.result); };
+    reader.onerror = function() { reject(new Error('Could not read file')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Trigger a download for a file stored as a data URL (base64).
+// Falls back to opening in a new tab for viewable types (images/PDF).
+function downloadAttachment(attachInfo) {
+  if (!attachInfo || !attachInfo.data) {
+    showToast('No file to download', 'error');
+    return;
+  }
+  var a = document.createElement('a');
+  a.href = attachInfo.data;
+  a.download = attachInfo.name || 'attachment';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Open a file stored as a data URL in a new browser tab (for preview).
+// Works for images, PDFs, plain text — anything the browser can render.
+function previewAttachment(attachInfo) {
+  if (!attachInfo || !attachInfo.data) {
+    showToast('No file to preview', 'error');
+    return;
+  }
+  var win = window.open();
+  if (!win) {
+    // Popup blocked — fall back to download
+    downloadAttachment(attachInfo);
+    return;
+  }
+  win.document.write(
+    '<html><head><title>' + (attachInfo.name || 'Attachment') + '</title>' +
+    '<style>body{margin:0;background:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh;}' +
+    'img,embed,iframe{max-width:100%;max-height:100vh;object-fit:contain;}</style></head><body>'
+  );
+  var mt = attachInfo.type || '';
+  if (mt.indexOf('image/') === 0) {
+    win.document.write('<img src="' + attachInfo.data + '" alt="' + attachInfo.name + '">');
+  } else if (mt.indexOf('pdf') !== -1 || mt.indexOf('application/pdf') !== -1) {
+    win.document.write('<embed src="' + attachInfo.data + '" type="application/pdf" width="100%" height="100vh">');
+  } else {
+    win.document.write('<iframe src="' + attachInfo.data + '" style="width:100vw;height:100vh;border:none;"></iframe>');
+  }
+  win.document.write('</body></html>');
+  win.document.close();
+}
+
 function showToast(msg, type) {
   type = type || 'success';
   var c = document.getElementById('toast-container');
@@ -3480,8 +3538,26 @@ function bindPurchaseEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB' };
+        // Limit to 5 MB to keep DB size manageable
+        if (f.size > 5 * 1024 * 1024) {
+          showToast('Attachment too large (max 5 MB)', 'error');
+          return;
+        }
+        // Show "saving..." feedback so the user knows we're reading the file
+        showToast('Reading attachment...', 'info');
+        readFileAsDataURL(f).then(function(dataUrl) {
+          attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB', data: dataUrl };
+          savePurchaseRows();
+        }).catch(function(err) {
+          showToast('Could not read attachment: ' + err.message, 'error');
+          // Still save the purchase without the attachment
+          savePurchaseRows();
+        });
+      } else {
+        savePurchaseRows();
       }
+
+      function savePurchaseRows() {
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var product = r.querySelector('[data-f="product"]').value;
@@ -3489,10 +3565,12 @@ function bindPurchaseEvents() {
         var category = r.querySelector('[data-f="category"]').value;
         var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
         var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+        // Attach the file data ONLY on the first row of the invoice (so we don't duplicate large base64 blobs)
+        var rowAttach = (i === 0) ? attachInfo : null;
         DB.purchases.push({
           id: Date.now() + i, invoice: invoice, date: date, supplier: supplier,
           product: product, category: category, qty: qty, unitPrice: price, total: qty * price,
-          status: status, branch: 'Head Office', attachment: attachInfo,
+          status: status, branch: 'Head Office', attachment: rowAttach,
           brand: r.querySelector('[data-f="brand"]').value,
           model: r.querySelector('[data-f="model"]').value,
           serial: r.querySelector('[data-f="serial"]').value,
@@ -3502,6 +3580,7 @@ function bindPurchaseEvents() {
         });
       }
       closeModal(); showToast('Purchase saved successfully'); renderPage();
+      }
     });
 
   });
@@ -3789,11 +3868,42 @@ function bindPurchaseEvents() {
         var pur = null;
         for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
         if (!pur) return;
+        // Find the attachment across all rows with the same invoice (it may be stored on a different row)
+        var attach = pur.attachment;
+        if (!attach || !attach.name) {
+          for (var k = 0; k < DB.purchases.length; k++) {
+            if (DB.purchases[k].invoice === pur.invoice && DB.purchases[k].attachment && DB.purchases[k].attachment.name) {
+              attach = DB.purchases[k].attachment;
+              break;
+            }
+          }
+        }
         var html = '<div style="padding:24px;">' + modalHeader('Attachment — ' + pur.invoice) + '<div style="padding-top:16px;">';
-        if (pur.attachment && pur.attachment.name) {
+        if (attach && attach.name) {
+          // For images, show a thumbnail preview inline
+          var isImage = attach.type && attach.type.indexOf('image/') === 0;
+          var isPdf = attach.type && (attach.type.indexOf('pdf') !== -1 || attach.type.indexOf('application/pdf') !== -1);
+          var iconClass = isImage ? 'fa-image' : (isPdf ? 'fa-file-pdf' : 'fa-file-alt');
           html += '<div style="border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">';
-          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-alt" style="color:var(--accent);font-size:20px;"></i></div>';
-          html += '<div><div style="font-weight:600;font-size:14px;">' + pur.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (pur.attachment.type || 'File') + ' &middot; ' + (pur.attachment.size || '') + '</div></div>';
+          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas ' + iconClass + '" style="color:var(--accent);font-size:20px;"></i></div>';
+          html += '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;word-break:break-all;">' + attach.name + '</div><div style="font-size:12px;color:var(--muted);">' + (attach.type || 'File') + ' &middot; ' + (attach.size || '') + '</div></div>';
+          html += '</div>';
+          // Inline thumbnail for images
+          if (isImage && attach.data) {
+            html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;text-align:center;background:#f6f8f6;"><img src="' + attach.data + '" style="max-width:100%;max-height:300px;object-fit:contain;display:block;margin:0 auto;"></div>';
+          }
+          // Action buttons — Preview + Download (only if file content is stored)
+          html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+          if (attach.data) {
+            // Store attach globally and reference it by index, to avoid escaping issues
+            window._currentAttachView = attach;
+            html += '<button class="btn btn-primary" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
+            html += '<button class="btn btn-secondary" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
+          } else {
+            html += '<div style="font-size:12px;color:var(--warning);padding:8px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;">';
+            html += '<i class="fas fa-exclamation-triangle"></i> File content was saved as metadata only (older purchase). Re-save this purchase to enable preview/download.';
+            html += '</div>';
+          }
           html += '</div>';
         } else {
           html += '<div style="text-align:center;padding:40px 0;">';
@@ -3802,7 +3912,7 @@ function bindPurchaseEvents() {
           html += '<div style="font-size:13px;color:var(--muted);">This purchase has no attached file.</div>';
           html += '</div>';
         }
-        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
+        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
         openModal(html);
       });
     })(attachIcons[a]);
