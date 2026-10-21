@@ -214,3 +214,46 @@ Stage Summary:
 - ✅ Sidebar: 19 nav items, Settings menu has 4 items (Company Profile, User Create List, Role Create List, Backup / Restore)
 - ✅ Export/Import: CSV format (file inputs accept .csv,.xlsx,.xls)
 - ✅ Backup/Restore page: 3 cards (Backup, Restore, Delete All Data) + summary table
+
+---
+Task ID: 8
+Agent: main
+Task: User said "KORO" (do it) — referring to my offer to set up Turso cloud database for permanent data storage that survives sandbox restarts and works on Vercel.
+
+Work Log:
+- Installed Turso CLI: `curl -sSfL https://get.tur.so/install.sh | bash` → installed to /home/z/.turso/turso (v1.0.34).
+- Verified Turso CLI works: `turso --version` → v1.0.34.
+- Checked login state: `turso auth whoami` → "You are not logged in" (CLI prints to stdout, returns exit 0 — important bug to detect).
+- Created `scripts/setup-turso.sh` — fully automated Turso setup script that:
+  1. Ensures Turso CLI is installed
+  2. Detects login state correctly (parses stdout, doesn't rely on exit code)
+  3. Opens browser for login OR uses --headless flag
+  4. Creates database `it-asset-management` (if not exists)
+  5. Gets database URL via `turso db show --url`
+  6. Generates auth token via `turso db tokens create`
+  7. Backs up existing .env to .env.bak.<timestamp>
+  8. Writes new .env with Turso DATABASE_URL and DATABASE_AUTH_TOKEN
+  9. Reads existing local SQLite data via Python
+  10. Restarts dev server via .zscripts/dev.sh
+  11. Pushes local data to Turso via POST /api/db
+  12. Verifies cloud DB works via GET /api/db
+- Initial script run failed because Turso CLI's auth whoami returns exit 0 even when not logged in. Fixed by parsing stdout output for "not logged in" pattern.
+- Second test run correctly detected not-logged-in state and exited with clear instructions.
+- Turso auth login requires browser access (sandbox has no GUI browser). Headless mode `turso auth login --headless` prints a URL the user can visit.
+- Created `TURSO-SETUP.md` — comprehensive guide covering:
+  - Quick automated setup (running setup-turso.sh)
+  - Manual step-by-step setup (9 steps)
+  - Free tier limits (500 DBs, 9 GB storage, 1B reads/month — way more than needed)
+  - How to use same Turso DB on Vercel (just add same env vars)
+  - Data flow diagram after Turso is set up
+  - Troubleshooting common issues
+  - Useful Turso CLI commands (list, show, shell, destroy)
+- Verified dev server still works with current local SQLite setup (HTTP 200 on both /app.html and /api/db).
+- Cleaned up .env.bak.* files left from script testing.
+
+Stage Summary:
+- ✅ Turso CLI installed at /home/z/.turso/turso (v1.0.34)
+- ✅ `scripts/setup-turso.sh` (10 KB) — automated setup script ready to run
+- ✅ `TURSO-SETUP.md` (5.5 KB) — comprehensive setup guide
+- ⏳ User needs to run `bash scripts/setup-turso.sh` to actually create their Turso database (requires browser login that sandbox can't do)
+- Current state: app still using local SQLite (`file:db/custom.db`) — will switch to Turso cloud automatically once user runs the setup script
