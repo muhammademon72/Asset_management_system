@@ -1869,8 +1869,15 @@ function renderDeliveryList() {
   var rows = '';
   for (var i = 0; i < DB.deliveries.length; i++) {
     var d = DB.deliveries[i];
+    // Look up attachment across all rows with the same chalan (may be stored on a different row)
+    var hasAttach = d.attachment && d.attachment.name;
+    if (!hasAttach) {
+      for (var k = 0; k < DB.deliveries.length; k++) {
+        if (DB.deliveries[k].chalan === d.chalan && DB.deliveries[k].attachment && DB.deliveries[k].attachment.name) { hasAttach = true; break; }
+      }
+    }
     rows += '<tr><td style="font-weight:600;">' + d.chalan + '</td><td>' + d.date + '</td><td>' + d.product + '</td><td style="text-align:center;">' + d.qty + '</td><td>' + d.branch + '</td><td>' + d.receivedBy + '</td><td>' + statusBadge(d.status) + '</td>';
-    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-del="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-del="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:180px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-del="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-attach-del="' + d.id + '" title="' + (hasAttach ? 'View Attachment' : 'No attachment') + '" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';"><i class="fas fa-paperclip" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-del="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Delivery List</div>';
@@ -1879,7 +1886,7 @@ function renderDeliveryList() {
   html += '<button class="btn btn-secondary" id="btn-print-delivery" title="Print Delivery List"><i class="fas fa-print"></i> Print</button>';
   html += '<button class="btn btn-primary" id="btn-add-delivery"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:180px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -2000,6 +2007,59 @@ function bindDeliveryEvents() {
     (function(b) {
       b.addEventListener('click', function() { printDelivery(parseInt(b.getAttribute('data-print-del'))); });
     })(printBtns[p]);
+  }
+
+  // Attachment view
+  var attachIcons = document.querySelectorAll('[data-attach-del]');
+  for (var ad = 0; ad < attachIcons.length; ad++) {
+    (function(icon) {
+      icon.addEventListener('click', function() {
+        var delId = parseInt(icon.getAttribute('data-attach-del'));
+        var del = null;
+        for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].id === delId) { del = DB.deliveries[j]; break; } }
+        if (!del) return;
+        // Look up attachment across all rows with the same chalan
+        var attach = del.attachment;
+        if (!attach || !attach.name) {
+          for (var k = 0; k < DB.deliveries.length; k++) {
+            if (DB.deliveries[k].chalan === del.chalan && DB.deliveries[k].attachment && DB.deliveries[k].attachment.name) {
+              attach = DB.deliveries[k].attachment;
+              break;
+            }
+          }
+        }
+        var html = '<div style="padding:24px;">' + modalHeader('Attachment — ' + del.chalan) + '<div style="padding-top:16px;">';
+        if (attach && attach.name) {
+          var isImage = attach.type && attach.type.indexOf('image/') === 0;
+          var isPdf = attach.type && (attach.type.indexOf('pdf') !== -1 || attach.type.indexOf('application/pdf') !== -1);
+          var iconClass = isImage ? 'fa-image' : (isPdf ? 'fa-file-pdf' : 'fa-file-alt');
+          html += '<div style="border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">';
+          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas ' + iconClass + '" style="color:var(--accent);font-size:20px;"></i></div>';
+          html += '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;word-break:break-all;">' + attach.name + '</div><div style="font-size:12px;color:var(--muted);">' + (attach.type || 'File') + ' &middot; ' + (attach.size || '') + '</div></div>';
+          html += '</div>';
+          if (isImage && attach.data) {
+            html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;text-align:center;background:#f6f8f6;"><img src="' + attach.data + '" style="max-width:100%;max-height:300px;object-fit:contain;display:block;margin:0 auto;"></div>';
+          }
+          html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+          if (attach.data) {
+            window._currentAttachView = attach;
+            html += '<button class="btn btn-primary" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
+            html += '<button class="btn btn-secondary" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
+          } else {
+            html += '<div style="font-size:12px;color:var(--warning);padding:8px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;"><i class="fas fa-exclamation-triangle"></i> File content was saved as metadata only (older delivery). Re-save to enable preview/download.</div>';
+          }
+          html += '</div>';
+        } else {
+          html += '<div style="text-align:center;padding:40px 0;">';
+          html += '<div style="width:64px;height:64px;border-radius:16px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-file-upload" style="color:var(--accent);font-size:24px;"></i></div>';
+          html += '<div style="font-size:15px;font-weight:600;color:var(--fg);margin-bottom:6px;">No Attachment Found</div>';
+          html += '<div style="font-size:13px;color:var(--muted);">This delivery has no attached file.</div>';
+          html += '</div>';
+        }
+        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
+        openModal(html);
+      });
+    })(attachIcons[ad]);
   }
 }
 
@@ -2513,6 +2573,7 @@ function openDeliveryAddModal() {
   // Note
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-del-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note..."></textarea>');
+  html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="del-attach">');
   html += '</div>';
 
   // Bottom bar
@@ -2610,14 +2671,35 @@ function openDeliveryAddModal() {
       if (p && p.value) { hasItem = true; break; }
     }
     if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+    // Read attachment (file content stored as base64)
+    var attachInput = document.querySelector('[data-top="del-attach"]');
+    var attachInfo = null;
+    if (attachInput && attachInput.files && attachInput.files.length > 0) {
+      var f = attachInput.files[0];
+      if (f.size > 5 * 1024 * 1024) { showToast('Attachment too large (max 5 MB)', 'error'); return; }
+      showToast('Reading attachment...', 'info');
+      readFileAsDataURL(f).then(function(dataUrl) {
+        attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB', data: dataUrl };
+        saveDeliveryRows();
+      }).catch(function(err) {
+        showToast('Could not read attachment: ' + err.message, 'error');
+        saveDeliveryRows();
+      });
+    } else {
+      saveDeliveryRows();
+    }
+
+    function saveDeliveryRows() {
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       var product = r.querySelector('[data-f="product"]').value;
       if (!product) continue;
+      // Attach the file ONLY on the first row of the invoice (avoid duplicating large base64 blobs)
+      var rowAttach = (i === 0) ? attachInfo : null;
       DB.deliveries.push({
         id: Date.now() + i, chalan: chalan, date: date, branch: branch,
         receivedBy: receivedBy, empId: empIdVal, department: deptVal,
-        status: status, note: note,
+        status: status, note: note, attachment: rowAttach,
         product: product,
         category: r.querySelector('[data-f="category"]').value,
         brand: r.querySelector('[data-f="brand"]').value,
@@ -2631,7 +2713,8 @@ function openDeliveryAddModal() {
       });
     }
     closeModal(); showToast('Delivery saved successfully'); renderPage();
-  });
+    }
+    });
 }
 
 function renderAdjustmentList() {
@@ -4196,18 +4279,30 @@ function bindCashInEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB' };
+        if (f.size > 5 * 1024 * 1024) { showToast('Attachment too large (max 5 MB)', 'error'); return; }
+        showToast('Reading attachment...', 'info');
+        readFileAsDataURL(f).then(function(dataUrl) {
+          attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB', data: dataUrl };
+          saveCashIn();
+        }).catch(function(err) {
+          showToast('Could not read attachment: ' + err.message, 'error');
+          saveCashIn();
+        });
+      } else {
+        saveCashIn();
       }
-      DB.cashIn.push({
-        id: Date.now(),
-        voucher: 'CI-' + Date.now(),
-        date: document.getElementById('f-ci-date').value,
-        amount: amount,
-        description: document.getElementById('f-ci-desc').value.trim(),
-        status: document.getElementById('f-ci-status').value,
-        attachment: attachInfo
-      });
-      closeModal(); showToast('Cash In added'); renderPage();
+      function saveCashIn() {
+        DB.cashIn.push({
+          id: Date.now(),
+          voucher: 'CI-' + Date.now(),
+          date: document.getElementById('f-ci-date').value,
+          amount: amount,
+          description: document.getElementById('f-ci-desc').value.trim(),
+          status: document.getElementById('f-ci-status').value,
+          attachment: attachInfo
+        });
+        closeModal(); showToast('Cash In added'); renderPage();
+      }
     });
   });
 
@@ -4222,9 +4317,24 @@ function bindCashInEvents() {
         if (!ci) return;
         var html = '<div style="padding:24px;">' + modalHeader('Attachment — ' + ci.voucher) + '<div style="padding-top:16px;">';
         if (ci.attachment && ci.attachment.name) {
+          var isImage = ci.attachment.type && ci.attachment.type.indexOf('image/') === 0;
+          var isPdf = ci.attachment.type && (ci.attachment.type.indexOf('pdf') !== -1 || ci.attachment.type.indexOf('application/pdf') !== -1);
+          var iconClass = isImage ? 'fa-image' : (isPdf ? 'fa-file-pdf' : 'fa-file-alt');
           html += '<div style="border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">';
-          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-alt" style="color:var(--accent);font-size:20px;"></i></div>';
-          html += '<div><div style="font-weight:600;font-size:14px;">' + ci.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (ci.attachment.type || 'File') + ' &middot; ' + (ci.attachment.size || '') + '</div></div>';
+          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas ' + iconClass + '" style="color:var(--accent);font-size:20px;"></i></div>';
+          html += '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;word-break:break-all;">' + ci.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (ci.attachment.type || 'File') + ' &middot; ' + (ci.attachment.size || '') + '</div></div>';
+          html += '</div>';
+          if (isImage && ci.attachment.data) {
+            html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;text-align:center;background:#f6f8f6;"><img src="' + ci.attachment.data + '" style="max-width:100%;max-height:300px;object-fit:contain;display:block;margin:0 auto;"></div>';
+          }
+          html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+          if (ci.attachment.data) {
+            window._currentAttachView = ci.attachment;
+            html += '<button class="btn btn-primary" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
+            html += '<button class="btn btn-secondary" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
+          } else {
+            html += '<div style="font-size:12px;color:var(--warning);padding:8px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;"><i class="fas fa-exclamation-triangle"></i> File content was saved as metadata only (older entry). Re-save to enable preview/download.</div>';
+          }
           html += '</div>';
         } else {
           html += '<div style="text-align:center;padding:40px 0;">';
@@ -4233,7 +4343,7 @@ function bindCashInEvents() {
           html += '<div style="font-size:13px;color:var(--muted);">This cash-in entry has no attached file.</div>';
           html += '</div>';
         }
-        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
+        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
         openModal(html);
       });
     })(attachIcons[a]);
@@ -4279,18 +4389,30 @@ function bindCashOutEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB' };
+        if (f.size > 5 * 1024 * 1024) { showToast('Attachment too large (max 5 MB)', 'error'); return; }
+        showToast('Reading attachment...', 'info');
+        readFileAsDataURL(f).then(function(dataUrl) {
+          attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB', data: dataUrl };
+          saveCashOut();
+        }).catch(function(err) {
+          showToast('Could not read attachment: ' + err.message, 'error');
+          saveCashOut();
+        });
+      } else {
+        saveCashOut();
       }
-      DB.cashOut.push({
-        id: Date.now(),
-        voucher: 'CO-' + Date.now(),
-        date: document.getElementById('f-co-date').value,
-        amount: amount,
-        description: document.getElementById('f-co-desc').value.trim(),
-        status: document.getElementById('f-co-status').value,
-        attachment: attachInfo
-      });
-      closeModal(); showToast('Cash Out added'); renderPage();
+      function saveCashOut() {
+        DB.cashOut.push({
+          id: Date.now(),
+          voucher: 'CO-' + Date.now(),
+          date: document.getElementById('f-co-date').value,
+          amount: amount,
+          description: document.getElementById('f-co-desc').value.trim(),
+          status: document.getElementById('f-co-status').value,
+          attachment: attachInfo
+        });
+        closeModal(); showToast('Cash Out added'); renderPage();
+      }
     });
   });
 
@@ -4305,9 +4427,24 @@ function bindCashOutEvents() {
         if (!co) return;
         var html = '<div style="padding:24px;">' + modalHeader('Attachment — ' + co.voucher) + '<div style="padding-top:16px;">';
         if (co.attachment && co.attachment.name) {
+          var isImage = co.attachment.type && co.attachment.type.indexOf('image/') === 0;
+          var isPdf = co.attachment.type && (co.attachment.type.indexOf('pdf') !== -1 || co.attachment.type.indexOf('application/pdf') !== -1);
+          var iconClass = isImage ? 'fa-image' : (isPdf ? 'fa-file-pdf' : 'fa-file-alt');
           html += '<div style="border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">';
-          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-alt" style="color:var(--accent);font-size:20px;"></i></div>';
-          html += '<div><div style="font-weight:600;font-size:14px;">' + co.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (co.attachment.type || 'File') + ' &middot; ' + (co.attachment.size || '') + '</div></div>';
+          html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas ' + iconClass + '" style="color:var(--accent);font-size:20px;"></i></div>';
+          html += '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;word-break:break-all;">' + co.attachment.name + '</div><div style="font-size:12px;color:var(--muted);">' + (co.attachment.type || 'File') + ' &middot; ' + (co.attachment.size || '') + '</div></div>';
+          html += '</div>';
+          if (isImage && co.attachment.data) {
+            html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;text-align:center;background:#f6f8f6;"><img src="' + co.attachment.data + '" style="max-width:100%;max-height:300px;object-fit:contain;display:block;margin:0 auto;"></div>';
+          }
+          html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+          if (co.attachment.data) {
+            window._currentAttachView = co.attachment;
+            html += '<button class="btn btn-primary" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
+            html += '<button class="btn btn-secondary" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
+          } else {
+            html += '<div style="font-size:12px;color:var(--warning);padding:8px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;"><i class="fas fa-exclamation-triangle"></i> File content was saved as metadata only (older entry). Re-save to enable preview/download.</div>';
+          }
           html += '</div>';
         } else {
           html += '<div style="text-align:center;padding:40px 0;">';
@@ -4316,7 +4453,7 @@ function bindCashOutEvents() {
           html += '<div style="font-size:13px;color:var(--muted);">This cash-out entry has no attached file.</div>';
           html += '</div>';
         }
-        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
+        html += '</div><div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div>';
         openModal(html);
       });
     })(attachIcons[a]);
