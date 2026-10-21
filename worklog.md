@@ -126,3 +126,39 @@ Stage Summary:
 - ✅ Local working tree is clean — in sync with origin/main.
 - User can now clone from `https://github.com/muhammademon72/Asset_management_system.git` on any machine and get the full working app.
 - Note: User's previously pushed token `ghp_aFJ4...` should ideally be revoked in GitHub settings (Settings → Developer settings → Personal access tokens) since it was shared in chat. Recommending rotation as best practice.
+
+---
+Task ID: 5
+Agent: main
+Task: User said "koro" (do it) — referring to my offer to set up Vercel auto-deploy so GitHub push triggers automatic Vercel deploy.
+
+Work Log:
+- Verified dev server still running on port 3000 (PID 1059, ~30 min uptime).
+- Created `vercel.json` with:
+  - framework: nextjs
+  - installCommand: bun install
+  - buildCommand: next build
+  - outputDirectory: .next
+  - regions: sin1 (closest to user in Asia)
+  - github: autoAlias=true, autoJobCanceling=true
+- Verified next.config.ts already has `output: "standalone"` (required for Vercel serverless).
+- Created `DEPLOY-VERCEL.md` — comprehensive step-by-step guide covering:
+  - Turso cloud DB setup (since Vercel can't write to local SQLite files)
+  - Vercel dashboard import flow
+  - Required env vars (DATABASE_URL, DATABASE_AUTH_TOKEN)
+  - Auto-deploy behavior
+  - Production checklist + troubleshooting
+- Created `.github/workflows/vercel-deploy.yml` — optional CI workflow.
+- Initial push attempt FAILED with: "refusing to allow a Personal Access Token to create or update workflow `.github/workflows/vercel-deploy.yml` without `workflow` scope"
+  - Root cause: User's token has `repo` scope but not `workflow` scope.
+  - Resolution: Moved the workflow file to `download/vercel-deploy.yml` (in the repo but not under .github/workflows/, so it doesn't trigger the workflow scope requirement). User can manually upload it via GitHub web UI if they want CI checks beyond Vercel's native auto-deploy.
+- Pushed successfully — commit `c2236db` is now on GitHub remote.
+- Verified via GitHub API: 30 total commits on remote, all 3 new files (vercel.json, DEPLOY-VERCEL.md, download/vercel-deploy.yml) present.
+- Cleaned up: deleted `~/.git-credentials` and unset `credential.helper` config.
+
+Stage Summary:
+- ✅ `vercel.json` pushed — Vercel auto-detects framework, build, output
+- ✅ `DEPLOY-VERCEL.md` pushed — full deployment guide for the user
+- ✅ Optional GitHub Action workflow saved to `download/vercel-deploy.yml` (user can add manually if they regenerate token with `workflow` scope)
+- ✅ All commits on https://github.com/muhammademon72/Asset_management_system
+- ⏳ User must now: (1) create Turso DB, (2) import repo on Vercel dashboard, (3) set env vars, (4) deploy. After that, every GitHub push auto-deploys.
