@@ -1764,6 +1764,10 @@ function renderInventoryStock() {
     totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
     visibleCount++;
     // Pull product-level attributes (fall back to latest purchase record)
+    // Brand, like Model/Serial/Condition/Warranty, is sourced from the latest
+    // purchase — products typically have an empty 'brand' field but each purchase
+    // captures the actual brand of the item that was bought.
+    var brand = (latestPur && latestPur.brand) || p.brand || '-';
     var model = (latestPur && latestPur.model) || '-';
     var serial = (latestPur && latestPur.serial) || '-';
     var condition = (latestPur && latestPur.condition) || '-';
@@ -1774,8 +1778,8 @@ function renderInventoryStock() {
     rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + visibleCount + '</td>';
     rows += '<td style="font-weight:600;color:var(--info);">' + invoice + '</td>';
     rows += '<td style="font-weight:600;">' + p.name + '</td>';
-    rows += '<td>' + (p.category || '-') + '</td>';
-    rows += '<td>' + (p.brand || '-') + '</td>';
+    rows += '<td>' + (p.category || (latestPur && latestPur.category) || '-') + '</td>';
+    rows += '<td>' + brand + '</td>';
     rows += '<td>' + model + '</td>';
     rows += '<td>' + serial + '</td>';
     rows += '<td>' + condition + '</td>';
