@@ -1340,10 +1340,10 @@ function renderProductList() {
   html += '<button class="btn btn-primary" id="btn-add-product"><i class="fas fa-plus"></i> Add New</button>';
   html += '</div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Product Name</th><th>Category</th><th>UoM</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th style="text-align:center;width:50px;">SN</th><th>Product Name</th><th>Category</th><th>UoM</th><th>Status</th><th style="width:120px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.products.length; i++) {
     var p = DB.products[i];
-    html += '<tr><td style="font-weight:600;">' + p.name + '</td><td>' + p.category + '</td><td>' + p.uom + '</td><td>' + statusBadge(p.status) + '</td>';
+    html += '<tr><td style="text-align:center;font-weight:600;color:var(--muted);">' + (i + 1) + '</td><td style="font-weight:600;">' + p.name + '</td><td>' + p.category + '</td><td>' + p.uom + '</td><td>' + statusBadge(p.status) + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-prod="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-prod="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
