@@ -2192,13 +2192,13 @@ function printDelivery(delId) {
   html += '.meta-label { font-size: 10px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }';
   html += '.meta-value { font-size: 13px; font-weight: 600; color: #1a2e1a; }';
   html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; }';
-  html += 'thead th { background: #2d8a4e; color: #fff; padding: 9px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; }';
+  html += 'thead th { background: #2d8a4e !important; color: #fff !important; padding: 9px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }';
   html += 'tbody td { padding: 8px 10px; font-size: 12px; border: 1px solid #d4ddd4; }';
   html += '.sign { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; }';
   html += '.sign-box { flex: 1; text-align: center; }';
   html += '.sign-line { margin-top: 60px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
   html += '.foot { margin-top: 26px; text-align: center; font-size: 10px; color: #6b7c6b; }';
-  html += '@media print { body { padding: 0; } .no-print { display: none; } }';
+  html += '@media print { body { padding: 0; } .no-print { display: none; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }';
   html += '</style></head><body>';
   // Header
   html += '<div class="head">';
