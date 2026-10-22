@@ -5338,12 +5338,14 @@ function renderUserList() {
   html += '<div style="font-size:20px;font-weight:800;">User List</div>';
   html += '<button class="btn btn-primary" id="btn-add-user"><i class="fas fa-plus"></i> Create User</button></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Full Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Full Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>Status</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.users.length; i++) {
     var u = DB.users[i];
+    var isSelf = currentUser && u.username === currentUser.username;
     var passDisplay = u.password ? ('•••••• (' + u.password.length + ' chars)') : '-';
-    html += '<tr><td style="font-weight:600;">' + u.name + '</td><td>' + (u.username || '-') + '</td><td style="font-family:monospace;font-size:12px;color:var(--muted);">' + passDisplay + '</td><td>' + (u.email || '-') + '</td><td><span class="badge badge-blue">' + (u.role || '-') + '</span></td><td>' + statusBadge(u.status || 'Active') + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-del-user="' + u.id + '" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    html += '<tr><td style="font-weight:600;">' + u.name + (isSelf ? ' <span class="badge badge-green" style="font-size:9px;margin-left:4px;">YOU</span>' : '') + '</td><td>' + (u.username || '-') + '</td><td style="font-family:monospace;font-size:12px;color:var(--muted);">' + passDisplay + '</td><td>' + (u.email || '-') + '</td><td><span class="badge badge-blue">' + (u.role || '-') + '</span></td><td>' + statusBadge(u.status || 'Active') + '</td>';
+    html += '<td style="white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-edit-user="' + u.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-user="' + u.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   html += '</tbody></table></div></div>';
   return html;
@@ -5379,6 +5381,49 @@ function bindUserEvents() {
       closeModal(); showToast('User created'); renderPage();
     });
   });
+  // Edit buttons
+  var editBtns = document.querySelectorAll('[data-edit-user]');
+  for (var ei = 0; ei < editBtns.length; ei++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var editId = parseInt(btn.getAttribute('data-edit-user'));
+        var u = null;
+        for (var i = 0; i < DB.users.length; i++) { if (DB.users[i].id === editId) { u = DB.users[i]; break; } }
+        if (!u) return;
+        var roleOpts = '';
+        for (var i = 0; i < DB.roles.length; i++) roleOpts += '<option' + (u.role === DB.roles[i].name ? ' selected' : '') + '>' + DB.roles[i].name + '</option>';
+        var html = '<div style="padding:24px;">' + modalHeader('Edit User') + '<div style="padding-top:16px;">';
+        html += '<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="f-user-name" value="' + (u.name || '') + '"></div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Username</label><input class="form-input" id="f-user-uname" value="' + (u.username || '') + '"></div>';
+        html += '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-user-email" value="' + (u.email || '') + '"></div></div>';
+        html += '<div class="form-group"><label class="form-label">Password</label><input type="text" class="form-input" id="f-user-pass" value="' + (u.password || '') + '"></div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label class="form-label">Role</label><select class="form-input" id="f-user-role">' + roleOpts + '</select></div>';
+        html += '<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-user-status"><option' + (u.status !== 'Inactive' ? ' selected' : '') + '>Active</option><option' + (u.status === 'Inactive' ? ' selected' : '') + '>Inactive</option></select></div></div>';
+        html += '</div><div style="padding:0 0 20px;display:flex;gap:12px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+        html += '<button class="btn btn-primary" id="btn-save-user-edit"><i class="fas fa-save"></i> Update</button></div></div>';
+        openModal(html);
+        document.getElementById('btn-save-user-edit').addEventListener('click', function() {
+          var name = document.getElementById('f-user-name').value.trim();
+          var uname = document.getElementById('f-user-uname').value.trim();
+          var pass = document.getElementById('f-user-pass').value;
+          if (!name) { showToast('Name required', 'error'); return; }
+          if (!uname) { showToast('Username required', 'error'); return; }
+          if (!pass) { showToast('Password required', 'error'); return; }
+          // Prevent duplicate usernames (exclude self)
+          for (var i = 0; i < DB.users.length; i++) {
+            if (DB.users[i].id !== editId && DB.users[i].username.toLowerCase() === uname.toLowerCase()) { showToast('Username already exists', 'error'); return; }
+          }
+          u.name = name;
+          u.username = uname;
+          u.email = document.getElementById('f-user-email').value.trim();
+          u.password = pass;
+          u.role = document.getElementById('f-user-role').value;
+          u.status = document.getElementById('f-user-status').value;
+          closeModal(); showToast('User updated'); renderPage();
+        });
+      });
+    })(editBtns[ei]);
+  }
   var delBtns = document.querySelectorAll('[data-del-user]');
   for (var i = 0; i < delBtns.length; i++) {
     (function(btn) { btn.addEventListener('click', function() { deleteItem('users', parseInt(btn.getAttribute('data-del-user')), 'user-list'); }); })(delBtns[i]);
