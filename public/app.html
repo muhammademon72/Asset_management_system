@@ -2442,8 +2442,27 @@ function openDeliveryModal(delId, readOnly) {
         for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
         var empIdIn = document.getElementById('f-del-empid');
         var deptIn = document.getElementById('f-del-dept');
+        var branchSel = document.querySelector('[data-top="del-branch"]');
         if (empIdIn) empIdIn.value = emp ? emp.empId : '';
         if (deptIn) deptIn.value = emp ? emp.department : '';
+        // Auto-select the Branch dropdown to match the employee's branch
+        if (branchSel && emp && emp.branch) {
+          var matched = false;
+          for (var bi = 0; bi < branchSel.options.length; bi++) {
+            if (branchSel.options[bi].value === emp.branch || branchSel.options[bi].textContent === emp.branch) {
+              branchSel.selectedIndex = bi;
+              matched = true;
+              break;
+            }
+          }
+          if (!matched && emp.branch) {
+            var newOpt = document.createElement('option');
+            newOpt.value = emp.branch;
+            newOpt.textContent = emp.branch;
+            branchSel.appendChild(newOpt);
+            branchSel.value = emp.branch;
+          }
+        }
       }
     });
 
@@ -2577,12 +2596,13 @@ function openDeliveryAddModal() {
   var empOpts = '<option value="">Select Receiver</option>';
   for (var k = 0; k < DB.employees.length; k++) empOpts += '<option>' + DB.employees[k].name + '</option>';
   // Build searchable employee array — value=name, label="Name (EMP-ID)"
+  // Include branch so the Branch field can auto-fill when receiver is selected.
   var empArr = [];
   for (var k = 0; k < DB.employees.length; k++) {
     var emp = DB.employees[k];
-    empArr.push({ value: emp.name, label: emp.name + ' (' + emp.empId + ')', empId: emp.empId, department: emp.department });
+    empArr.push({ value: emp.name, label: emp.name + ' (' + emp.empId + ')', empId: emp.empId, department: emp.department, branch: emp.branch });
   }
-  // Callback: when receiver selected, auto-fill Emp ID & Department
+  // Callback: when receiver selected, auto-fill Emp ID & Department & Branch
   var purReceiverSelectCb = function(val, lbl, cat, wrapper) {
     if (wrapper.getAttribute('data-sr') === 'receiver') {
       // Override trigger to show only the Name (not "Name (EMP-ID)")
@@ -2590,11 +2610,32 @@ function openDeliveryAddModal() {
       if (trigger && val) trigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
       var empIdIn = document.getElementById('f-del-empid');
       var deptIn = document.getElementById('f-del-dept');
+      var branchSel = document.querySelector('[data-top="del-branch"]');
       // Look up the employee by name (value)
       var emp = null;
       for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
       if (empIdIn) empIdIn.value = emp ? emp.empId : '';
       if (deptIn) deptIn.value = emp ? emp.department : '';
+      // Auto-select the Branch dropdown to match the employee's branch
+      if (branchSel && emp && emp.branch) {
+        // Try to find a matching option
+        var matched = false;
+        for (var bi = 0; bi < branchSel.options.length; bi++) {
+          if (branchSel.options[bi].value === emp.branch || branchSel.options[bi].textContent === emp.branch) {
+            branchSel.selectedIndex = bi;
+            matched = true;
+            break;
+          }
+        }
+        // If no match found but the employee has a branch, prepend a new option
+        if (!matched && emp.branch) {
+          var newOpt = document.createElement('option');
+          newOpt.value = emp.branch;
+          newOpt.textContent = emp.branch;
+          branchSel.appendChild(newOpt);
+          branchSel.value = emp.branch;
+        }
+      }
     }
   };
 
@@ -2687,7 +2728,7 @@ function openDeliveryAddModal() {
       var pTrigger = wrapper.querySelector('.pur-sr-trigger');
       if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
     }
-    // Receiver auto-fill Employee ID & Department
+    // Receiver auto-fill Employee ID & Department & Branch
     if (wrapper.getAttribute('data-sr') === 'receiver') {
       // Override trigger to show only the Name (not "Name (EMP-ID)")
       var trigger = wrapper.querySelector('.pur-sr-trigger');
@@ -2696,8 +2737,27 @@ function openDeliveryAddModal() {
       for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
       var empIdIn = document.getElementById('f-del-empid');
       var deptIn = document.getElementById('f-del-dept');
+      var branchSel = document.querySelector('[data-top="del-branch"]');
       if (empIdIn) empIdIn.value = emp ? emp.empId : '';
       if (deptIn) deptIn.value = emp ? emp.department : '';
+      // Auto-select the Branch dropdown to match the employee's branch
+      if (branchSel && emp && emp.branch) {
+        var matched = false;
+        for (var bi = 0; bi < branchSel.options.length; bi++) {
+          if (branchSel.options[bi].value === emp.branch || branchSel.options[bi].textContent === emp.branch) {
+            branchSel.selectedIndex = bi;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched && emp.branch) {
+          var newOpt = document.createElement('option');
+          newOpt.value = emp.branch;
+          newOpt.textContent = emp.branch;
+          branchSel.appendChild(newOpt);
+          branchSel.value = emp.branch;
+        }
+      }
     }
   });
 
@@ -4135,7 +4195,7 @@ function purSearchableHTML(name, dataAttr, options, selectedValue, placeholder, 
     h += '<div class="pur-sr-empty">No options</div>';
   } else {
     // Whitelist of extra data attributes we support on options (in addition to value/label/category)
-    var extraAttrs = ['brand', 'model', 'serial', 'condition', 'warranty', 'empId', 'department', 'stock'];
+    var extraAttrs = ['brand', 'model', 'serial', 'condition', 'warranty', 'empId', 'department', 'branch', 'stock'];
     for (var i = 0; i < options.length; i++) {
       var v = (options[i].value || '').toString().replace(/"/g, '&quot;');
       var l = (options[i].label || '').toString();
@@ -4231,7 +4291,7 @@ function bindPurSearchable(wrapper, onSelectCallback) {
         var cat = opt.getAttribute('data-category') || '';
         // Build a full option data object from all data-* attributes
         var optData = { value: val, label: lbl, category: cat };
-        var extraKeys = ['brand', 'model', 'serial', 'condition', 'warranty', 'empId', 'department', 'stock'];
+        var extraKeys = ['brand', 'model', 'serial', 'condition', 'warranty', 'empId', 'department', 'branch', 'stock'];
         for (var ek = 0; ek < extraKeys.length; ek++) {
           var av = opt.getAttribute('data-' + extraKeys[ek]);
           if (av !== null) optData[extraKeys[ek]] = av;
