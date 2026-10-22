@@ -2217,20 +2217,20 @@ function printDelivery(delId) {
   html += '<div class="doc-sub">Date: ' + (del.date || '-') + '</div>';
   html += '</div>';
   html += '</div>';
-  // Meta info grid — Employee ID placed ABOVE Status per user request
+  // Meta info grid
   html += '<div class="meta-grid">';
   html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (del.branch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (del.status || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Received By</div><div class="meta-value">' + (del.receivedBy || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Employee ID</div><div class="meta-value">' + empId + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Department</div><div class="meta-value">' + dept + '</div></div>';
-  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (del.status || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
   html += '</div>';
-  // Product table — row background green per user request
+  // Product table
   html += '<table><thead><tr>';
   html += '<th style="text-align:center; width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th><th>Model</th><th>Serial Number</th><th>Condition</th><th>Warranty</th><th style="text-align:center;">Qty</th><th>Remarks</th>';
   html += '</tr></thead><tbody>';
-  html += '<tr style="background:#dcfce7;">';
+  html += '<tr>';
   html += '<td style="text-align:center;">1</td>';
   html += '<td style="font-weight:600;">' + (del.product || '-') + '</td>';
   html += '<td>' + (del.category || '-') + '</td>';
