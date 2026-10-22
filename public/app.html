@@ -2217,13 +2217,14 @@ function printDelivery(delId) {
   html += '<div class="doc-sub">Date: ' + (del.date || '-') + '</div>';
   html += '</div>';
   html += '</div>';
-  // Meta info grid
+  // Meta info grid — reordered per user request:
+  // Branch→Received By, Received By→Employee ID, Employee ID→Department, Department→Branch
   html += '<div class="meta-grid">';
-  html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (del.branch || '-') + '</div></div>';
-  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (del.status || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Received By</div><div class="meta-value">' + (del.receivedBy || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Employee ID</div><div class="meta-value">' + empId + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Department</div><div class="meta-value">' + dept + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (del.branch || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (del.status || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
   html += '</div>';
   // Product table
