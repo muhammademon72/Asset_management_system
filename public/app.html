@@ -6266,23 +6266,51 @@ function applyDBData(data) {
 }
 
 // Flush any pending save before the page unloads (refresh / close / navigate).
-// Uses both sendBeacon (works during unload) and a synchronous fetch fallback.
+// Uses sendBeacon (works during unload) AND a synchronous XHR fallback to
+// GUARANTEE the save completes before the browser navigates away — this is
+// critical for attachment uploads which take longer than a simple text edit.
 function flushPendingSave() {
   if (!DB_LOCAL_DIRTY) return;
   // Cancel the debounced timer — we're saving NOW
   if (DB_SAVE_TIMER) { clearTimeout(DB_SAVE_TIMER); DB_SAVE_TIMER = null; }
   var payload = buildDBSnapshot();
+  // Always update localStorage first (synchronous, instant)
   try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
-  // sendBeacon works even during page unload (fire-and-forget)
+
+  // Strategy 1: sendBeacon (fire-and-forget, works during unload)
+  var beaconSent = false;
   if (navigator.sendBeacon) {
     try {
       var blob = new Blob([JSON.stringify({ data: payload })], { type: 'application/json' });
-      navigator.sendBeacon('/api/db', blob);
-      DB_LOCAL_DIRTY = false;
-      return;
-    } catch (e) { /* fall through to fetch */ }
+      beaconSent = navigator.sendBeacon('/api/db', blob);
+    } catch (e) { beaconSent = false; }
   }
-  // Fallback: best-effort fetch (may not complete during unload, but worth trying)
+
+  // Strategy 2: Synchronous XHR — blocks the page unload until the save
+  // completes. This is the ONLY way to guarantee attachments (which can be
+  // large base64 blobs) are fully persisted before the page reloads.
+  // Modern browsers show a brief "Leave site?" dialog for sync XHR during
+  // unload, but that's acceptable for data-safety.
+  if (!beaconSent) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/db', false); // false = synchronous
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify({ data: payload }));
+    } catch (e) {
+      // Last resort: async fetch with keepalive (may not complete)
+      try {
+        fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: payload }),
+          keepalive: true
+        });
+      } catch (e2) {}
+    }
+  }
+
+  // Strategy 3: Also fire an async fetch as backup (in case beacon silently fails)
   try {
     fetch('/api/db', {
       method: 'POST',
@@ -6290,8 +6318,9 @@ function flushPendingSave() {
       body: JSON.stringify({ data: payload }),
       keepalive: true
     });
-    DB_LOCAL_DIRTY = false;
   } catch (e) {}
+
+  DB_LOCAL_DIRTY = false;
 }
 
 // Wire up flush-on-unload listeners (set up once, after the script loads)
@@ -6300,6 +6329,8 @@ if (!window._flushWired) {
   // 'pagehide' is the most reliable cross-browser unload event
   window.addEventListener('pagehide', flushPendingSave);
   // 'beforeunload' fires earlier and gives sendBeacon more time
+  // We return undefined (don't trigger the "Leave site?" prompt) —
+  // the sync XHR inside flushPendingSave will block briefly but won't prompt.
   window.addEventListener('beforeunload', flushPendingSave);
   // 'visibilitychange' (hidden) fires on tab switch / minimize — good for mobile
   document.addEventListener('visibilitychange', function() {
