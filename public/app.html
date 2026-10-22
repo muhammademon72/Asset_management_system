@@ -4961,6 +4961,37 @@ function clearDeliveryFilters() {
   filterDeliveryReport();
 }
 
+// Revert a delivery — removes it from DB.deliveries so the product quantity
+// goes back to Inventory Stock (since stock = purchased - delivered - damaged + adjusted).
+// Shows a confirmation modal before deleting.
+function revertDelivery(delId) {
+  var del = null;
+  for (var i = 0; i < DB.deliveries.length; i++) { if (DB.deliveries[i].id === delId) { del = DB.deliveries[i]; break; } }
+  if (!del) { showToast('Delivery not found', 'error'); return; }
+  // Show confirmation modal
+  var html = '<div style="padding:24px;text-align:center;">';
+  html += '<div style="width:56px;height:56px;border-radius:50%;background:rgba(217,119,6,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-undo" style="color:var(--warning);font-size:22px;"></i></div>';
+  html += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Revert Delivery to Stock</div>';
+  html += '<div style="color:var(--muted);font-size:14px;margin-bottom:8px;">This will remove the delivery record and return the product to Inventory Stock.</div>';
+  html += '<div style="background:var(--accent-light);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:20px;text-align:left;font-size:13px;">';
+  html += '<strong>Chalan:</strong> ' + (del.chalan || '-') + '<br>';
+  html += '<strong>Product:</strong> ' + (del.product || '-') + '<br>';
+  html += '<strong>Qty:</strong> ' + (del.qty || 0) + '<br>';
+  html += '<strong>Received By:</strong> ' + (del.receivedBy || '-');
+  html += '</div>';
+  html += '<div style="display:flex;gap:12px;justify-content:center;">';
+  html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<button class="btn btn-primary" id="btn-confirm-revert-delivery" style="background:var(--warning);border-color:var(--warning);"><i class="fas fa-undo"></i> Revert to Stock</button>';
+  html += '</div></div>';
+  openModal(html);
+  document.getElementById('btn-confirm-revert-delivery').addEventListener('click', function() {
+    DB.deliveries = DB.deliveries.filter(function(x) { return x.id !== delId; });
+    closeModal();
+    showToast('Delivery reverted — product returned to stock');
+    renderPage();
+  });
+}
+
 function renderReport(type) {
   var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages, cashIn: DB.cashIn, cashOut: DB.cashOut };
   var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
@@ -5091,7 +5122,7 @@ function renderReport(type) {
     html += '</tr>';
   } else if (type === 'delivery') {
     // Delivery Report columns as requested:
-    // Date, Branch, Employee Name, Employee ID, Department, Product, Brand, Model, Serial, Condition, Warranty, Price, Qty, Remarks
+    // Date, Branch, Employee Name, Employee ID, Department, Product, Brand, Model, Serial, Condition, Warranty, Price, Qty, Remarks, Status, Actions(Revert)
     html += '<th>#</th>';
     html += '<th>Date</th>';
     html += '<th>Branch</th>';
@@ -5108,6 +5139,7 @@ function renderReport(type) {
     html += '<th style="text-align:center;">Qty</th>';
     html += '<th>Remarks</th>';
     html += '<th>Status</th>';
+    html += '<th style="text-align:center;width:60px;">Actions</th>';
     html += '</tr></thead><tbody>';
     for (var i = 0; i < data.length; i++) {
       var d = data[i];
@@ -5128,6 +5160,7 @@ function renderReport(type) {
       html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
       html += '<td>' + (d.remarks || '-') + '</td>';
       html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '<td style="text-align:center;"><button class="btn btn-secondary btn-sm btn-icon" data-revert-delivery="' + d.id + '" title="Revert to Stock" style="color:var(--warning);"><i class="fas fa-undo" style="font-size:11px;"></i></button></td>';
       html += '</tr>';
     }
   } else if (type === 'adjustment') {
@@ -6122,6 +6155,17 @@ function renderPage() {
         bindAllPurSearchable(reportBox, function(val, lbl, cat, wrapper) {
           filterDeliveryReport();
         });
+      }
+      // Bind revert buttons — clicking the undo icon opens a confirmation
+      // modal that removes the delivery, returning the product to stock
+      var revertBtns = document.querySelectorAll('[data-revert-delivery]');
+      for (var rb = 0; rb < revertBtns.length; rb++) {
+        (function(btn) {
+          btn.addEventListener('click', function() {
+            var id = parseInt(btn.getAttribute('data-revert-delivery'));
+            revertDelivery(id);
+          });
+        })(revertBtns[rb]);
       }
     }
     // Bind searchable dropdown filters for Purchase Report
