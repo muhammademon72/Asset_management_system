@@ -2219,13 +2219,12 @@ function printDelivery(delId) {
   html += '</div>';
   // Meta info grid — reordered per user request:
   // Branch→Received By, Received By→Employee ID, Employee ID→Department, Department→Branch
+  // Status and Printed On removed per user request
   html += '<div class="meta-grid">';
   html += '<div class="meta-box"><div class="meta-label">Received By</div><div class="meta-value">' + (del.receivedBy || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Employee ID</div><div class="meta-value">' + empId + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Department</div><div class="meta-value">' + dept + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Branch</div><div class="meta-value">' + (del.branch || '-') + '</div></div>';
-  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (del.status || '-') + '</div></div>';
-  html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
   html += '</div>';
   // Product table
   html += '<table><thead><tr>';
