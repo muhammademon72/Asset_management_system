@@ -978,7 +978,7 @@ function renderEmployeeList() {
   html += '<table class="data-table" id="main-table"><thead><tr><th>Branch</th><th>Employee Name</th><th>Employee ID</th><th>Designation</th><th>Department</th><th>Phone</th><th>Status</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
   for (var i = 0; i < DB.employees.length; i++) {
     var e = DB.employees[i];
-    html += '<tr><td>' + (e.branch ? '#' + e.branch : '') + '</td><td style="font-weight:600;">' + (e.name || '') + '</td><td>' + (e.empId || '') + '</td><td>' + (e.designation || '') + '</td><td>' + (e.department || '') + '</td><td>' + (e.phone || '') + '</td><td>' + statusBadge(e.status) + '</td>';
+    html += '<tr><td>' + (e.branch || '') + '</td><td style="font-weight:600;">' + (e.name || '') + '</td><td>' + (e.empId || '') + '</td><td>' + (e.designation || '') + '</td><td>' + (e.department || '') + '</td><td>' + (e.phone || '') + '</td><td>' + statusBadge(e.status) + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm btn-icon" data-edit-emp="' + e.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
     html += '<button class="btn btn-secondary btn-sm btn-icon" data-del-emp="' + e.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
