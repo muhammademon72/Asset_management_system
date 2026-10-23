@@ -3311,36 +3311,133 @@ function openDamageModal(dmgId, readOnly) {
   var dmg = null;
   if (dmgId) { for (var i = 0; i < DB.damages.length; i++) { if (DB.damages[i].id === dmgId) { dmg = DB.damages[i]; break; } } }
   var title = dmg ? (readOnly ? 'Damage Details' : 'Edit Damage') : 'Add New Damage';
-  var prdOpts = '<option value="">Select Product</option>';
-  for (var i = 0; i < DB.products.length; i++) prdOpts += '<option' + (dmg && DB.products[i].name === dmg.product ? ' selected' : '') + '>' + DB.products[i].name + '</option>';
+
+  // Build product array — only show products with stock > 0 (same as Adjustment)
+  var prdArr = [];
+  for (var k = 0; k < DB.products.length; k++) {
+    var p = DB.products[k];
+    var pur = 0, del = 0, dmg2 = 0, adj2 = 0;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].status === 'Approved' && DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg2 += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
+    var stk = pur - del - dmg2 + adj2; if (stk < 0) stk = 0;
+    if (stk === 0) continue;
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
+    prdArr.push({
+      value: p.name,
+      label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''),
+      category: p.category || (latestPur && latestPur.category) || '',
+      brand: p.brand || (latestPur && latestPur.brand) || '',
+      model: (latestPur && latestPur.model) || '',
+      serial: (latestPur && latestPur.serial) || '',
+      condition: (latestPur && latestPur.condition) || '',
+      warranty: (latestPur && latestPur.warranty) || '',
+      stock: stk
+    });
+  }
+  var catOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
+  var brandOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.brands.length; k++) brandOpts += '<option>' + DB.brands[k].name + '</option>';
+  var warOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.warranties.length; k++) warOpts += '<option>' + DB.warranties[k].name + '</option>';
   var brOpts = '<option value="">Select Branch</option>';
-  for (var i = 0; i < DB.branches.length; i++) brOpts += '<option' + (dmg && DB.branches[i].name === dmg.branch ? ' selected' : '') + '>' + DB.branches[i].name + '</option>';
-  var html = '<div style="width:720px;max-width:96vw;">';
+  for (var k = 0; k < DB.branches.length; k++) brOpts += '<option' + (dmg && DB.branches[k].name === dmg.branch ? ' selected' : '') + '>' + DB.branches[k].name + '</option>';
+
+  // Auto-fill callback
+  var dmgProductSelectCb = function(val, lbl, cat, wrapper) {
+    if (wrapper.getAttribute('data-sr') === 'product') {
+      var row = wrapper.closest('tr');
+      if (row) {
+        var prod = null;
+        for (var pi = 0; pi < prdArr.length; pi++) { if (prdArr[pi].value === val) { prod = prdArr[pi]; break; } }
+        if (prod) {
+          var cs = row.querySelector('[data-f="category"]'); if (cs && prod.category) cs.value = prod.category;
+          var bs = row.querySelector('[data-f="brand"]'); if (bs && prod.brand) bs.value = prod.brand;
+          var mi = row.querySelector('[data-f="model"]'); if (mi && prod.model) mi.value = prod.model;
+          var si = row.querySelector('[data-f="serial"]'); if (si && prod.serial) si.value = prod.serial;
+          var cd = row.querySelector('[data-f="condition"]'); if (cd && prod.condition) cd.value = prod.condition;
+          var ws = row.querySelector('[data-f="warranty"]'); if (ws && prod.warranty) ws.value = prod.warranty;
+          var bq = row.querySelector('[data-f="bqty"]'); if (bq && prod.stock !== undefined) bq.value = prod.stock;
+        }
+        var pTrigger = wrapper.querySelector('.pur-sr-trigger');
+        if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+      }
+    }
+  };
+
+  var html = '<div style="width:1120px;max-width:96vw;">';
+  // Header
   html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
   html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
-  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button></div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;transition:all 0.2s;"><i class="fas fa-times"></i></button>';
+  html += '</div>';
   html += '<div style="padding:20px 24px 24px;">';
-  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+
+  // Top fields — 2-column grid: Date | Reference
+  var refVal = dmg ? dmg.ref : generateDamageRef();
+  html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;">';
   if (readOnly) {
-    html += purFieldRow('Reference', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (dmg.ref || '-') + '</span>');
-    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (dmg.date || '-') + '</span>');
-    html += purFieldRow('Product', '<span style="font-size:13px;color:var(--fg);">' + (dmg.product || '-') + '</span>');
-    html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (dmg.branch || '-') + '</span>');
-    html += purFieldRow('Quantity', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (dmg.qty || 0) + '</span>');
-    html += purFieldRow('Reason', '<span style="font-size:13px;color:var(--fg);">' + (dmg.reason || '-') + '</span>');
-    html += purFieldRow('Status', statusBadge(dmg.status || 'Pending'));
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (dmg.date || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (dmg.ref || '-') + '</div></div>';
   } else {
-    var refVal = dmg ? dmg.ref : generateDamageRef();
-    html += purFieldRow('Reference', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-dmg-ref" value="' + refVal + '" readonly>');
-    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-dmg-date" value="' + (dmg ? dmg.date : '') + '">');
-    html += purFieldRow('Product', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-dmg-product">' + prdOpts + '</select>');
-    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-dmg-branch">' + brOpts + '</select>');
-    html += purFieldRow('Quantity', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-dmg-qty" value="' + (dmg ? dmg.qty : 0) + '">');
-    html += purFieldRow('Reason', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-dmg-reason" value="' + (dmg ? dmg.reason || '' : '') + '" placeholder="Damage reason">');
-    html += purFieldRow('Status', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-dmg-status"><option' + (dmg && dmg.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (dmg && dmg.status === 'Approved' ? ' selected' : '') + '>Approved</option><option' + (dmg && dmg.status === 'Rejected' ? ' selected' : '') + '>Rejected</option></select>');
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-dmg-date" value="' + (dmg ? dmg.date || '' : '') + '"></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Reference</label><input class="form-input" style="color:var(--muted);" id="f-dmg-ref" value="' + refVal + '" readonly></div>';
   }
   html += '</div>';
-  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;justify-content:flex-end;">';
+  html += '</div>';
+
+  // Product table — multi-row
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
+  html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr>';
+  html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
+  html += '<th class="pur-th">Quantity</th><th class="pur-th">Reason</th>';
+  if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
+  html += '</tr></thead><tbody id="pur-entries-body">';
+  if (readOnly) {
+    html += '<tr>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;font-weight:600;">' + (dmg.product || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.category || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.brand || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.model || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.serial || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.condition || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.warranty || '-') + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (dmg.bqty !== undefined ? dmg.bqty : 0) + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:600;color:var(--danger);">' + (dmg.qty || 0) + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.reason || '-') + '</td>';
+    html += '</tr>';
+  } else {
+    html += damageTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
+  }
+  html += '</tbody></table></div></div>';
+
+  if (!readOnly) {
+    html += '<button type="button" id="btn-dmg-addrow" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:Outfit,sans-serif;padding:6px 0;margin-bottom:18px;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;margin-left:auto;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><i class="fas fa-plus-circle"></i> Add Row</button>';
+  }
+
+  // Note
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + (dmg.note || '—') + '</span>');
+  } else {
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-dmg-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (dmg ? dmg.note || '' : '') + '</textarea>');
+  }
+  html += '</div>';
+
+  // Bottom bar: Status (left) + Cancel/Save (right)
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+  if (readOnly) {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span> ' + statusBadge(dmg.status || 'Draft') + '</div>';
+  } else {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span><select class="form-input" id="f-dmg-status" style="width:140px;border-radius:8px;"><option value="Draft"' + (dmg && dmg.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (dmg && dmg.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select></div>';
+  }
+  html += '<div style="flex:1;"></div>';
   if (readOnly) {
     html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
   } else {
@@ -3348,6 +3445,7 @@ function openDamageModal(dmgId, readOnly) {
     html += '<button class="btn btn-primary" id="btn-save-dmg" style="border-radius:8px;"><i class="fas fa-check"></i> ' + (dmg ? 'Update' : 'Save') + '</button>';
   }
   html += '</div></div></div>';
+
   injectPurStyles();
   var overlay = document.getElementById('modal-overlay');
   var box = document.getElementById('modal-box');
@@ -3356,26 +3454,95 @@ function openDamageModal(dmgId, readOnly) {
   box.style.width = 'auto';
   box.style.maxWidth = '96vw';
   overlay.classList.add('show');
+
   if (!readOnly) {
+    // Pre-fill first row from saved record (Edit mode)
+    var firstRow = document.querySelector('#pur-entries-body tr');
+    if (firstRow && dmg) {
+      var prodWrapper = firstRow.querySelector('[data-sr="product"]');
+      if (prodWrapper) setPurSearchableValue(prodWrapper, dmg.product || '', dmg.product || '');
+      var catSel = firstRow.querySelector('[data-f="category"]'); if (catSel) catSel.value = dmg.category || '';
+      var brandSel = firstRow.querySelector('[data-f="brand"]'); if (brandSel) brandSel.value = dmg.brand || '';
+      var modelIn = firstRow.querySelector('[data-f="model"]'); if (modelIn) modelIn.value = dmg.model || '';
+      var serialIn = firstRow.querySelector('[data-f="serial"]'); if (serialIn) serialIn.value = dmg.serial || '';
+      var condSel = firstRow.querySelector('[data-f="condition"]'); if (condSel) condSel.value = dmg.condition || 'New';
+      var warSel = firstRow.querySelector('[data-f="warranty"]'); if (warSel) warSel.value = dmg.warranty || '';
+      var qtyIn = firstRow.querySelector('[data-f="qty"]'); if (qtyIn) qtyIn.value = dmg.qty || 0;
+      var remIn = firstRow.querySelector('[data-f="remarks"]'); if (remIn) remIn.value = dmg.reason || '';
+    }
+    bindPurRowDel(firstRow);
+    bindAllPurSearchable(box, dmgProductSelectCb);
+
+    document.getElementById('btn-dmg-addrow').addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      var tr = document.createElement('tr');
+      tr.innerHTML = damageTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
+      tbody.appendChild(tr);
+      bindPurRowDel(tr);
+      bindAllPurSearchable(tr, dmgProductSelectCb);
+    });
+
     document.getElementById('btn-save-dmg').addEventListener('click', function() {
       var ref = document.getElementById('f-dmg-ref').value.trim();
       var date = document.getElementById('f-dmg-date').value;
       if (!date) { showToast('Date required', 'error'); return; }
-      var product = document.getElementById('f-dmg-product').value;
-      var branch = document.getElementById('f-dmg-branch').value;
-      var qty = parseFloat(document.getElementById('f-dmg-qty').value) || 0;
-      var reason = document.getElementById('f-dmg-reason').value.trim();
+      var branch = '';
       var status = document.getElementById('f-dmg-status').value;
+      var noteEl = document.getElementById('f-dmg-note');
+      var note = noteEl ? noteEl.value.trim() : '';
+      var rows = document.querySelectorAll('#pur-entries-body tr');
+      var firstValid = null;
+      for (var ri = 0; ri < rows.length; ri++) {
+        var pSel = rows[ri].querySelector('[data-f="product"]');
+        if (pSel && pSel.value) { firstValid = rows[ri]; break; }
+      }
+      if (!firstValid) { showToast('Add at least one product', 'error'); return; }
+      var product = firstValid.querySelector('[data-f="product"]').value;
+      var category = firstValid.querySelector('[data-f="category"]').value;
+      var brand = firstValid.querySelector('[data-f="brand"]').value;
+      var model = firstValid.querySelector('[data-f="model"]').value;
+      var serial = firstValid.querySelector('[data-f="serial"]').value;
+      var condition = firstValid.querySelector('[data-f="condition"]').value;
+      var warranty = firstValid.querySelector('[data-f="warranty"]').value;
+      var qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
+      var remarks = firstValid.querySelector('[data-f="remarks"]').value;
+      var bqtyVal = parseFloat(firstValid.querySelector('[data-f="bqty"]').value) || 0;
       if (dmg) {
-        dmg.ref = ref; dmg.date = date; dmg.product = product; dmg.branch = branch;
-        dmg.qty = qty; dmg.reason = reason; dmg.status = status;
+        dmg.ref = ref; dmg.date = date; dmg.branch = branch;
+        dmg.product = product; dmg.category = category; dmg.brand = brand;
+        dmg.model = model; dmg.serial = serial; dmg.condition = condition;
+        dmg.warranty = warranty; dmg.qty = qty; dmg.bqty = bqtyVal;
+        dmg.reason = remarks; dmg.remarks = remarks; dmg.note = note; dmg.status = status;
         closeModal(); showToast('Damage updated'); renderPage();
       } else {
-        DB.damages.push({ id: Date.now(), ref: ref, date: date, product: product, branch: branch, qty: qty, reason: reason, status: status });
+        DB.damages.push({
+          id: Date.now(), ref: ref, date: date, branch: branch,
+          product: product, category: category, brand: brand, model: model,
+          serial: serial, condition: condition, warranty: warranty,
+          bqty: bqtyVal, qty: qty, reason: remarks, remarks: remarks, note: note, status: status
+        });
         closeModal(); showToast('Damage added'); renderPage();
       }
     });
   }
+}
+
+// Damage table row HTML — same structure as Adjustment
+function damageTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
+  var h = '<tr>';
+  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
+  h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Model" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><select data-f="condition" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;"><option>New</option><option>Used</option><option>Refurbished</option></select></td>';
+  h += '<td class="pur-td"><select data-f="warranty" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + warOpts + '</select></td>';
+  h += '<td class="pur-td"><input type="number" data-f="bqty" value="0" style="text-align:center;background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input data-f="remarks" placeholder="Damage reason"></td>';
+  h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
+  h += '</tr>';
+  return h;
 }
 
 function printDamage(dmgId) {
