@@ -571,3 +571,21 @@ Stage Summary:
 - ✅ Subject field is no longer shown on the printed doc (was added in Task 14, now removed).
 - ✅ Revert commit 1bc352f (local only — same credential caveat as before).
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 16
+Agent: main
+Task: User re-requested the same change as Task 14 (after reverting in Task 15). User said: "Sell Proposal List er print theke Customer and Status Remove kore Subject add koro" — from the Sell Proposal List print, remove Customer and Status and add Subject. Same intent, re-applied.
+
+Work Log:
+- Re-applied the exact same edit as Task 14 to printQuotation() in public/app.html:
+    meta-grid now contains a single full-width Subject box (q.subject).
+    Customer + Status boxes removed.
+- Re-extracted inline script (494,664 chars) → node --check passed.
+- Committed as e4f30cb "feat(sell-proposal): replace Customer/Status box with Subject in printed doc".
+
+Stage Summary:
+- ✅ Printed Sell Proposal now shows Subject (full-width) instead of Customer + Status.
+- ✅ Subject data already exists in q.subject (collected via modal since Task 798b2a6).
+- ✅ Commit e4f30cb (local only — GitHub push needs credentials from user side).
+- ✅ JS syntax clean.
