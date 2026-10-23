@@ -2749,27 +2749,11 @@ function openDeliveryAddModal() {
       for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
       var empIdIn = document.getElementById('f-del-empid');
       var deptIn = document.getElementById('f-del-dept');
-      var branchSel = document.getElementById('f-del-branch');
+      var branchIn = document.getElementById('f-del-branch');
       if (empIdIn) empIdIn.value = emp ? emp.empId : '';
       if (deptIn) deptIn.value = emp ? emp.department : '';
-      // Auto-select the Branch dropdown to match the employee's branch
-      if (branchSel && emp && emp.branch) {
-        var matched = false;
-        for (var bi = 0; bi < branchSel.options.length; bi++) {
-          if (branchSel.options[bi].value === emp.branch || branchSel.options[bi].textContent === emp.branch) {
-            branchSel.selectedIndex = bi;
-            matched = true;
-            break;
-          }
-        }
-        if (!matched && emp.branch) {
-          var newOpt = document.createElement('option');
-          newOpt.value = emp.branch;
-          newOpt.textContent = emp.branch;
-          branchSel.appendChild(newOpt);
-          branchSel.value = emp.branch;
-        }
-      }
+      // Auto-fill Branch (read-only input, no manual select)
+      if (branchIn && emp) branchIn.value = emp.branch || '';
     }
   });
 
