@@ -640,3 +640,40 @@ Stage Summary:
 - ✅ Customer box remains, now full-width.
 - ✅ Commit bec6cf8 pushed to GitHub; Vercel will redeploy shortly.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 19
+Agent: main
+Task: User requested two changes across ALL print files:
+  1. Add Login user's Full Name (currentUser.name) ABOVE "Prepared By" AND ABOVE "Approved By" signature lines.
+  2. Rename "Customer Signature" → "Received Signature".
+
+Work Log:
+- Surveyed all print functions in public/app.html and found 11 sign sections across:
+    printQuotation (Sell Proposal), printInvoice,
+    printDeliveryList + printDeliveryChallan (Delivery),
+    printInventoryStockReport,
+    printAdjustment + printAdjustmentList,
+    printDamage + printDamageList,
+    printTransfer + printTransferList.
+- Found 9 occurrences of "Prepared By" sign-line and 11 occurrences of "Approved By" sign-line.
+- Found 2 occurrences of "Customer Signature" (Sell Proposal + Invoice only).
+- Wrote /home/z/my-project/scripts/update_print_signatures.py — a Python regex script that:
+    • Inserts an inline-styled name div BEFORE each "Prepared By" and "Approved By" sign-line.
+    • The name div is centered, font-size:12px, font-weight:600, color:#1a2e1a, margin-bottom:4px.
+    • The name is rendered via `' + ((currentUser && currentUser.name) ? currentUser.name : '') + '`
+      (defensive — handles null currentUser gracefully).
+    • Replaces "Customer Signature" → "Received Signature" globally.
+- Ran the script: 9 Prepared By + 11 Approved By + 2 Customer Signature → Received Signature = 22 replacements. Net size delta: +3360 bytes.
+- Re-extracted inline script (497,920 chars) → node --check passed (SYNTAX_OK).
+- Verified the changes manually on lines 3414 (printQuotation), 3739 (printInvoice), 1961 (Inventory Stock Report) — all three show name div + sign-line correctly.
+- Committed as 09b4c85.
+- Pushed to GitHub: bec6cf8..09b4c85 main -> main ✅ (using inline PAT auth).
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ ALL print documents now show the logged-in user's full name above both "Prepared By" and "Approved By".
+- ✅ "Customer Signature" renamed to "Received Signature" in Sell Proposal + Invoice print docs.
+- ✅ Other sign boxes (Verified By, Received By, Reported By, Released By) untouched — only Prepared/Approved got the name.
+- ✅ Commit 09b4c85 pushed to GitHub.
+- ✅ JS syntax verified clean.
