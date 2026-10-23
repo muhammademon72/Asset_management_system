@@ -2314,7 +2314,7 @@ function openDeliveryModal(delId, readOnly) {
   var empArr = [];
   for (var k = 0; k < DB.employees.length; k++) {
     var emp = DB.employees[k];
-    empArr.push({ value: emp.name, label: emp.name + ' (' + emp.empId + ')', empId: emp.empId, department: emp.department });
+    empArr.push({ value: emp.name, label: emp.name + ' (' + emp.empId + ')', empId: emp.empId, department: emp.department, branch: emp.branch });
   }
 
   var html = '<div style="width:1120px;max-width:96vw;">';
@@ -2325,24 +2325,25 @@ function openDeliveryModal(delId, readOnly) {
   html += '</div>';
   html += '<div style="padding:20px 24px 24px;">';
 
-  // Top fields — green label rows
+  // Top fields — reordered per user request:
+  // Date, Chalan No, Received By, Employee ID, Department, Branch
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   if (readOnly) {
     var empView = null;
     if (del.receivedBy) { for (var ek = 0; ek < DB.employees.length; ek++) { if (DB.employees[ek].name === del.receivedBy) { empView = DB.employees[ek]; break; } } }
     html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (del.date || '-') + '</span>');
     html += purFieldRow('Chalan No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (del.chalan || '-') + '</span>');
-    html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (del.branch || '-') + '</span>');
     html += purFieldRow('Received By', '<span style="font-size:13px;color:var(--fg);">' + (del.receivedBy || '-') + '</span>');
     html += purFieldRow('Employee ID', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.empId : (del.empId || '-')) + '</span>');
     html += purFieldRow('Department', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.department : (del.department || '-')) + '</span>');
+    html += purFieldRow('Branch', '<span style="font-size:13px;color:var(--fg);">' + (empView ? empView.branch : (del.branch || '-')) + '</span>');
   } else {
     html += purFieldRow('Date', buildDDMMYYYYDateInput('f-del-date', del.date || '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'del-date' }));
     html += purFieldRow('Chalan No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" data-top="del-chalan" value="' + (del.chalan || '') + '" readonly>');
-    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="del-branch">' + brOpts + '</select>');
     html += purFieldRow('Received By', purSearchableHTML('receiver', 'data-top="del-received"', empArr, del.receivedBy || '', 'Select Receiver', 'Search name or ID...'));
     html += purFieldRow('Employee ID', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-del-empid" value="" readonly>');
     html += purFieldRow('Department', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-del-dept" value="" readonly>');
+    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="del-branch">' + brOpts + '</select>');
   }
   html += '</div>';
 
