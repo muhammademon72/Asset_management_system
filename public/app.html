@@ -1958,9 +1958,9 @@ function printInventoryStock() {
   html += '</tr></thead><tbody>' + rows + '</tbody></table>';
   // Sign
   html += '<div class="sign">';
-  html += '<div class="sign-box"><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div>';
   html += '<div class="sign-box"><div class="sign-line">Verified By</div></div>';
-  html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div>';
   html += '</div>';
   html += '<div class="foot"><span>This is a system-generated Inventory Stock Report from the Assets Management System.</span><span>Page 1</span></div>';
   html += '<div style="text-align:center;margin-top:18px;">';
@@ -2076,8 +2076,8 @@ function printDeliveryList() {
   html += '<th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Emp ID</th><th>Department</th><th style="text-align:center;">Status</th>';
   html += '</tr></thead><tbody>' + rows + '</tbody></table>';
   html += '<div class="sign">';
-  html += '<div class="sign-box"><div class="sign-line">Prepared By</div></div>';
-  html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div>';
   html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
   html += '</div>';
   html += '<div class="foot"><span>This is a system-generated document from the Assets Management System.</span><span>Page 1</span></div>';
@@ -2305,8 +2305,8 @@ function printDelivery(delId) {
   }
   // Signature lines
   html += '<div class="sign">';
-  html += '<div class="sign-box"><div class="sign-line">Prepared By</div></div>';
-  html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div>';
   html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
   html += '</div>';
   // Footer
@@ -3264,7 +3264,7 @@ function printAdjustment(adjId) {
   if (adj.reason) {
     html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#f5f9f5;"><div style="font-size:10px;font-weight:700;color:#1a5c30;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Reason</div><div style="font-size:12px;color:#1a2e1a;">' + adj.reason + '</div></div>';
   }
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -3296,7 +3296,7 @@ function printAdjustmentList() {
   if (co.website) html += 'Web: ' + co.website;
   html += '</div></div><div><div class="doc-title">Adjustment List</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + DB.adjustments.length + '</div></div></div>';
   html += '<table><thead><tr><th style="text-align:center;">#</th><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th>Type</th><th style="text-align:center;">Qty</th><th>Reason</th><th style="text-align:center;">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -3411,7 +3411,7 @@ function printQuotation(quoteId) {
   if (q.note) {
     html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#f5f9f5;"><div style="font-size:10px;font-weight:700;color:#1a5c30;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Note</div><div style="font-size:12px;color:#1a2e1a;">' + q.note + '</div></div>';
   }
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Customer Signature</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Received Signature</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -3736,7 +3736,7 @@ function printInvoice(invId) {
   if (inv.note) {
     html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#f5f9f5;"><div style="font-size:10px;font-weight:700;color:#1a5c30;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Note</div><div style="font-size:12px;color:#1a2e1a;">' + inv.note + '</div></div>';
   }
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Customer Signature</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Received Signature</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -4271,7 +4271,7 @@ function printDamage(dmgId) {
   if (dmg.reason) {
     html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#fef2f2;"><div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Damage Reason</div><div style="font-size:12px;color:#1a2e1a;">' + dmg.reason + '</div></div>';
   }
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Reported By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Reported By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -4303,7 +4303,7 @@ function printDamageList() {
   if (co.website) html += 'Web: ' + co.website;
   html += '</div></div><div><div class="doc-title">Damage List</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + DB.damages.length + '</div></div></div>';
   html += '<table><thead><tr><th style="text-align:center;">#</th><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th style="text-align:center;">Qty</th><th>Reason</th><th style="text-align:center;">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -4463,7 +4463,7 @@ function printTransfer(trfId) {
   html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (trf.status || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Printed On</div><div class="meta-value">' + stamp + '</div></div>';
   html += '</div>';
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Released By</div></div><div class="sign-box"><div class="sign-line">Received By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Released By</div></div><div class="sign-box"><div class="sign-line">Received By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
@@ -4495,7 +4495,7 @@ function printTransferList() {
   if (co.website) html += 'Web: ' + co.website;
   html += '</div></div><div><div class="doc-title">Internal Transfer List</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + DB.transfers.length + '</div></div></div>';
   html += '<table><thead><tr><th style="text-align:center;">#</th><th>Reference</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>From Branch</th><th>To Branch</th><th style="text-align:center;">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
-  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
   html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
   html += '</body></html>';
   win.document.open(); win.document.write(html); win.document.close();
