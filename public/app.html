@@ -304,7 +304,7 @@ const NAV = [
     { id: 'report-cash-out', label: 'Cash Out' },
   ]},
   { id: 'sell', label: 'Manage Sell', icon: 'fa-handshake', children: [
-    { id: 'quotation-list', label: 'Quotation' },
+    { id: 'quotation-list', label: 'Sell Proposal' },
     { id: 'invoice-list', label: 'Invoice' },
   ]},
   { id: 'settings', label: 'Manage Settings', icon: 'fa-gear', children: [
@@ -3309,15 +3309,15 @@ function renderQuotationList() {
   for (var i = 0; i < DB.quotations.length; i++) {
     var q = DB.quotations[i];
     rows += '<tr><td>' + (q.date || '-') + '</td><td style="font-weight:600;">' + (q.quoteNo || '-') + '</td><td>' + (q.customer || '-') + '</td><td>' + (q.subject || '-') + '</td><td style="text-align:right;font-weight:600;color:var(--accent);">' + fmt(q.total || 0) + '</td><td>' + statusBadge(q.status || 'Draft') + '</td>';
-    rows += '<td style="width:180px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-quote="' + q.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-quote="' + q.id + '" title="Print Quotation" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-convert-invoice="' + q.id + '" title="Convert to Invoice" style="color:var(--accent-dark);"><i class="fas fa-file-invoice" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-quote="' + q.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-quote="' + q.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:180px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-quote="' + q.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-quote="' + q.id + '" title="Print Sell Proposal" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-convert-invoice="' + q.id + '" title="Convert to Invoice" style="color:var(--accent-dark);"><i class="fas fa-file-invoice" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-quote="' + q.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-quote="' + q.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
-  html += '<div style="font-size:20px;font-weight:800;">Quotation List</div>';
+  html += '<div style="font-size:20px;font-weight:800;">Sell Proposal List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-primary" id="btn-add-quotation"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Quotation No</th><th>Customer</th><th>Subject</th><th style="text-align:right;">Total</th><th>Status</th><th style="width:180px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Sell Proposal No</th><th>Customer</th><th>Subject</th><th style="text-align:right;">Total</th><th>Status</th><th style="width:180px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -3330,7 +3330,7 @@ function bindQuotationEvents() {
   for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openQuotationModal(parseInt(b.getAttribute('data-edit-quote')), false); }); })(editBtns[e]); }
   var delBtns = document.querySelectorAll('[data-del-quote]');
   for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('quotations', parseInt(b.getAttribute('data-del-quote')), 'quotation-list'); }); })(delBtns[d]); }
-  // Print Quotation
+  // Print Sell Proposal
   var printBtns = document.querySelectorAll('[data-print-quote]');
   for (var p = 0; p < printBtns.length; p++) {
     (function(b) {
@@ -3358,21 +3358,21 @@ function bindQuotationEvents() {
           total: q.total || 0
         };
         DB.invoices.push(newInvoice);
-        showToast('Quotation converted to Invoice: ' + newInvoice.invoiceNo);
+        showToast('Sell Proposal converted to Invoice: ' + newInvoice.invoiceNo);
         navigate('invoice-list');
       });
     })(convertBtns[c]);
   }
 }
 
-// Print Quotation as a formal document
+// Print Sell Proposal as a formal document
 function printQuotation(quoteId) {
   var q = null;
   for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === quoteId) { q = DB.quotations[i]; break; } }
-  if (!q) { showToast('Quotation not found', 'error'); return; }
+  if (!q) { showToast('Sell Proposal not found', 'error'); return; }
   var co = DB.company || {};
   var win = window.open('', '_blank', 'width=900,height=700');
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quotation — ' + (q.quoteNo || '') + '</title><style>';
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sell Proposal — ' + (q.quoteNo || '') + '</title><style>';
   html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 24px; font-size: 13px; }';
   html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 18px; }';
   html += '.co-name { font-size: 22px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
@@ -3390,7 +3390,7 @@ function printQuotation(quoteId) {
   if (co.address) html += co.address + '<br>';
   if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
   if (co.email) html += 'Email: ' + co.email;
-  html += '</div></div><div><div class="doc-title">QUOTATION</div><div class="doc-sub">Quotation No: <strong>' + (q.quoteNo || '-') + '</strong></div><div class="doc-sub">Date: ' + (q.date || '-') + '</div></div></div>';
+  html += '</div></div><div><div class="doc-title">SELL PROPOSAL</div><div class="doc-sub">Sell Proposal No: <strong>' + (q.quoteNo || '-') + '</strong></div><div class="doc-sub">Date: ' + (q.date || '-') + '</div></div></div>';
   html += '<div class="meta-grid">';
   html += '<div class="meta-box"><div class="meta-label">Customer</div><div class="meta-value">' + (q.customer || '-') + '</div></div>';
   html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (q.status || 'Draft') + '</div></div>';
@@ -3434,7 +3434,7 @@ function generateQuoteNo() {
 function openQuotationModal(quoteId, readOnly) {
   var q = null;
   if (quoteId) { for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === quoteId) { q = DB.quotations[i]; break; } } }
-  var title = q ? (readOnly ? 'Quotation Details' : 'Edit Quotation') : 'Add New Quotation';
+  var title = q ? (readOnly ? 'Sell Proposal Details' : 'Edit Sell Proposal') : 'Add New Sell Proposal';
 
   // Build product array — only show products with stock > 0
   // stock = purchased (Approved) - delivered - damaged + adjusted
@@ -3497,17 +3497,17 @@ function openQuotationModal(quoteId, readOnly) {
   html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
   html += '</div>';
   html += '<div style="padding:20px 24px 24px;">';
-  // Top fields: 2x2 grid — Date | Quotation No, Customer | Subject
+  // Top fields: 2x2 grid — Date | Sell Proposal No, Customer | Subject
   html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;">';
   if (readOnly) {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.date || '-') + '</div></div>';
-    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Quotation No</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (q.quoteNo || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Sell Proposal No</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (q.quoteNo || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.customer || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Subject</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.subject || '-') + '</div></div>';
   } else {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-quote-date" value="' + (q ? q.date || '' : '') + '"></div>';
-    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Quotation No</label><input class="form-input" style="color:var(--muted);" id="f-quote-no" value="' + refVal + '" readonly></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Sell Proposal No</label><input class="form-input" style="color:var(--muted);" id="f-quote-no" value="' + refVal + '" readonly></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><input class="form-input" id="f-quote-customer" value="' + (q ? q.customer || '' : '') + '" placeholder="Customer name"></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Subject</label><input class="form-input" id="f-quote-subject" value="' + (q ? q.subject || '' : '') + '" placeholder="Subject"></div>';
   }
@@ -3631,10 +3631,10 @@ function openQuotationModal(quoteId, readOnly) {
       if (q) {
         q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.subject = subject; q.note = note; q.status = status;
         q.items = items; q.total = grandTotal;
-        closeModal(); showToast('Quotation updated'); renderPage();
+        closeModal(); showToast('Sell Proposal updated'); renderPage();
       } else {
         DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, subject: subject, note: note, status: status, items: items, total: grandTotal });
-        closeModal(); showToast('Quotation added'); renderPage();
+        closeModal(); showToast('Sell Proposal added'); renderPage();
       }
     });
   }
