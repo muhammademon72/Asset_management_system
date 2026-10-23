@@ -5197,6 +5197,62 @@ function revertDelivery(delId) {
   });
 }
 
+// Revert an adjustment — removes it from DB.adjustments so the product quantity
+// goes back to Inventory Stock (since stock = purchased - delivered - damaged + adjusted).
+function revertAdjustment(adjId) {
+  var adj = null;
+  for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } }
+  if (!adj) { showToast('Adjustment not found', 'error'); return; }
+  var html = '<div style="padding:24px;text-align:center;">';
+  html += '<div style="width:56px;height:56px;border-radius:50%;background:rgba(217,119,6,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-undo" style="color:var(--warning);font-size:22px;"></i></div>';
+  html += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Revert Adjustment to Stock</div>';
+  html += '<div style="color:var(--muted);font-size:14px;margin-bottom:8px;">This will remove the adjustment record and return the product to Inventory Stock.</div>';
+  html += '<div style="background:var(--accent-light);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:20px;text-align:left;font-size:13px;">';
+  html += '<strong>Reference:</strong> ' + (adj.ref || '-') + '<br>';
+  html += '<strong>Product:</strong> ' + (adj.product || '-') + '<br>';
+  html += '<strong>Qty:</strong> ' + (adj.qty || 0);
+  html += '</div>';
+  html += '<div style="display:flex;gap:12px;justify-content:center;">';
+  html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<button class="btn btn-primary" id="btn-confirm-revert-adj" style="background:var(--warning);border-color:var(--warning);"><i class="fas fa-undo"></i> Revert to Stock</button>';
+  html += '</div></div>';
+  openModal(html);
+  document.getElementById('btn-confirm-revert-adj').addEventListener('click', function() {
+    DB.adjustments = DB.adjustments.filter(function(x) { return x.id !== adjId; });
+    closeModal();
+    showToast('Adjustment reverted — product returned to stock');
+    renderPage();
+  });
+}
+
+// Revert a damage — removes it from DB.damages so the product quantity
+// goes back to Inventory Stock (since stock = purchased - delivered - damaged + adjusted).
+function revertDamage(dmgId) {
+  var dmg = null;
+  for (var i = 0; i < DB.damages.length; i++) { if (DB.damages[i].id === dmgId) { dmg = DB.damages[i]; break; } }
+  if (!dmg) { showToast('Damage not found', 'error'); return; }
+  var html = '<div style="padding:24px;text-align:center;">';
+  html += '<div style="width:56px;height:56px;border-radius:50%;background:rgba(217,119,6,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-undo" style="color:var(--warning);font-size:22px;"></i></div>';
+  html += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Revert Damage to Stock</div>';
+  html += '<div style="color:var(--muted);font-size:14px;margin-bottom:8px;">This will remove the damage record and return the product to Inventory Stock.</div>';
+  html += '<div style="background:var(--accent-light);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:20px;text-align:left;font-size:13px;">';
+  html += '<strong>Reference:</strong> ' + (dmg.ref || '-') + '<br>';
+  html += '<strong>Product:</strong> ' + (dmg.product || '-') + '<br>';
+  html += '<strong>Qty:</strong> ' + (dmg.qty || 0);
+  html += '</div>';
+  html += '<div style="display:flex;gap:12px;justify-content:center;">';
+  html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  html += '<button class="btn btn-primary" id="btn-confirm-revert-dmg" style="background:var(--warning);border-color:var(--warning);"><i class="fas fa-undo"></i> Revert to Stock</button>';
+  html += '</div></div>';
+  openModal(html);
+  document.getElementById('btn-confirm-revert-dmg').addEventListener('click', function() {
+    DB.damages = DB.damages.filter(function(x) { return x.id !== dmgId; });
+    closeModal();
+    showToast('Damage reverted — product returned to stock');
+    renderPage();
+  });
+}
+
 function renderReport(type) {
   var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages, cashIn: DB.cashIn, cashOut: DB.cashOut };
   var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
@@ -5369,8 +5425,6 @@ function renderReport(type) {
       html += '</tr>';
     }
   } else if (type === 'adjustment') {
-    // Adjustment Report columns as requested:
-    // Date, Invoice(Ref), Product, Brand, Model, Serial, Qty, Remarks
     html += '<th>#</th>';
     html += '<th>Date</th>';
     html += '<th>Invoice</th>';
@@ -5381,6 +5435,7 @@ function renderReport(type) {
     html += '<th style="text-align:center;">Qty</th>';
     html += '<th>Remarks</th>';
     html += '<th>Status</th>';
+    html += '<th style="text-align:center;width:60px;">Actions</th>';
     html += '</tr></thead><tbody>';
     for (var i = 0; i < data.length; i++) {
       var d = data[i];
@@ -5395,11 +5450,10 @@ function renderReport(type) {
       html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
       html += '<td>' + (d.remarks || d.reason || '-') + '</td>';
       html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '<td style="text-align:center;"><button class="btn btn-secondary btn-sm btn-icon" data-revert-adjustment="' + d.id + '" title="Revert to Stock" style="color:var(--warning);"><i class="fas fa-undo" style="font-size:11px;"></i></button></td>';
       html += '</tr>';
     }
   } else if (type === 'damage') {
-    // Damage Report columns as requested:
-    // Date, Invoice(Ref), Product, Brand, Model, Serial, Qty, Remarks
     html += '<th>#</th>';
     html += '<th>Date</th>';
     html += '<th>Invoice</th>';
@@ -5410,6 +5464,7 @@ function renderReport(type) {
     html += '<th style="text-align:center;">Qty</th>';
     html += '<th>Remarks</th>';
     html += '<th>Status</th>';
+    html += '<th style="text-align:center;width:60px;">Actions</th>';
     html += '</tr></thead><tbody>';
     for (var i = 0; i < data.length; i++) {
       var d = data[i];
@@ -5424,6 +5479,7 @@ function renderReport(type) {
       html += '<td style="text-align:center;">' + (d.qty || 0) + '</td>';
       html += '<td>' + (d.remarks || d.reason || '-') + '</td>';
       html += '<td>' + statusBadge(d.status || 'Pending') + '</td>';
+      html += '<td style="text-align:center;"><button class="btn btn-secondary btn-sm btn-icon" data-revert-damage="' + d.id + '" title="Revert to Stock" style="color:var(--warning);"><i class="fas fa-undo" style="font-size:11px;"></i></button></td>';
       html += '</tr>';
     }
   } else if (type === 'cashIn' || type === 'cashOut') {
@@ -6416,6 +6472,30 @@ function renderPage() {
             revertDelivery(id);
           });
         })(revertBtns[rb]);
+      }
+    }
+    // Bind revert buttons for Adjustment Report
+    if (currentPage === 'report-adjustment') {
+      var adjRevertBtns = document.querySelectorAll('[data-revert-adjustment]');
+      for (var ar = 0; ar < adjRevertBtns.length; ar++) {
+        (function(btn) {
+          btn.addEventListener('click', function() {
+            var id = parseInt(btn.getAttribute('data-revert-adjustment'));
+            revertAdjustment(id);
+          });
+        })(adjRevertBtns[ar]);
+      }
+    }
+    // Bind revert buttons for Damage Report
+    if (currentPage === 'report-damage') {
+      var dmgRevertBtns = document.querySelectorAll('[data-revert-damage]');
+      for (var dr = 0; dr < dmgRevertBtns.length; dr++) {
+        (function(btn) {
+          btn.addEventListener('click', function() {
+            var id = parseInt(btn.getAttribute('data-revert-damage'));
+            revertDamage(id);
+          });
+        })(dmgRevertBtns[dr]);
       }
     }
     // Bind searchable dropdown filters for Purchase Report
