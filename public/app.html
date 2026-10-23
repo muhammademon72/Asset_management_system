@@ -3497,17 +3497,19 @@ function openQuotationModal(quoteId, readOnly) {
   html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
   html += '</div>';
   html += '<div style="padding:20px 24px 24px;">';
-  // Top fields: Date | Quotation No | Customer
+  // Top fields: 2x2 grid — Date | Quotation No, Customer | Subject
   html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 18px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;">';
   if (readOnly) {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.date || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Quotation No</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (q.quoteNo || '-') + '</div></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.customer || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Subject</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.subject || '-') + '</div></div>';
   } else {
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-quote-date" value="' + (q ? q.date || '' : '') + '"></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Quotation No</label><input class="form-input" style="color:var(--muted);" id="f-quote-no" value="' + refVal + '" readonly></div>';
     html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><input class="form-input" id="f-quote-customer" value="' + (q ? q.customer || '' : '') + '" placeholder="Customer name"></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Subject</label><input class="form-input" id="f-quote-subject" value="' + (q ? q.subject || '' : '') + '" placeholder="Subject"></div>';
   }
   html += '</div>';
   html += '</div>';
@@ -3609,6 +3611,7 @@ function openQuotationModal(quoteId, readOnly) {
       var quoteNo = document.getElementById('f-quote-no').value.trim();
       if (!date) { showToast('Date required', 'error'); return; }
       var customer = document.getElementById('f-quote-customer').value.trim();
+      var subject = document.getElementById('f-quote-subject').value.trim();
       var note = document.getElementById('f-quote-note').value.trim();
       var status = document.getElementById('f-quote-status').value;
       var rows2 = document.querySelectorAll('#pur-entries-body tr');
@@ -3626,11 +3629,11 @@ function openQuotationModal(quoteId, readOnly) {
       }
       if (items.length === 0) { showToast('Add at least one product', 'error'); return; }
       if (q) {
-        q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.note = note; q.status = status;
+        q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.subject = subject; q.note = note; q.status = status;
         q.items = items; q.total = grandTotal;
         closeModal(); showToast('Quotation updated'); renderPage();
       } else {
-        DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, note: note, status: status, items: items, total: grandTotal });
+        DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, subject: subject, note: note, status: status, items: items, total: grandTotal });
         closeModal(); showToast('Quotation added'); renderPage();
       }
     });
