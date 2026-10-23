@@ -2451,7 +2451,7 @@ function openDeliveryModal(delId, readOnly) {
   if (readOnly) {
     html += statusBadge(del.status || 'Pending');
   } else {
-    html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;"><option' + (del.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (del.status === 'In Transit' ? ' selected' : '') + '>In Transit</option><option' + (del.status === 'Received' ? ' selected' : '') + '>Received</option></select>';
+    html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;"><option value="Draft"' + (del.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (del.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select>';
   }
   html += '</div>';
   html += '<div style="flex:1;"></div>';
@@ -2774,7 +2774,7 @@ function openDeliveryAddModal() {
   html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
   html += '<div style="display:flex;align-items:center;gap:10px;">';
   html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
-  html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;"><option>Draft</option><option>Pending</option><option>In Transit</option><option>Received</option></select>';
+  html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;"><option>Draft</option><option>Confirm</option></select>';
   html += '</div>';
   html += '<div style="flex:1;"></div>';
   html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
