@@ -3047,15 +3047,21 @@ function openAdjustmentModal(adjId, readOnly) {
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   if (readOnly) {
     html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + (adj.note || '—') + '</span>');
-    html += purFieldRow('Status', '<span style="font-size:13px;">' + statusBadge(adj.status || 'Draft') + '</span>');
   } else {
     html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-adj-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (adj ? adj.note || '' : '') + '</textarea>');
-    html += purFieldRow('Status', '<select class="form-input" id="f-adj-status" style="border:none;box-shadow:none;background:transparent;"><option value="Draft"' + (adj && adj.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (adj && adj.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select>');
   }
   html += '</div>';
 
-  // Bottom bar: Status + Cancel/Save  (kept consistent with delivery layout; status already in grid, but keep button bar)
-  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;justify-content:flex-end;">';
+  // Bottom bar: Status (left) + Cancel/Save (right)
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+  // Status on the left side
+  if (readOnly) {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span> ' + statusBadge(adj.status || 'Draft') + '</div>';
+  } else {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span><select class="form-input" id="f-adj-status" style="width:140px;border-radius:8px;"><option value="Draft"' + (adj && adj.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (adj && adj.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select></div>';
+  }
+  // Spacer pushes Cancel/Save to the right
+  html += '<div style="flex:1;"></div>';
   if (readOnly) {
     html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Close</button>';
   } else {
