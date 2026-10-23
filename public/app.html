@@ -236,6 +236,8 @@ const DB = {
   transfers: [],
   cashIn: [],
   cashOut: [],
+  quotations: [],
+  invoices: [],
   users: [
     { id: 1, name: 'Admin User', username: 'admin', email: 'admin@itassets.com', password: 'admin123', role: 'Super Admin', status: 'Active' }
   ],
@@ -300,6 +302,10 @@ const NAV = [
     { id: 'report-damage', label: 'Damage' },
     { id: 'report-cash-in', label: 'Cash In' },
     { id: 'report-cash-out', label: 'Cash Out' },
+  ]},
+  { id: 'sell', label: 'Manage Sell', icon: 'fa-handshake', children: [
+    { id: 'quotation-list', label: 'Quotation' },
+    { id: 'invoice-list', label: 'Invoice' },
   ]},
   { id: 'settings', label: 'Manage Settings', icon: 'fa-gear', children: [
     { id: 'company-profile', label: 'Company Profile' },
@@ -3297,6 +3303,216 @@ function printAdjustmentList() {
   win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
+// ==================== QUOTATION LIST ====================
+function renderQuotationList() {
+  var rows = '';
+  for (var i = 0; i < DB.quotations.length; i++) {
+    var q = DB.quotations[i];
+    rows += '<tr><td>' + (q.date || '-') + '</td><td style="font-weight:600;">' + (q.quoteNo || '-') + '</td><td>' + (q.customer || '-') + '</td><td>' + (q.subject || '-') + '</td><td style="text-align:right;font-weight:600;color:var(--accent);">' + fmt(q.total || 0) + '</td><td>' + statusBadge(q.status || 'Draft') + '</td>';
+    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-quote="' + q.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-quote="' + q.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-quote="' + q.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Quotation List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-primary" id="btn-add-quotation"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Quotation No</th><th>Customer</th><th>Subject</th><th style="text-align:right;">Total</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindQuotationEvents() {
+  var addBtn = document.getElementById('btn-add-quotation');
+  if (addBtn) addBtn.addEventListener('click', function() { openQuotationModal(null); });
+  var viewBtns = document.querySelectorAll('[data-view-quote]');
+  for (var v = 0; v < viewBtns.length; v++) { (function(b) { b.addEventListener('click', function() { openQuotationModal(parseInt(b.getAttribute('data-view-quote')), true); }); })(viewBtns[v]); }
+  var editBtns = document.querySelectorAll('[data-edit-quote]');
+  for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openQuotationModal(parseInt(b.getAttribute('data-edit-quote')), false); }); })(editBtns[e]); }
+  var delBtns = document.querySelectorAll('[data-del-quote]');
+  for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('quotations', parseInt(b.getAttribute('data-del-quote')), 'quotation-list'); }); })(delBtns[d]); }
+}
+
+function generateQuoteNo() {
+  var year = new Date().getFullYear();
+  var prefix = 'QT-' + year + '-';
+  var maxSeq = 0;
+  for (var i = 0; i < DB.quotations.length; i++) {
+    var qn = DB.quotations[i].quoteNo || '';
+    if (qn.indexOf(prefix) === 0) { var num = parseInt(qn.substring(prefix.length), 10); if (!isNaN(num) && num > maxSeq) maxSeq = num; }
+  }
+  var seq = '' + (maxSeq + 1); while (seq.length < 3) seq = '0' + seq;
+  return prefix + seq;
+}
+
+function openQuotationModal(quoteId, readOnly) {
+  var q = null;
+  if (quoteId) { for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === quoteId) { q = DB.quotations[i]; break; } } }
+  var title = q ? (readOnly ? 'Quotation Details' : 'Edit Quotation') : 'Add New Quotation';
+  var html = '<div style="padding:24px;max-width:720px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (q.date || '-') + '</span>');
+    html += purFieldRow('Quotation No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (q.quoteNo || '-') + '</span>');
+    html += purFieldRow('Customer', '<span style="font-size:13px;color:var(--fg);">' + (q.customer || '-') + '</span>');
+    html += purFieldRow('Subject', '<span style="font-size:13px;color:var(--fg);">' + (q.subject || '-') + '</span>');
+    html += purFieldRow('Total Amount', '<span style="font-size:13px;font-weight:600;color:var(--accent);">' + fmt(q.total || 0) + '</span>');
+    if (q.note) html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + q.note + '</span>');
+    html += purFieldRow('Status', statusBadge(q.status || 'Draft'));
+  } else {
+    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-date" value="' + (q ? q.date || '' : '') + '">');
+    html += purFieldRow('Quotation No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-quote-no" value="' + (q ? q.quoteNo : generateQuoteNo()) + '" readonly>');
+    html += purFieldRow('Customer', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-customer" value="' + (q ? q.customer || '' : '') + '" placeholder="Customer name">');
+    html += purFieldRow('Subject', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-subject" value="' + (q ? q.subject || '' : '') + '" placeholder="Subject">');
+    html += purFieldRow('Total Amount', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-total" value="' + (q ? q.total || 0 : 0) + '">');
+  }
+  html += '</div>';
+  if (!readOnly) {
+    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-quote-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (q ? q.note || '' : '') + '</textarea>');
+    html += '</div>';
+  }
+  // Bottom bar
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+  if (readOnly) {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span> ' + statusBadge(q.status || 'Draft') + '</div>';
+  } else {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span><select class="form-input" id="f-quote-status" style="width:140px;border-radius:8px;"><option value="Draft"' + (q && q.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (q && q.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select></div>';
+  }
+  html += '<div style="flex:1;"></div>';
+  if (readOnly) { html += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>'; }
+  else {
+    html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-quote"><i class="fas fa-check"></i> ' + (q ? 'Update' : 'Save') + '</button>';
+  }
+  html += '</div></div></div>';
+  openModal(html);
+  if (!readOnly) {
+    document.getElementById('btn-save-quote').addEventListener('click', function() {
+      var date = document.getElementById('f-quote-date').value;
+      var quoteNo = document.getElementById('f-quote-no').value.trim();
+      if (!date) { showToast('Date required', 'error'); return; }
+      var customer = document.getElementById('f-quote-customer').value.trim();
+      var subject = document.getElementById('f-quote-subject').value.trim();
+      var total = parseFloat(document.getElementById('f-quote-total').value) || 0;
+      var note = document.getElementById('f-quote-note').value.trim();
+      var status = document.getElementById('f-quote-status').value;
+      if (q) {
+        q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.subject = subject;
+        q.total = total; q.note = note; q.status = status;
+        closeModal(); showToast('Quotation updated'); renderPage();
+      } else {
+        DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, subject: subject, total: total, note: note, status: status });
+        closeModal(); showToast('Quotation added'); renderPage();
+      }
+    });
+  }
+}
+
+// ==================== INVOICE LIST ====================
+function renderInvoiceList() {
+  var rows = '';
+  for (var i = 0; i < DB.invoices.length; i++) {
+    var inv = DB.invoices[i];
+    rows += '<tr><td>' + (inv.date || '-') + '</td><td style="font-weight:600;">' + (inv.invoiceNo || '-') + '</td><td>' + (inv.customer || '-') + '</td><td>' + (inv.subject || '-') + '</td><td style="text-align:right;font-weight:600;color:var(--accent);">' + fmt(inv.total || 0) + '</td><td>' + statusBadge(inv.status || 'Draft') + '</td>';
+    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-invoice="' + inv.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-invoice="' + inv.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-invoice="' + inv.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Invoice List</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-primary" id="btn-add-invoice"><i class="fas fa-plus"></i> Add New</button></div></div>';
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Invoice No</th><th>Customer</th><th>Subject</th><th style="text-align:right;">Total</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  return html;
+}
+
+function bindInvoiceEvents() {
+  var addBtn = document.getElementById('btn-add-invoice');
+  if (addBtn) addBtn.addEventListener('click', function() { openInvoiceModal(null); });
+  var viewBtns = document.querySelectorAll('[data-view-invoice]');
+  for (var v = 0; v < viewBtns.length; v++) { (function(b) { b.addEventListener('click', function() { openInvoiceModal(parseInt(b.getAttribute('data-view-invoice')), true); }); })(viewBtns[v]); }
+  var editBtns = document.querySelectorAll('[data-edit-invoice]');
+  for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openInvoiceModal(parseInt(b.getAttribute('data-edit-invoice')), false); }); })(editBtns[e]); }
+  var delBtns = document.querySelectorAll('[data-del-invoice]');
+  for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('invoices', parseInt(b.getAttribute('data-del-invoice')), 'invoice-list'); }); })(delBtns[d]); }
+}
+
+function generateInvoiceNo() {
+  var year = new Date().getFullYear();
+  var prefix = 'INV-' + year + '-';
+  var maxSeq = 0;
+  for (var i = 0; i < DB.invoices.length; i++) {
+    var ino = DB.invoices[i].invoiceNo || '';
+    if (ino.indexOf(prefix) === 0) { var num = parseInt(ino.substring(prefix.length), 10); if (!isNaN(num) && num > maxSeq) maxSeq = num; }
+  }
+  var seq = '' + (maxSeq + 1); while (seq.length < 3) seq = '0' + seq;
+  return prefix + seq;
+}
+
+function openInvoiceModal(invId, readOnly) {
+  var inv = null;
+  if (invId) { for (var i = 0; i < DB.invoices.length; i++) { if (DB.invoices[i].id === invId) { inv = DB.invoices[i]; break; } } }
+  var title = inv ? (readOnly ? 'Invoice Details' : 'Edit Invoice') : 'Add New Invoice';
+  var html = '<div style="padding:24px;max-width:720px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (inv.date || '-') + '</span>');
+    html += purFieldRow('Invoice No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (inv.invoiceNo || '-') + '</span>');
+    html += purFieldRow('Customer', '<span style="font-size:13px;color:var(--fg);">' + (inv.customer || '-') + '</span>');
+    html += purFieldRow('Subject', '<span style="font-size:13px;color:var(--fg);">' + (inv.subject || '-') + '</span>');
+    html += purFieldRow('Total Amount', '<span style="font-size:13px;font-weight:600;color:var(--accent);">' + fmt(inv.total || 0) + '</span>');
+    if (inv.note) html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + inv.note + '</span>');
+    html += purFieldRow('Status', statusBadge(inv.status || 'Draft'));
+  } else {
+    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-date" value="' + (inv ? inv.date || '' : '') + '">');
+    html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-invoice-no" value="' + (inv ? inv.invoiceNo : generateInvoiceNo()) + '" readonly>');
+    html += purFieldRow('Customer', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-customer" value="' + (inv ? inv.customer || '' : '') + '" placeholder="Customer name">');
+    html += purFieldRow('Subject', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-subject" value="' + (inv ? inv.subject || '' : '') + '" placeholder="Subject">');
+    html += purFieldRow('Total Amount', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-total" value="' + (inv ? inv.total || 0 : 0) + '">');
+  }
+  html += '</div>';
+  if (!readOnly) {
+    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-invoice-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (inv ? inv.note || '' : '') + '</textarea>');
+    html += '</div>';
+  }
+  // Bottom bar
+  html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
+  if (readOnly) {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span> ' + statusBadge(inv.status || 'Draft') + '</div>';
+  } else {
+    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span><select class="form-input" id="f-invoice-status" style="width:140px;border-radius:8px;"><option value="Draft"' + (inv && inv.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (inv && inv.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select></div>';
+  }
+  html += '<div style="flex:1;"></div>';
+  if (readOnly) { html += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>'; }
+  else {
+    html += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+    html += '<button class="btn btn-primary" id="btn-save-invoice"><i class="fas fa-check"></i> ' + (inv ? 'Update' : 'Save') + '</button>';
+  }
+  html += '</div></div></div>';
+  openModal(html);
+  if (!readOnly) {
+    document.getElementById('btn-save-invoice').addEventListener('click', function() {
+      var date = document.getElementById('f-invoice-date').value;
+      var invoiceNo = document.getElementById('f-invoice-no').value.trim();
+      if (!date) { showToast('Date required', 'error'); return; }
+      var customer = document.getElementById('f-invoice-customer').value.trim();
+      var subject = document.getElementById('f-invoice-subject').value.trim();
+      var total = parseFloat(document.getElementById('f-invoice-total').value) || 0;
+      var note = document.getElementById('f-invoice-note').value.trim();
+      var status = document.getElementById('f-invoice-status').value;
+      if (inv) {
+        inv.date = date; inv.invoiceNo = invoiceNo; inv.customer = customer; inv.subject = subject;
+        inv.total = total; inv.note = note; inv.status = status;
+        closeModal(); showToast('Invoice updated'); renderPage();
+      } else {
+        DB.invoices.push({ id: Date.now(), date: date, invoiceNo: invoiceNo, customer: customer, subject: subject, total: total, note: note, status: status });
+        closeModal(); showToast('Invoice added'); renderPage();
+      }
+    });
+  }
+}
+
 function renderDamageList() {
   var rows = '';
   for (var i = 0; i < DB.damages.length; i++) {
@@ -5765,6 +5981,7 @@ var PRIVILEGE_MODULES = [
   { id: 'cashbook',   label: 'Cash Book',         icon: 'fa-money-bill-wave' },
   { id: 'approval',   label: 'Approval',          icon: 'fa-clipboard-check' },
   { id: 'report',     label: 'Report',             icon: 'fa-chart-pie' },
+  { id: 'sell',       label: 'Sell',               icon: 'fa-handshake' },
   { id: 'settings',   label: 'Settings',          icon: 'fa-gear' }
 ];
 
@@ -5840,7 +6057,7 @@ function enforceActionPermissions() {
   // ===== HIDE: Delete buttons (both naming variants) =====
   if (!can(module, 'delete')) {
     // data-del-* (short form used by most modules)
-    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-pur], [data-del-del], [data-del-adj], [data-del-dmg], [data-del-trf], [data-del-simple], [data-del-role], [data-del-user]').forEach(hide);
+    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-pur], [data-del-del], [data-del-adj], [data-del-dmg], [data-del-trf], [data-del-simple], [data-del-role], [data-del-user], [data-del-quote], [data-del-invoice]').forEach(hide);
     // data-delete-* (full word form, used by branch)
     document.querySelectorAll('[data-delete-branch], [data-delete-emp], [data-delete-prod], [data-delete-sup], [data-delete-pur], [data-delete-del], [data-delete-adj], [data-delete-dmg], [data-delete-trf], [data-delete-role], [data-delete-user]').forEach(hide);
     // Top-level Delete buttons
@@ -6408,6 +6625,8 @@ function renderPage() {
     'report-cash-out': function() { return renderReport('cashOut'); },
     'company-profile': renderCompanyProfile,
     'user-list': renderUserList,
+    'quotation-list': renderQuotationList,
+    'invoice-list': renderInvoiceList,
     'role-list': renderRoleList,
     'backup-restore': renderBackupRestore,
   };
@@ -6446,6 +6665,8 @@ function renderPage() {
     'approval-damage': bindApprovalEvents,
     'company-profile': bindCompanyEvents,
     'user-list': bindUserEvents,
+    'quotation-list': bindQuotationEvents,
+    'invoice-list': bindInvoiceEvents,
     'role-list': bindRoleEvents,
     'backup-restore': bindBackupRestoreEvents,
   };
@@ -6549,6 +6770,8 @@ function buildDBSnapshot() {
     transfers: DB.transfers,
     cashIn: DB.cashIn,
     cashOut: DB.cashOut,
+    quotations: DB.quotations,
+    invoices: DB.invoices,
     users: DB.users,
     roles: DB.roles,
     company: DB.company,
@@ -6658,7 +6881,7 @@ function loadDB(onDone) {
 // Apply a data object to the global DB (replaces arrays but keeps shape)
 function applyDBData(data) {
   if (!data || typeof data !== 'object') return;
-  var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','users','roles'];
+  var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','quotations','invoices','users','roles'];
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
     if (Array.isArray(data[k])) DB[k] = data[k];
