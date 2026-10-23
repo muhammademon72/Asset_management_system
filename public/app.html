@@ -2276,7 +2276,7 @@ function printDelivery(delId) {
   html += '</div>';
   // Product table
   html += '<table><thead><tr>';
-  html += '<th style="text-align:center; width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th><th>Model</th><th>Serial Number</th><th>Condition</th><th>Warranty</th><th style="text-align:center;">Qty</th><th>Remarks</th>';
+  html += '<th style="text-align:center; width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th><th>Model</th><th>Serial Number</th><th>Condition</th><th style="text-align:center;">Qty</th><th>Remarks</th>';
   html += '</tr></thead><tbody>';
   html += '<tr>';
   html += '<td style="text-align:center;">1</td>';
@@ -2286,7 +2286,6 @@ function printDelivery(delId) {
   html += '<td>' + (del.model || '-') + '</td>';
   html += '<td>' + (del.serial || '-') + '</td>';
   html += '<td>' + (del.condition || '-') + '</td>';
-  html += '<td>' + (del.warranty || '-') + '</td>';
   html += '<td style="text-align:center;font-weight:600;">' + (del.qty || 0) + '</td>';
   html += '<td>' + (del.remarks || '-') + '</td>';
   html += '</tr>';
