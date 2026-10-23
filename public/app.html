@@ -1157,6 +1157,7 @@ function renderSimpleList(title, arr, collection, addPlaceholder, fieldKey) {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">' + title + '</div>';
   html += '<div style="display:flex;gap:10px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:200px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-secondary" id="btn-export-simple" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
   html += '<button class="btn btn-secondary" id="btn-import-simple" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
   html += '<button class="btn btn-primary" id="btn-add-simple"><i class="fas fa-plus"></i> Add New</button>';
@@ -1564,6 +1565,7 @@ function renderSupplier() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Supplier List</div>';
   html += '<div style="display:flex;gap:10px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:200px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-secondary" id="btn-export-supplier" title="Export to Excel"><i class="fas fa-file-export"></i> Export</button>';
   html += '<button class="btn btn-secondary" id="btn-import-supplier" title="Import from Excel"><i class="fas fa-file-import"></i> Import</button>';
   html += '<button class="btn btn-primary" id="btn-add-supplier"><i class="fas fa-plus"></i> Add New</button>';
