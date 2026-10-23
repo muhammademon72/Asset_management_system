@@ -3309,7 +3309,7 @@ function renderQuotationList() {
   for (var i = 0; i < DB.quotations.length; i++) {
     var q = DB.quotations[i];
     rows += '<tr><td>' + (q.date || '-') + '</td><td style="font-weight:600;">' + (q.quoteNo || '-') + '</td><td>' + (q.customer || '-') + '</td><td>' + (q.subject || '-') + '</td><td style="text-align:right;font-weight:600;color:var(--accent);">' + fmt(q.total || 0) + '</td><td>' + statusBadge(q.status || 'Draft') + '</td>';
-    rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-quote="' + q.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-quote="' + q.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-quote="' + q.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:180px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-quote="' + q.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-quote="' + q.id + '" title="Print Quotation" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-convert-invoice="' + q.id + '" title="Convert to Invoice" style="color:var(--accent-dark);"><i class="fas fa-file-invoice" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-quote="' + q.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-quote="' + q.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Quotation List</div>';
@@ -3317,7 +3317,7 @@ function renderQuotationList() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-primary" id="btn-add-quotation"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Quotation No</th><th>Customer</th><th>Subject</th><th style="text-align:right;">Total</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Quotation No</th><th>Customer</th><th>Subject</th><th style="text-align:right;">Total</th><th>Status</th><th style="width:180px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
@@ -3330,6 +3330,93 @@ function bindQuotationEvents() {
   for (var e = 0; e < editBtns.length; e++) { (function(b) { b.addEventListener('click', function() { openQuotationModal(parseInt(b.getAttribute('data-edit-quote')), false); }); })(editBtns[e]); }
   var delBtns = document.querySelectorAll('[data-del-quote]');
   for (var d = 0; d < delBtns.length; d++) { (function(b) { b.addEventListener('click', function() { deleteItem('quotations', parseInt(b.getAttribute('data-del-quote')), 'quotation-list'); }); })(delBtns[d]); }
+  // Print Quotation
+  var printBtns = document.querySelectorAll('[data-print-quote]');
+  for (var p = 0; p < printBtns.length; p++) {
+    (function(b) {
+      b.addEventListener('click', function() { printQuotation(parseInt(b.getAttribute('data-print-quote'))); });
+    })(printBtns[p]);
+  }
+  // Convert to Invoice
+  var convertBtns = document.querySelectorAll('[data-convert-invoice]');
+  for (var c = 0; c < convertBtns.length; c++) {
+    (function(b) {
+      b.addEventListener('click', function() {
+        var qId = parseInt(b.getAttribute('data-convert-invoice'));
+        var q = null;
+        for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === qId) { q = DB.quotations[i]; break; } }
+        if (!q) return;
+        // Create invoice from quotation data
+        var newInvoice = {
+          id: Date.now(),
+          date: q.date,
+          invoiceNo: generateInvoiceNo(),
+          customer: q.customer || '',
+          note: q.note || '',
+          status: 'Draft',
+          items: (q.items || []).map(function(it) { return { product: it.product, category: it.category, brand: it.brand, model: it.model, serial: it.serial, qty: it.qty, price: it.price, total: it.total, remarks: it.remarks }; }),
+          total: q.total || 0
+        };
+        DB.invoices.push(newInvoice);
+        showToast('Quotation converted to Invoice: ' + newInvoice.invoiceNo);
+        navigate('invoice-list');
+      });
+    })(convertBtns[c]);
+  }
+}
+
+// Print Quotation as a formal document
+function printQuotation(quoteId) {
+  var q = null;
+  for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === quoteId) { q = DB.quotations[i]; break; } }
+  if (!q) { showToast('Quotation not found', 'error'); return; }
+  var co = DB.company || {};
+  var win = window.open('', '_blank', 'width=900,height=700');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quotation — ' + (q.quoteNo || '') + '</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 24px; font-size: 13px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 14px; margin-bottom: 18px; }';
+  html += '.co-name { font-size: 22px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 22px; font-weight: 800; text-align: right; color: #1a5c30; letter-spacing: 1px; } .doc-sub { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-bottom: 18px; }';
+  html += '.meta-box { border: 1px solid #d4ddd4; border-radius: 8px; padding: 10px 14px; background: #f5f9f5; }';
+  html += '.meta-label { font-size: 10px; font-weight: 700; color: #1a5c30; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; } .meta-value { font-size: 13px; font-weight: 600; color: #1a2e1a; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; }';
+  html += 'thead th { background: #2d8a4e !important; color: #fff !important; padding: 9px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #2d8a4e; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }';
+  html += 'tbody td { padding: 8px 10px; font-size: 12px; border: 1px solid #d4ddd4; }';
+  html += '.sign { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; } .sign-line { margin-top: 60px; border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }';
+  html += '</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || 'Company Name') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email;
+  html += '</div></div><div><div class="doc-title">QUOTATION</div><div class="doc-sub">Quotation No: <strong>' + (q.quoteNo || '-') + '</strong></div><div class="doc-sub">Date: ' + (q.date || '-') + '</div></div></div>';
+  html += '<div class="meta-grid">';
+  html += '<div class="meta-box"><div class="meta-label">Customer</div><div class="meta-value">' + (q.customer || '-') + '</div></div>';
+  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (q.status || 'Draft') + '</div></div>';
+  html += '</div>';
+  // Product table
+  var items = q.items || [];
+  if (items.length === 0) items = [{ product: '-', category: '-', brand: '-', model: '-', qty: 0, price: 0, total: 0, remarks: '-' }];
+  html += '<table><thead><tr>';
+  html += '<th style="text-align:center; width:40px;">#</th><th>Product</th><th>Category</th><th>Brand</th><th>Model</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th><th>Remarks</th>';
+  html += '</tr></thead><tbody>';
+  var grandTotal = 0;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    grandTotal += (it.total || 0);
+    html += '<tr><td style="text-align:center;">' + (i+1) + '</td><td style="font-weight:600;">' + (it.product || '-') + '</td><td>' + (it.category || '-') + '</td><td>' + (it.brand || '-') + '</td><td>' + (it.model || '-') + '</td><td style="text-align:center;">' + (it.qty || 0) + '</td><td style="text-align:right;">' + fmt(it.price || 0) + '</td><td style="text-align:right;font-weight:600;">' + fmt(it.total || 0) + '</td><td>' + (it.remarks || '-') + '</td></tr>';
+  }
+  html += '<tr style="background:#dcfce7;font-weight:700;"><td colspan="7" style="text-align:right;padding:10px;">Grand Total:</td><td style="text-align:right;padding:10px;font-size:14px;color:#1a5c30;">' + fmt(grandTotal) + '</td><td></td></tr>';
+  html += '</tbody></table>';
+  if (q.note) {
+    html += '<div style="margin-top:14px;border:1px solid #d4ddd4;border-radius:8px;padding:10px 14px;background:#f5f9f5;"><div style="font-size:10px;font-weight:700;color:#1a5c30;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Note</div><div style="font-size:12px;color:#1a2e1a;">' + q.note + '</div></div>';
+  }
+  html += '<div class="sign"><div class="sign-box"><div class="sign-line">Prepared By</div></div><div class="sign-box"><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Customer Signature</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
 function generateQuoteNo() {
