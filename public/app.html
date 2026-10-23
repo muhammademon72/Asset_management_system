@@ -1969,18 +1969,35 @@ function printInventoryStock() {
 }
 
 function renderDeliveryList() {
-  var rows = '';
+  // Group deliveries by chalan — one row per chalan (multi-product per chalan)
+  var seenChalans = {};
+  var grouped = [];
   for (var i = 0; i < DB.deliveries.length; i++) {
     var d = DB.deliveries[i];
-    // Look up attachment across all rows with the same chalan (may be stored on a different row)
-    var hasAttach = d.attachment && d.attachment.name;
-    if (!hasAttach) {
+    if (!seenChalans[d.chalan]) {
+      seenChalans[d.chalan] = true;
+      // Count products under this chalan
+      var productCount = 0;
+      var hasAttach = false;
       for (var k = 0; k < DB.deliveries.length; k++) {
-        if (DB.deliveries[k].chalan === d.chalan && DB.deliveries[k].attachment && DB.deliveries[k].attachment.name) { hasAttach = true; break; }
+        if (DB.deliveries[k].chalan === d.chalan) {
+          productCount++;
+          if (DB.deliveries[k].attachment && DB.deliveries[k].attachment.name) hasAttach = true;
+        }
       }
+      d._productCount = productCount;
+      d._hasAttach = hasAttach;
+      grouped.push(d);
     }
-    rows += '<tr><td>' + (d.date || '-') + '</td><td style="font-weight:600;">' + (d.chalan || '-') + '</td><td>' + (d.branch || '-') + '</td><td style="font-weight:600;">' + (d.receivedBy || '-') + '</td><td>' + (d.department || '-') + '</td><td>' + statusBadge(d.status) + '</td>';
-    rows += '<td style="width:180px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-del="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-attach-del="' + d.id + '" title="' + (hasAttach ? 'View Attachment' : 'No attachment') + '" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';"><i class="fas fa-paperclip" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-del="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+  }
+
+  var rows = '';
+  for (var gi = 0; gi < grouped.length; gi++) {
+    var d = grouped[gi];
+    var productBadge = (d._productCount > 1) ? ' <span class="badge badge-blue" style="font-size:9px;margin-left:4px;">' + d._productCount + ' items</span>' : '';
+    var hasAttach = d._hasAttach;
+    rows += '<tr><td>' + (d.date || '-') + '</td><td style="font-weight:600;">' + (d.chalan || '-') + productBadge + '</td><td>' + (d.branch || '-') + '</td><td style="font-weight:600;">' + (d.receivedBy || '-') + '</td><td>' + (d.department || '-') + '</td><td>' + statusBadge(d.status) + '</td>';
+    rows += '<td style="width:180px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-del="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-del="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-attach-del="' + d.id + '" title="' + (hasAttach ? 'View Attachment' : 'No attachment') + '" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';"><i class="fas fa-paperclip" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-del="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-chalan="' + d.chalan + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Delivery List</div>';
@@ -2096,6 +2113,36 @@ function bindDeliveryEvents() {
   }
 
   // Delete
+  // Delete by chalan — removes ALL deliveries with that chalan
+  var delChalanBtns = document.querySelectorAll('[data-del-chalan]');
+  for (var dc = 0; dc < delChalanBtns.length; dc++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var chalan = btn.getAttribute('data-del-chalan');
+        // Count how many rows will be deleted
+        var count = 0;
+        for (var i = 0; i < DB.deliveries.length; i++) { if (DB.deliveries[i].chalan === chalan) count++; }
+        // Show confirmation
+        openModal(
+          '<div style="padding:24px;text-align:center;">' +
+          '<div style="width:56px;height:56px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-trash" style="color:var(--danger);font-size:22px;"></i></div>' +
+          '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Delete Chalan — ' + chalan + '</div>' +
+          '<div style="color:var(--muted);font-size:14px;margin-bottom:8px;">This will remove <strong style="color:var(--danger);">' + count + '</strong> product row' + (count === 1 ? '' : 's') + ' from this chalan.</div>' +
+          '<div style="color:var(--warning);font-size:12px;margin-bottom:20px;">This cannot be undone.</div>' +
+          '<div style="display:flex;gap:12px;justify-content:center;">' +
+          '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>' +
+          '<button class="btn btn-danger" id="btn-confirm-del-chalan">Delete All</button>' +
+          '</div></div>'
+        );
+        document.getElementById('btn-confirm-del-chalan').addEventListener('click', function() {
+          DB.deliveries = DB.deliveries.filter(function(x) { return x.chalan !== chalan; });
+          closeModal(); showToast('Chalan ' + chalan + ' deleted (' + count + ' rows)'); renderPage();
+        });
+      });
+    })(delChalanBtns[dc]);
+  }
+
+  // Legacy delete (single row — kept for backward compat)
   var delBtns = document.querySelectorAll('[data-del-del]');
   for (var d = 0; d < delBtns.length; d++) {
     (function(b) {
@@ -2356,21 +2403,32 @@ function openDeliveryModal(delId, readOnly) {
   html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
+  // Load ALL delivery rows with the same chalan (multi-product per chalan)
+  var chalanRows = [];
+  for (var ci = 0; ci < DB.deliveries.length; ci++) {
+    if (DB.deliveries[ci].chalan === del.chalan) chalanRows.push(DB.deliveries[ci]);
+  }
+  if (chalanRows.length === 0) chalanRows = [del];
   if (readOnly) {
-    html += '<tr>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.product || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.category || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.brand || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.model || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.serial || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.condition || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.warranty || '-') + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (del.bqty !== undefined ? del.bqty : 0) + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (del.qty || 0) + '</td>';
-    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (del.remarks || '-') + '</td>';
-    html += '</tr>';
+    for (var ri = 0; ri < chalanRows.length; ri++) {
+      var d = chalanRows[ri];
+      html += '<tr>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;font-weight:600;">' + (d.product || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.category || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.brand || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.model || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.serial || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.condition || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.warranty || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (d.bqty !== undefined ? d.bqty : 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (d.qty || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.remarks || '-') + '</td>';
+      html += '</tr>';
+    }
   } else {
-    html += deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
+    for (var ri2 = 0; ri2 < chalanRows.length; ri2++) {
+      html += deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
+    }
   }
   html += '</tbody></table></div></div>';
 
@@ -2433,31 +2491,24 @@ function openDeliveryModal(delId, readOnly) {
       }
     })();
 
-    // Pre-fill first row with delivery data
-    var firstRow = document.querySelector('#pur-entries-body tr');
-    if (firstRow) {
-      var prodWrapper = firstRow.querySelector('[data-sr="product"]');
-      if (prodWrapper) setPurSearchableValue(prodWrapper, del.product || '', del.product || '');
-      var catSel = firstRow.querySelector('[data-f="category"]');
-      if (catSel) catSel.value = del.category || '';
-      var brandSel = firstRow.querySelector('[data-f="brand"]');
-      if (brandSel) brandSel.value = del.brand || '';
-      var modelIn = firstRow.querySelector('[data-f="model"]');
-      if (modelIn) modelIn.value = del.model || '';
-      var serialIn = firstRow.querySelector('[data-f="serial"]');
-      if (serialIn) serialIn.value = del.serial || '';
-      var condSel = firstRow.querySelector('[data-f="condition"]');
-      if (condSel) condSel.value = del.condition || 'New';
-      var warSel = firstRow.querySelector('[data-f="warranty"]');
-      if (warSel) warSel.value = del.warranty || '';
-      var bqIn = firstRow.querySelector('[data-f="bqty"]');
-      if (bqIn) bqIn.value = (del.bqty !== undefined ? del.bqty : 0);
-      var qtyIn = firstRow.querySelector('[data-f="qty"]');
-      if (qtyIn) qtyIn.value = del.qty || 0;
-      var remIn = firstRow.querySelector('[data-f="remarks"]');
-      if (remIn) remIn.value = del.remarks || '';
+    // Pre-fill all rows with delivery data (multi-product per chalan)
+    var allRows = document.querySelectorAll('#pur-entries-body tr');
+    for (var ri3 = 0; ri3 < allRows.length && ri3 < chalanRows.length; ri3++) {
+      var row = allRows[ri3];
+      var d2 = chalanRows[ri3];
+      var prodWrapper = row.querySelector('[data-sr="product"]');
+      if (prodWrapper) setPurSearchableValue(prodWrapper, d2.product || '', d2.product || '');
+      var catSel = row.querySelector('[data-f="category"]'); if (catSel) catSel.value = d2.category || '';
+      var brandSel = row.querySelector('[data-f="brand"]'); if (brandSel) brandSel.value = d2.brand || '';
+      var modelIn = row.querySelector('[data-f="model"]'); if (modelIn) modelIn.value = d2.model || '';
+      var serialIn = row.querySelector('[data-f="serial"]'); if (serialIn) serialIn.value = d2.serial || '';
+      var condSel = row.querySelector('[data-f="condition"]'); if (condSel) condSel.value = d2.condition || 'New';
+      var warSel = row.querySelector('[data-f="warranty"]'); if (warSel) warSel.value = d2.warranty || '';
+      var bqIn = row.querySelector('[data-f="bqty"]'); if (bqIn) bqIn.value = (d2.bqty !== undefined ? d2.bqty : 0);
+      var qtyIn = row.querySelector('[data-f="qty"]'); if (qtyIn) qtyIn.value = d2.qty || 0;
+      var remIn = row.querySelector('[data-f="remarks"]'); if (remIn) remIn.value = d2.remarks || '';
+      bindPurRowDel(row);
     }
-    bindPurRowDel(firstRow);
     bindAllPurSearchable(box, function(val, lbl, cat, wrapper) {
       // Product auto-fill category
       if (wrapper.getAttribute('data-sr') === 'product' && cat) {
@@ -2515,31 +2566,49 @@ function openDeliveryModal(delId, readOnly) {
       var chalan = document.querySelector('[data-top="del-chalan"]').value.trim();
       if (!chalan) { showToast('Chalan No required', 'error'); return; }
       if (!date) { showToast('Date required', 'error'); return; }
-      del.date = date; del.chalan = chalan;
-      del.branch = document.getElementById('f-del-branch').value;
-      del.receivedBy = document.querySelector('[data-top="del-received"]').value;
-      del.empId = document.getElementById('f-del-empid').value;
-      del.department = document.getElementById('f-del-dept').value;
-      del.note = document.getElementById('f-del-note').value.trim();
-      del.status = document.getElementById('f-del-status').value;
+      var branch = document.getElementById('f-del-branch').value;
+      var receivedBy = document.querySelector('[data-top="del-received"]').value;
+      var empIdVal = document.getElementById('f-del-empid').value;
+      var deptVal = document.getElementById('f-del-dept').value;
+      var note = document.getElementById('f-del-note').value.trim();
+      var status = document.getElementById('f-del-status').value;
       var rows = document.querySelectorAll('#pur-entries-body tr');
-      var firstValid = null;
-      for (var ri = 0; ri < rows.length; ri++) {
-        var pSel = rows[ri].querySelector('[data-f="product"]');
-        if (pSel && pSel.value) { firstValid = rows[ri]; break; }
+      var hasItem = false;
+      for (var i = 0; i < rows.length; i++) {
+        var p = rows[i].querySelector('[data-f="product"]');
+        if (p && p.value) { hasItem = true; break; }
       }
-      if (firstValid) {
-        del.product = firstValid.querySelector('[data-f="product"]').value;
-        del.category = firstValid.querySelector('[data-f="category"]').value;
-        del.brand = firstValid.querySelector('[data-f="brand"]').value;
-        del.model = firstValid.querySelector('[data-f="model"]').value;
-        del.serial = firstValid.querySelector('[data-f="serial"]').value;
-        del.condition = firstValid.querySelector('[data-f="condition"]').value;
-        del.warranty = firstValid.querySelector('[data-f="warranty"]').value;
-        del.bqty = parseFloat(firstValid.querySelector('[data-f="bqty"]').value) || 0;
-        del.qty = parseFloat(firstValid.querySelector('[data-f="qty"]').value) || 0;
-        del.remarks = firstValid.querySelector('[data-f="remarks"]').value;
+      if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+      // Remove all existing rows with this chalan, then rebuild
+      var otherRows = [];
+      for (var j = 0; j < DB.deliveries.length; j++) {
+        if (DB.deliveries[j].chalan !== del.chalan) otherRows.push(DB.deliveries[j]);
       }
+      // Rebuild with updated multi-product data
+      for (var i2 = 0; i2 < rows.length; i2++) {
+        var r = rows[i2];
+        var product = r.querySelector('[data-f="product"]').value;
+        if (!product) continue;
+        var oldRow = (i2 < chalanRows.length) ? chalanRows[i2] : null;
+        otherRows.push({
+          id: oldRow ? oldRow.id : Date.now() + i2,
+          chalan: chalan, date: date, branch: branch,
+          receivedBy: receivedBy, empId: empIdVal, department: deptVal,
+          status: status, note: note,
+          attachment: (i2 === 0 && oldRow) ? oldRow.attachment : (i2 === 0 ? null : null),
+          product: product,
+          category: r.querySelector('[data-f="category"]').value,
+          brand: r.querySelector('[data-f="brand"]').value,
+          model: r.querySelector('[data-f="model"]').value,
+          serial: r.querySelector('[data-f="serial"]').value,
+          condition: r.querySelector('[data-f="condition"]').value,
+          warranty: r.querySelector('[data-f="warranty"]').value,
+          bqty: parseFloat(r.querySelector('[data-f="bqty"]').value) || 0,
+          qty: parseFloat(r.querySelector('[data-f="qty"]').value) || 0,
+          remarks: r.querySelector('[data-f="remarks"]').value
+        });
+      }
+      DB.deliveries = otherRows;
       closeModal(); showToast('Delivery updated'); renderPage();
     });
   }
