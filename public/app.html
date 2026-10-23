@@ -2640,32 +2640,14 @@ function openDeliveryAddModal() {
       if (trigger && val) trigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
       var empIdIn = document.getElementById('f-del-empid');
       var deptIn = document.getElementById('f-del-dept');
-      var branchSel = document.getElementById('f-del-branch');
+      var branchIn = document.getElementById('f-del-branch');
       // Look up the employee by name (value)
       var emp = null;
       for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
       if (empIdIn) empIdIn.value = emp ? emp.empId : '';
       if (deptIn) deptIn.value = emp ? emp.department : '';
-      // Auto-select the Branch dropdown to match the employee's branch
-      if (branchSel && emp && emp.branch) {
-        // Try to find a matching option
-        var matched = false;
-        for (var bi = 0; bi < branchSel.options.length; bi++) {
-          if (branchSel.options[bi].value === emp.branch || branchSel.options[bi].textContent === emp.branch) {
-            branchSel.selectedIndex = bi;
-            matched = true;
-            break;
-          }
-        }
-        // If no match found but the employee has a branch, prepend a new option
-        if (!matched && emp.branch) {
-          var newOpt = document.createElement('option');
-          newOpt.value = emp.branch;
-          newOpt.textContent = emp.branch;
-          branchSel.appendChild(newOpt);
-          branchSel.value = emp.branch;
-        }
-      }
+      // Auto-fill Branch (read-only input, no manual select)
+      if (branchIn && emp) branchIn.value = emp.branch || '';
     }
   };
 
@@ -2694,7 +2676,7 @@ function openDeliveryAddModal() {
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Chalan No</label><input class="form-input" style="color:var(--muted);" data-top="del-chalan" value="' + autoChalan + '" readonly></div>';
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Employee ID</label><input class="form-input" style="color:var(--muted);" id="f-del-empid" value="" readonly></div>';
   // Row 3: Branch | Department
-  html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><select class="form-input" id="f-del-branch" data-top="del-branch">' + brOpts + '</select></div>';
+  html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><input class="form-input" style="color:var(--muted);" id="f-del-branch" data-top="del-branch" readonly></div>';
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Department</label><input class="form-input" style="color:var(--muted);" id="f-del-dept" value="" readonly></div>';
   html += '</div>';
   html += '</div>';
