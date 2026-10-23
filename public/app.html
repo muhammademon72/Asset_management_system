@@ -3717,9 +3717,8 @@ function printInvoice(invId) {
   if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
   if (co.email) html += 'Email: ' + co.email;
   html += '</div></div><div><div class="doc-title">INVOICE</div><div class="doc-sub">Invoice No: <strong>' + (inv.invoiceNo || '-') + '</strong></div><div class="doc-sub">Date: ' + (inv.date || '-') + '</div></div></div>';
-  html += '<div class="meta-grid">';
+  html += '<div class="meta-grid" style="grid-template-columns:1fr;">';
   html += '<div class="meta-box"><div class="meta-label">Customer</div><div class="meta-value">' + (inv.customer || '-') + '</div></div>';
-  html += '<div class="meta-box"><div class="meta-label">Status</div><div class="meta-value">' + (inv.status || 'Draft') + '</div></div>';
   html += '</div>';
   var items = inv.items || [];
   if (items.length === 0) items = [{ product: '-', category: '-', brand: '-', model: '-', qty: 0, price: 0, total: 0, remarks: '-' }];
