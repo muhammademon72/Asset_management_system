@@ -3302,7 +3302,7 @@ function renderDamageList() {
   var rows = '';
   for (var i = 0; i < DB.damages.length; i++) {
     var d = DB.damages[i];
-    rows += '<tr><td style="font-weight:600;">' + d.ref + '</td><td>' + (d.date || '-') + '</td><td>' + (d.product || '-') + '</td><td>' + (d.branch || '-') + '</td><td style="text-align:center;">' + (d.qty || 0) + '</td><td>' + (d.reason || '-') + '</td><td>' + statusBadge(d.status) + '</td>';
+    rows += '<tr><td>' + (d.date || '-') + '</td><td style="font-weight:600;">' + (d.ref || '-') + '</td><td>' + (d.note || '-') + '</td><td>' + statusBadge(d.status) + '</td>';
     rows += '<td style="width:140px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-dmg="' + d.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-print-dmg="' + d.id + '" title="Print" style="color:var(--info);"><i class="fas fa-print" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-dmg="' + d.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-dmg="' + d.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -3311,7 +3311,7 @@ function renderDamageList() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-primary" id="btn-add-damage"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
-  html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  html += '<table class="data-table" id="main-table"><thead><tr><th>Date</th><th>Reference</th><th>Note</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
 }
 
