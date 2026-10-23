@@ -3349,10 +3349,19 @@ function openQuotationModal(quoteId, readOnly) {
   if (quoteId) { for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === quoteId) { q = DB.quotations[i]; break; } } }
   var title = q ? (readOnly ? 'Quotation Details' : 'Edit Quotation') : 'Add New Quotation';
 
-  // Build product array (all products, not just in-stock — for selling)
+  // Build product array — only show products with stock > 0
+  // stock = purchased (Approved) - delivered - damaged + adjusted
   var prdArr = [];
   for (var k = 0; k < DB.products.length; k++) {
     var p = DB.products[k];
+    // Compute current stock
+    var pur = 0, del = 0, dmg = 0, adj2 = 0;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].status === 'Approved' && DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
+    var stock = pur - del - dmg + adj2; if (stock < 0) stock = 0;
+    if (stock === 0) continue;
     var latestPur = null;
     for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
     prdArr.push({
@@ -3361,7 +3370,8 @@ function openQuotationModal(quoteId, readOnly) {
       brand: p.brand || (latestPur && latestPur.brand) || '',
       model: (latestPur && latestPur.model) || '',
       serial: (latestPur && latestPur.serial) || '',
-      price: (latestPur && latestPur.unitPrice) || (p.price || 0)
+      price: (latestPur && latestPur.unitPrice) || (p.price || 0),
+      stock: stock
     });
   }
   var catOpts = '<option value="">Select</option>';
@@ -3601,13 +3611,21 @@ function openInvoiceModal(invId, readOnly) {
   var inv = null;
   if (invId) { for (var i = 0; i < DB.invoices.length; i++) { if (DB.invoices[i].id === invId) { inv = DB.invoices[i]; break; } } }
   var title = inv ? (readOnly ? 'Invoice Details' : 'Edit Invoice') : 'Add New Invoice';
-  // Build product array (same as Quotation)
+  // Build product array — only show products with stock > 0
+  // stock = purchased (Approved) - delivered - damaged + adjusted
   var prdArr = [];
   for (var k = 0; k < DB.products.length; k++) {
     var p = DB.products[k];
+    var pur = 0, del = 0, dmg = 0, adj2 = 0;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].status === 'Approved' && DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
+    for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
+    var stock = pur - del - dmg + adj2; if (stock < 0) stock = 0;
+    if (stock === 0) continue;
     var latestPur = null;
     for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
-    prdArr.push({ value: p.name, label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''), category: p.category || (latestPur && latestPur.category) || '', brand: p.brand || (latestPur && latestPur.brand) || '', model: (latestPur && latestPur.model) || '', serial: (latestPur && latestPur.serial) || '', price: (latestPur && latestPur.unitPrice) || (p.price || 0) });
+    prdArr.push({ value: p.name, label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''), category: p.category || (latestPur && latestPur.category) || '', brand: p.brand || (latestPur && latestPur.brand) || '', model: (latestPur && latestPur.model) || '', serial: (latestPur && latestPur.serial) || '', price: (latestPur && latestPur.unitPrice) || (p.price || 0), stock: stock });
   }
   var catOpts = '<option value="">Select</option>';
   for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
