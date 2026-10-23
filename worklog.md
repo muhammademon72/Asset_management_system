@@ -677,3 +677,40 @@ Stage Summary:
 - ✅ Other sign boxes (Verified By, Received By, Reported By, Released By) untouched — only Prepared/Approved got the name.
 - ✅ Commit 09b4c85 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 20
+Agent: main
+Task: User reported alignment issue in print files (screenshot showed red arrows pointing at misaligned signature lines). The "Admin User" name (above Prepared By / Approved By) was floating at the top of its sign-box, while the signature lines of empty boxes (Verified By, Received By, Received Signature) were also at the top — so the three horizontal signature lines were not aligned.
+
+Work Log:
+- Diagnosed the CSS structure:
+    .sign { display: flex; justify-content: space-between; gap: 40px; }  (row flex container)
+    .sign-box { flex: 1; text-align: center; }                            (no flex direction)
+    .sign-line { margin-top: 50px or 60px; border-top: 1px solid; ... }   (line at top + 50px below)
+  The previous Task 19 added a name div as the FIRST child of .sign-box, then the .sign-line was rendered below it. Because .sign-box was not a flex column, the contents stacked from the TOP. Boxes WITH a name div ended up with the sign-line pushed further down than boxes WITHOUT a name div. Net effect: the three signature LINES were not horizontally aligned.
+
+- Wrote /home/z/my-project/scripts/fix_sign_alignment.py to apply a clean fix:
+    (a) Replace every .sign-box rule with:
+          flex:1; text-align:center;
+          display:flex; flex-direction:column; justify-content:flex-end;
+          min-height:80px;
+        → Each sign-box becomes a column flex container that pushes its content to the BOTTOM.
+    (b) Replace every .sign-line rule by removing margin-top:50/60px (keep border-top, padding-top, font, color).
+        → No more vertical offset on the line itself; the line is now wherever flexbox places it (at the bottom).
+    (c) Result: in every .sign row, all three (or two) signature lines sit at the BOTTOM of their 80px-tall boxes, so they're horizontally aligned. The optional name div sits ABOVE the line in boxes that have one; empty boxes just have empty space above their line.
+
+- Ran the script: 11 .sign-line CSS rules replaced, 11 .sign-box CSS rules replaced. 0 remaining margin-top rules.
+- Re-extracted inline script (498,646 chars) → node --check passed (SYNTAX_OK).
+- Verified by grep: every .sign-box rule now has display:flex + flex-direction:column + justify-content:flex-end + min-height:80px; every .sign-line rule no longer has margin-top.
+- Committed as 5f3e64b.
+- Pushed to GitHub: 09b4c85..5f3e64b main -> main ✅ (using inline PAT auth).
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ ALL print documents now have horizontally aligned signature lines.
+- ✅ "Admin User" name still appears above Prepared By and Approved By (Task 19 feature intact).
+- ✅ "Received Signature" label still replaces Customer Signature (Task 19 feature intact).
+- ✅ Empty boxes (Verified By, Received By, Received Signature, Reported By, Released By) now have their sign-line at the bottom too, matching the boxes with names.
+- ✅ Commit 5f3e64b pushed to GitHub.
+- ✅ JS syntax verified clean.
