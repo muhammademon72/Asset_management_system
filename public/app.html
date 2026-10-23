@@ -2343,7 +2343,7 @@ function openDeliveryModal(delId, readOnly) {
     html += purFieldRow('Received By', purSearchableHTML('receiver', 'data-top="del-received"', empArr, del.receivedBy || '', 'Select Receiver', 'Search name or ID...'));
     html += purFieldRow('Employee ID', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-del-empid" value="" readonly>');
     html += purFieldRow('Department', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-del-dept" value="" readonly>');
-    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" data-top="del-branch">' + brOpts + '</select>');
+    html += purFieldRow('Branch', '<select class="form-input" style="border:none;box-shadow:none;background:transparent;padding-right:36px;" id="f-del-branch" data-top="del-branch">' + brOpts + '</select>');
   }
   html += '</div>';
 
@@ -2472,7 +2472,7 @@ function openDeliveryModal(delId, readOnly) {
         for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
         var empIdIn = document.getElementById('f-del-empid');
         var deptIn = document.getElementById('f-del-dept');
-        var branchSel = document.querySelector('[data-top="del-branch"]');
+        var branchSel = document.getElementById('f-del-branch');
         if (empIdIn) empIdIn.value = emp ? emp.empId : '';
         if (deptIn) deptIn.value = emp ? emp.department : '';
         // Auto-select the Branch dropdown to match the employee's branch
@@ -2516,7 +2516,7 @@ function openDeliveryModal(delId, readOnly) {
       if (!chalan) { showToast('Chalan No required', 'error'); return; }
       if (!date) { showToast('Date required', 'error'); return; }
       del.date = date; del.chalan = chalan;
-      del.branch = document.querySelector('[data-top="del-branch"]').value;
+      del.branch = document.getElementById('f-del-branch').value;
       del.receivedBy = document.querySelector('[data-top="del-received"]').value;
       del.empId = document.getElementById('f-del-empid').value;
       del.department = document.getElementById('f-del-dept').value;
@@ -2640,7 +2640,7 @@ function openDeliveryAddModal() {
       if (trigger && val) trigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
       var empIdIn = document.getElementById('f-del-empid');
       var deptIn = document.getElementById('f-del-dept');
-      var branchSel = document.querySelector('[data-top="del-branch"]');
+      var branchSel = document.getElementById('f-del-branch');
       // Look up the employee by name (value)
       var emp = null;
       for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
@@ -2694,7 +2694,7 @@ function openDeliveryAddModal() {
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Chalan No</label><input class="form-input" style="color:var(--muted);" data-top="del-chalan" value="' + autoChalan + '" readonly></div>';
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Employee ID</label><input class="form-input" style="color:var(--muted);" id="f-del-empid" value="" readonly></div>';
   // Row 3: Branch | Department
-  html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><select class="form-input" data-top="del-branch">' + brOpts + '</select></div>';
+  html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Branch</label><select class="form-input" id="f-del-branch" data-top="del-branch">' + brOpts + '</select></div>';
   html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Department</label><input class="form-input" style="color:var(--muted);" id="f-del-dept" value="" readonly></div>';
   html += '</div>';
   html += '</div>';
@@ -2767,7 +2767,7 @@ function openDeliveryAddModal() {
       for (var ei = 0; ei < DB.employees.length; ei++) { if (DB.employees[ei].name === val) { emp = DB.employees[ei]; break; } }
       var empIdIn = document.getElementById('f-del-empid');
       var deptIn = document.getElementById('f-del-dept');
-      var branchSel = document.querySelector('[data-top="del-branch"]');
+      var branchSel = document.getElementById('f-del-branch');
       if (empIdIn) empIdIn.value = emp ? emp.empId : '';
       if (deptIn) deptIn.value = emp ? emp.department : '';
       // Auto-select the Branch dropdown to match the employee's branch
@@ -2821,7 +2821,7 @@ function openDeliveryAddModal() {
     var chalan = document.querySelector('[data-top="del-chalan"]').value.trim();
     if (!chalan) { showToast('Chalan No required', 'error'); return; }
     if (!date) { showToast('Date required', 'error'); return; }
-    var branch = document.querySelector('[data-top="del-branch"]').value;
+    var branch = document.getElementById('f-del-branch').value;
     var receivedBy = document.querySelector('[data-top="del-received"]').value;
     var empIdVal = document.getElementById('f-del-empid').value;
     var deptVal = document.getElementById('f-del-dept').value;
