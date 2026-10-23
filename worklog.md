@@ -589,3 +589,24 @@ Stage Summary:
 - ✅ Subject data already exists in q.subject (collected via modal since Task 798b2a6).
 - ✅ Commit e4f30cb (local only — GitHub push needs credentials from user side).
 - ✅ JS syntax clean.
+
+---
+Task ID: 17
+Agent: main
+Task: User reported "kono change hoy nai" (no change happened) — root cause was that commit e4f30cb was local-only (no GitHub credentials available). User then provided a GitHub PAT to enable push.
+
+Work Log:
+- Verified local state: change to printQuotation() IS in /home/z/my-project/public/app.html (lines 3394-3396) and IS served correctly by local dev server (curl localhost:3000/app.html shows the Subject meta-label).
+- Confirmed the issue: commits b8d72c2, e4f30cb were local-only; Vercel deployment at it-asset-management-system.vercel.app had not been updated.
+- User supplied GitHub PAT (ghp_***).
+- Pushed using one-shot URL auth (token passed inline, NOT stored in any credential helper or file):
+    git -c credential.helper= -c http.extraheader= push https://x-access-token:***@github.com/.../Asset_management_system.git main
+- Result: 798b2a6..195ddf5 main -> main — pushed successfully (4 commits: revert + re-apply + 2 auto commits).
+- Verified token was NOT persisted: ~/.git-credentials does not exist, credential.helper is still 'store' but no credentials file written.
+
+Stage Summary:
+- ✅ All commits pushed to https://github.com/muhammademon72/Asset_management_system.git
+- ✅ Vercel will auto-deploy from main branch — should be live within ~1-2 minutes
+- ✅ User should hard-refresh (Ctrl+Shift+R) the Vercel URL after deploy completes
+- ✅ GitHub PAT was used inline only, not stored anywhere persistent
+- ⚠️ Recommend user revoke the PAT at https://github.com/settings/tokens since it was shared in chat
