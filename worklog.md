@@ -523,3 +523,34 @@ Stage Summary:
 - ✅ Commit a207bdd pushed to GitHub
 - ✅ Permission matrix now ACTUALLY enforces — previously a user without
   delete permission could see and click Delete buttons on Branch List
+
+---
+Task ID: 14
+Agent: main
+Task: User uploaded screenshot of printed Sell Proposal (QT-2026-001) showing the Customer+Status meta-box highlighted in red. Request (Bengali): "Red mark box remove kore Subject add koro" — remove the red-marked box and add a Subject field in its place.
+
+Work Log:
+- Located the print document template in public/app.html → printQuotation() function (lines 3368–3420).
+- Identified the red-marked box at lines 3394–3397 — a .meta-grid containing TWO .meta-box children: "Customer" (q.customer) and "Status" (q.status).
+- Confirmed q.subject is already collected in the modal (line 3512 input + line 3507 readOnly display) and persisted (lines 3632, 3636) — so the data exists, just wasn't being rendered in the printed doc.
+- Edit applied (lines 3394–3396):
+    BEFORE:
+      html += '<div class="meta-grid">';
+      html += '<div class="meta-box"><div class="meta-label">Customer</div>...';
+      html += '<div class="meta-box"><div class="meta-label">Status</div>...';
+      html += '</div>';
+    AFTER:
+      html += '<div class="meta-grid" style="grid-template-columns:1fr;">';
+      html += '<div class="meta-box"><div class="meta-label">Subject</div><div class="meta-value">' + (q.subject || '-') + '</div></div>';
+      html += '</div>';
+  (Used grid-template-columns:1fr inline override so the single Subject box spans full width instead of half — keeps the existing .meta-box/.meta-label/.meta-value styling consistent.)
+- Re-extracted the inline <script> block (494,664 chars) and ran `node --check` — passed (SYNTAX OK).
+- Committed locally: b8d72c2 "feat(sell-proposal): replace Customer/Status box with Subject in printed Sell Proposal doc"
+- Push to GitHub failed — no credentials available in this session (scripts/.github_token missing, ~/.git-credentials empty). User will need to push manually or trigger auto-push from a credentialed environment.
+
+Stage Summary:
+- ✅ Printed Sell Proposal document no longer shows the Customer/Status meta-box
+- ✅ Replaced with a single full-width Subject box sourced from q.subject
+- ✅ Modal already collects & persists q.subject — no data model change needed
+- ✅ Commit b8d72c2 (local only)
+- ⚠️ Not pushed to GitHub (credential issue in this session) — user can push manually
