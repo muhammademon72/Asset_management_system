@@ -3348,29 +3348,116 @@ function openQuotationModal(quoteId, readOnly) {
   var q = null;
   if (quoteId) { for (var i = 0; i < DB.quotations.length; i++) { if (DB.quotations[i].id === quoteId) { q = DB.quotations[i]; break; } } }
   var title = q ? (readOnly ? 'Quotation Details' : 'Edit Quotation') : 'Add New Quotation';
-  var html = '<div style="padding:24px;max-width:720px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
-  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+
+  // Build product array (all products, not just in-stock — for selling)
+  var prdArr = [];
+  for (var k = 0; k < DB.products.length; k++) {
+    var p = DB.products[k];
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
+    prdArr.push({
+      value: p.name, label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''),
+      category: p.category || (latestPur && latestPur.category) || '',
+      brand: p.brand || (latestPur && latestPur.brand) || '',
+      model: (latestPur && latestPur.model) || '',
+      serial: (latestPur && latestPur.serial) || '',
+      price: (latestPur && latestPur.unitPrice) || (p.price || 0)
+    });
+  }
+  var catOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
+  var brandOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.brands.length; k++) brandOpts += '<option>' + DB.brands[k].name + '</option>';
+
+  var quoteProductSelectCb = function(val, lbl, cat, wrapper) {
+    if (wrapper.getAttribute('data-sr') === 'product') {
+      var row = wrapper.closest('tr');
+      if (row) {
+        var prod = null;
+        for (var pi = 0; pi < prdArr.length; pi++) { if (prdArr[pi].value === val) { prod = prdArr[pi]; break; } }
+        if (prod) {
+          var cs = row.querySelector('[data-f="category"]'); if (cs && prod.category) cs.value = prod.category;
+          var bs = row.querySelector('[data-f="brand"]'); if (bs && prod.brand) bs.value = prod.brand;
+          var mi = row.querySelector('[data-f="model"]'); if (mi && prod.model) mi.value = prod.model;
+          var si = row.querySelector('[data-f="serial"]'); if (si && prod.serial) si.value = prod.serial;
+          var pr = row.querySelector('[data-f="price"]'); if (pr && prod.price) pr.value = prod.price;
+        }
+        var pTrigger = wrapper.querySelector('.pur-sr-trigger');
+        if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+        // Recalculate total
+        if (typeof purCalcRowTotal === 'function') {
+          var qtyIn = row.querySelector('[data-f="qty"]');
+          if (qtyIn) purCalcRowTotal(qtyIn);
+        }
+      }
+    }
+  };
+
+  var refVal = q ? q.quoteNo : generateQuoteNo();
+  var html = '<div style="width:1120px;max-width:96vw;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+  html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
+  html += '</div>';
+  html += '<div style="padding:20px 24px 24px;">';
+  // Top fields: Date | Quotation No | Customer
+  html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 18px;">';
   if (readOnly) {
-    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (q.date || '-') + '</span>');
-    html += purFieldRow('Quotation No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (q.quoteNo || '-') + '</span>');
-    html += purFieldRow('Customer', '<span style="font-size:13px;color:var(--fg);">' + (q.customer || '-') + '</span>');
-    html += purFieldRow('Subject', '<span style="font-size:13px;color:var(--fg);">' + (q.subject || '-') + '</span>');
-    html += purFieldRow('Total Amount', '<span style="font-size:13px;font-weight:600;color:var(--accent);">' + fmt(q.total || 0) + '</span>');
-    if (q.note) html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + q.note + '</span>');
-    html += purFieldRow('Status', statusBadge(q.status || 'Draft'));
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.date || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Quotation No</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (q.quoteNo || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (q.customer || '-') + '</div></div>';
   } else {
-    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-date" value="' + (q ? q.date || '' : '') + '">');
-    html += purFieldRow('Quotation No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-quote-no" value="' + (q ? q.quoteNo : generateQuoteNo()) + '" readonly>');
-    html += purFieldRow('Customer', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-customer" value="' + (q ? q.customer || '' : '') + '" placeholder="Customer name">');
-    html += purFieldRow('Subject', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-subject" value="' + (q ? q.subject || '' : '') + '" placeholder="Subject">');
-    html += purFieldRow('Total Amount', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-quote-total" value="' + (q ? q.total || 0 : 0) + '">');
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-quote-date" value="' + (q ? q.date || '' : '') + '"></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Quotation No</label><input class="form-input" style="color:var(--muted);" id="f-quote-no" value="' + refVal + '" readonly></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><input class="form-input" id="f-quote-customer" value="' + (q ? q.customer || '' : '') + '" placeholder="Customer name"></div>';
   }
   html += '</div>';
-  if (!readOnly) {
-    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-quote-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (q ? q.note || '' : '') + '</textarea>');
-    html += '</div>';
+  html += '</div>';
+  // Product table — multi-row
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
+  html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr>';
+  html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th><th class="pur-th">Remarks</th>';
+  if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
+  html += '</tr></thead><tbody id="pur-entries-body">';
+  // Load saved items or create one empty row
+  var savedItems = (q && q.items) ? q.items : [];
+  if (readOnly) {
+    if (savedItems.length === 0) savedItems = [{ product: '-', category: '-', brand: '-', model: '-', serial: '-', qty: 0, price: 0, total: 0, remarks: '-' }];
+    for (var ri = 0; ri < savedItems.length; ri++) {
+      var it = savedItems[ri];
+      html += '<tr>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;font-weight:600;">' + (it.product || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.category || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.brand || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.model || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.serial || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (it.qty || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(it.price || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(it.total || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.remarks || '-') + '</td>';
+      html += '</tr>';
+    }
+  } else {
+    var numRows = Math.max(1, savedItems.length);
+    for (var ri2 = 0; ri2 < numRows; ri2++) {
+      html += quotationTableRowHTML(catOpts, brandOpts, prdArr);
+    }
   }
+  html += '</tbody></table></div></div>';
+  if (!readOnly) {
+    html += '<button type="button" id="btn-quote-addrow" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:Outfit,sans-serif;padding:6px 0;margin-bottom:18px;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;margin-left:auto;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><i class="fas fa-plus-circle"></i> Add Row</button>';
+  }
+  // Note
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+  if (readOnly) {
+    html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + (q.note || '—') + '</span>');
+  } else {
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-quote-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (q ? q.note || '' : '') + '</textarea>');
+  }
+  html += '</div>';
   // Bottom bar
   html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
   if (readOnly) {
@@ -3385,27 +3472,88 @@ function openQuotationModal(quoteId, readOnly) {
     html += '<button class="btn btn-primary" id="btn-save-quote"><i class="fas fa-check"></i> ' + (q ? 'Update' : 'Save') + '</button>';
   }
   html += '</div></div></div>';
-  openModal(html);
+  injectPurStyles();
+  var overlay = document.getElementById('modal-overlay');
+  var box = document.getElementById('modal-box');
+  cleanupPurPanels();
+  box.innerHTML = html;
+  box.style.width = 'auto';
+  box.style.maxWidth = '96vw';
+  overlay.classList.add('show');
   if (!readOnly) {
+    // Pre-fill rows from saved data
+    var allRows = document.querySelectorAll('#pur-entries-body tr');
+    for (var ri3 = 0; ri3 < allRows.length && ri3 < savedItems.length; ri3++) {
+      var row = allRows[ri3];
+      var it2 = savedItems[ri3];
+      var prodWrapper = row.querySelector('[data-sr="product"]');
+      if (prodWrapper) setPurSearchableValue(prodWrapper, it2.product || '', it2.product || '');
+      var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = it2.category || '';
+      var bs = row.querySelector('[data-f="brand"]'); if (bs) bs.value = it2.brand || '';
+      var mi = row.querySelector('[data-f="model"]'); if (mi) mi.value = it2.model || '';
+      var si = row.querySelector('[data-f="serial"]'); if (si) si.value = it2.serial || '';
+      var qi = row.querySelector('[data-f="qty"]'); if (qi) qi.value = it2.qty || 0;
+      var pr = row.querySelector('[data-f="price"]'); if (pr) pr.value = it2.price || 0;
+      var tl = row.querySelector('[data-f="total"]'); if (tl) tl.value = fmt((it2.qty||0)*(it2.price||0));
+      var rm = row.querySelector('[data-f="remarks"]'); if (rm) rm.value = it2.remarks || '';
+      bindPurRowDel(row);
+    }
+    bindAllPurSearchable(box, quoteProductSelectCb);
+    document.getElementById('btn-quote-addrow').addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      var tr = document.createElement('tr');
+      tr.innerHTML = quotationTableRowHTML(catOpts, brandOpts, prdArr);
+      tbody.appendChild(tr);
+      bindPurRowDel(tr);
+      bindAllPurSearchable(tr, quoteProductSelectCb);
+    });
     document.getElementById('btn-save-quote').addEventListener('click', function() {
       var date = document.getElementById('f-quote-date').value;
       var quoteNo = document.getElementById('f-quote-no').value.trim();
       if (!date) { showToast('Date required', 'error'); return; }
       var customer = document.getElementById('f-quote-customer').value.trim();
-      var subject = document.getElementById('f-quote-subject').value.trim();
-      var total = parseFloat(document.getElementById('f-quote-total').value) || 0;
       var note = document.getElementById('f-quote-note').value.trim();
       var status = document.getElementById('f-quote-status').value;
+      var rows2 = document.querySelectorAll('#pur-entries-body tr');
+      var items = [];
+      var grandTotal = 0;
+      for (var si2 = 0; si2 < rows2.length; si2++) {
+        var r = rows2[si2];
+        var product = r.querySelector('[data-f="product"]').value;
+        if (!product) continue;
+        var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
+        var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+        var total = qty * price;
+        grandTotal += total;
+        items.push({ product: product, category: r.querySelector('[data-f="category"]').value, brand: r.querySelector('[data-f="brand"]').value, model: r.querySelector('[data-f="model"]').value, serial: r.querySelector('[data-f="serial"]').value, qty: qty, price: price, total: total, remarks: r.querySelector('[data-f="remarks"]').value });
+      }
+      if (items.length === 0) { showToast('Add at least one product', 'error'); return; }
       if (q) {
-        q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.subject = subject;
-        q.total = total; q.note = note; q.status = status;
+        q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.note = note; q.status = status;
+        q.items = items; q.total = grandTotal;
         closeModal(); showToast('Quotation updated'); renderPage();
       } else {
-        DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, subject: subject, total: total, note: note, status: status });
+        DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, note: note, status: status, items: items, total: grandTotal });
         closeModal(); showToast('Quotation added'); renderPage();
       }
     });
   }
+}
+
+function quotationTableRowHTML(catOpts, brandOpts, prdArr) {
+  var h = '<tr>';
+  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
+  h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Model" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);background:#f5f7f5;"></td>';
+  h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
+  h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
+  h += '</tr>';
+  return h;
 }
 
 // ==================== INVOICE LIST ====================
@@ -3453,30 +3601,97 @@ function openInvoiceModal(invId, readOnly) {
   var inv = null;
   if (invId) { for (var i = 0; i < DB.invoices.length; i++) { if (DB.invoices[i].id === invId) { inv = DB.invoices[i]; break; } } }
   var title = inv ? (readOnly ? 'Invoice Details' : 'Edit Invoice') : 'Add New Invoice';
-  var html = '<div style="padding:24px;max-width:720px;">' + modalHeader(title) + '<div style="padding-top:16px;">';
+  // Build product array (same as Quotation)
+  var prdArr = [];
+  for (var k = 0; k < DB.products.length; k++) {
+    var p = DB.products[k];
+    var latestPur = null;
+    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
+    prdArr.push({ value: p.name, label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''), category: p.category || (latestPur && latestPur.category) || '', brand: p.brand || (latestPur && latestPur.brand) || '', model: (latestPur && latestPur.model) || '', serial: (latestPur && latestPur.serial) || '', price: (latestPur && latestPur.unitPrice) || (p.price || 0) });
+  }
+  var catOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
+  var brandOpts = '<option value="">Select</option>';
+  for (var k = 0; k < DB.brands.length; k++) brandOpts += '<option>' + DB.brands[k].name + '</option>';
+  var invProductSelectCb = function(val, lbl, cat, wrapper) {
+    if (wrapper.getAttribute('data-sr') === 'product') {
+      var row = wrapper.closest('tr');
+      if (row) {
+        var prod = null;
+        for (var pi = 0; pi < prdArr.length; pi++) { if (prdArr[pi].value === val) { prod = prdArr[pi]; break; } }
+        if (prod) {
+          var cs = row.querySelector('[data-f="category"]'); if (cs && prod.category) cs.value = prod.category;
+          var bs = row.querySelector('[data-f="brand"]'); if (bs && prod.brand) bs.value = prod.brand;
+          var mi = row.querySelector('[data-f="model"]'); if (mi && prod.model) mi.value = prod.model;
+          var si = row.querySelector('[data-f="serial"]'); if (si && prod.serial) si.value = prod.serial;
+          var pr = row.querySelector('[data-f="price"]'); if (pr && prod.price) pr.value = prod.price;
+        }
+        var pTrigger = wrapper.querySelector('.pur-sr-trigger');
+        if (pTrigger && val) pTrigger.innerHTML = val + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+        var qtyIn = row.querySelector('[data-f="qty"]');
+        if (qtyIn && typeof purCalcRowTotal === 'function') purCalcRowTotal(qtyIn);
+      }
+    }
+  };
+  var refVal = inv ? inv.invoiceNo : generateInvoiceNo();
+  var html = '<div style="width:1120px;max-width:96vw;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;">';
+  html += '<div style="font-size:20px;font-weight:800;color:var(--fg);">' + title + '</div>';
+  html += '<button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;"><i class="fas fa-times"></i></button>';
+  html += '</div>';
+  html += '<div style="padding:20px 24px 24px;">';
+  html += '<div style="padding:18px 20px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 18px;">';
+  if (readOnly) {
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (inv.date || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Invoice No</label><div style="font-size:13px;font-weight:600;color:var(--fg);padding:8px 0;">' + (inv.invoiceNo || '-') + '</div></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><div style="font-size:13px;color:var(--fg);padding:8px 0;">' + (inv.customer || '-') + '</div></div>';
+  } else {
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Date</label><input type="date" class="form-input" id="f-invoice-date" value="' + (inv ? inv.date || '' : '') + '"></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Invoice No</label><input class="form-input" style="color:var(--muted);" id="f-invoice-no" value="' + refVal + '" readonly></div>';
+    html += '<div class="form-group" style="margin:0;"><label class="form-label" style="font-size:12px;font-weight:600;color:var(--accent-dark);">Customer</label><input class="form-input" id="f-invoice-customer" value="' + (inv ? inv.customer || '' : '') + '" placeholder="Customer name"></div>';
+  }
+  html += '</div></div>';
+  // Product table
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">';
+  html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr>';
+  html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th><th class="pur-th">Remarks</th>';
+  if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
+  html += '</tr></thead><tbody id="pur-entries-body">';
+  var savedItems = (inv && inv.items) ? inv.items : [];
+  if (readOnly) {
+    if (savedItems.length === 0) savedItems = [{ product: '-', category: '-', brand: '-', model: '-', serial: '-', qty: 0, price: 0, total: 0, remarks: '-' }];
+    for (var ri = 0; ri < savedItems.length; ri++) {
+      var it = savedItems[ri];
+      html += '<tr>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;font-weight:600;">' + (it.product || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.category || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.brand || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.model || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.serial || '-') + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (it.qty || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(it.price || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(it.total || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (it.remarks || '-') + '</td>';
+      html += '</tr>';
+    }
+  } else {
+    var numRows = Math.max(1, savedItems.length);
+    for (var ri2 = 0; ri2 < numRows; ri2++) { html += invoiceTableRowHTML(catOpts, brandOpts, prdArr); }
+  }
+  html += '</tbody></table></div></div>';
+  if (!readOnly) {
+    html += '<button type="button" id="btn-invoice-addrow" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:Outfit,sans-serif;padding:6px 0;margin-bottom:18px;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;margin-left:auto;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><i class="fas fa-plus-circle"></i> Add Row</button>';
+  }
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   if (readOnly) {
-    html += purFieldRow('Date', '<span style="font-size:13px;color:var(--fg);">' + (inv.date || '-') + '</span>');
-    html += purFieldRow('Invoice No', '<span style="font-size:13px;font-weight:600;color:var(--fg);">' + (inv.invoiceNo || '-') + '</span>');
-    html += purFieldRow('Customer', '<span style="font-size:13px;color:var(--fg);">' + (inv.customer || '-') + '</span>');
-    html += purFieldRow('Subject', '<span style="font-size:13px;color:var(--fg);">' + (inv.subject || '-') + '</span>');
-    html += purFieldRow('Total Amount', '<span style="font-size:13px;font-weight:600;color:var(--accent);">' + fmt(inv.total || 0) + '</span>');
-    if (inv.note) html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + inv.note + '</span>');
-    html += purFieldRow('Status', statusBadge(inv.status || 'Draft'));
+    html += purFieldRow('Note', '<span style="font-size:13px;color:var(--muted);">' + (inv.note || '—') + '</span>');
   } else {
-    html += purFieldRow('Date', '<input type="date" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-date" value="' + (inv ? inv.date || '' : '') + '">');
-    html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;color:var(--muted);" id="f-invoice-no" value="' + (inv ? inv.invoiceNo : generateInvoiceNo()) + '" readonly>');
-    html += purFieldRow('Customer', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-customer" value="' + (inv ? inv.customer || '' : '') + '" placeholder="Customer name">');
-    html += purFieldRow('Subject', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-subject" value="' + (inv ? inv.subject || '' : '') + '" placeholder="Subject">');
-    html += purFieldRow('Total Amount', '<input type="number" class="form-input" style="border:none;box-shadow:none;background:transparent;" id="f-invoice-total" value="' + (inv ? inv.total || 0 : 0) + '">');
+    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-invoice-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (inv ? inv.note || '' : '') + '</textarea>');
   }
   html += '</div>';
-  if (!readOnly) {
-    html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
-    html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-invoice-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note...">' + (inv ? inv.note || '' : '') + '</textarea>');
-    html += '</div>';
-  }
-  // Bottom bar
   html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
   if (readOnly) {
     html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span> ' + statusBadge(inv.status || 'Draft') + '</div>';
@@ -3490,27 +3705,87 @@ function openInvoiceModal(invId, readOnly) {
     html += '<button class="btn btn-primary" id="btn-save-invoice"><i class="fas fa-check"></i> ' + (inv ? 'Update' : 'Save') + '</button>';
   }
   html += '</div></div></div>';
-  openModal(html);
+  injectPurStyles();
+  var overlay = document.getElementById('modal-overlay');
+  var box = document.getElementById('modal-box');
+  cleanupPurPanels();
+  box.innerHTML = html;
+  box.style.width = 'auto';
+  box.style.maxWidth = '96vw';
+  overlay.classList.add('show');
   if (!readOnly) {
+    var allRows = document.querySelectorAll('#pur-entries-body tr');
+    for (var ri3 = 0; ri3 < allRows.length && ri3 < savedItems.length; ri3++) {
+      var row = allRows[ri3];
+      var it2 = savedItems[ri3];
+      var prodWrapper = row.querySelector('[data-sr="product"]');
+      if (prodWrapper) setPurSearchableValue(prodWrapper, it2.product || '', it2.product || '');
+      var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = it2.category || '';
+      var bs = row.querySelector('[data-f="brand"]'); if (bs) bs.value = it2.brand || '';
+      var mi = row.querySelector('[data-f="model"]'); if (mi) mi.value = it2.model || '';
+      var si = row.querySelector('[data-f="serial"]'); if (si) si.value = it2.serial || '';
+      var qi = row.querySelector('[data-f="qty"]'); if (qi) qi.value = it2.qty || 0;
+      var pr = row.querySelector('[data-f="price"]'); if (pr) pr.value = it2.price || 0;
+      var tl = row.querySelector('[data-f="total"]'); if (tl) tl.value = fmt((it2.qty||0)*(it2.price||0));
+      var rm = row.querySelector('[data-f="remarks"]'); if (rm) rm.value = it2.remarks || '';
+      bindPurRowDel(row);
+    }
+    bindAllPurSearchable(box, invProductSelectCb);
+    document.getElementById('btn-invoice-addrow').addEventListener('click', function() {
+      var tbody = document.getElementById('pur-entries-body');
+      var tr = document.createElement('tr');
+      tr.innerHTML = invoiceTableRowHTML(catOpts, brandOpts, prdArr);
+      tbody.appendChild(tr);
+      bindPurRowDel(tr);
+      bindAllPurSearchable(tr, invProductSelectCb);
+    });
     document.getElementById('btn-save-invoice').addEventListener('click', function() {
       var date = document.getElementById('f-invoice-date').value;
       var invoiceNo = document.getElementById('f-invoice-no').value.trim();
       if (!date) { showToast('Date required', 'error'); return; }
       var customer = document.getElementById('f-invoice-customer').value.trim();
-      var subject = document.getElementById('f-invoice-subject').value.trim();
-      var total = parseFloat(document.getElementById('f-invoice-total').value) || 0;
       var note = document.getElementById('f-invoice-note').value.trim();
       var status = document.getElementById('f-invoice-status').value;
+      var rows2 = document.querySelectorAll('#pur-entries-body tr');
+      var items = [];
+      var grandTotal = 0;
+      for (var si2 = 0; si2 < rows2.length; si2++) {
+        var r = rows2[si2];
+        var product = r.querySelector('[data-f="product"]').value;
+        if (!product) continue;
+        var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
+        var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+        var total = qty * price;
+        grandTotal += total;
+        items.push({ product: product, category: r.querySelector('[data-f="category"]').value, brand: r.querySelector('[data-f="brand"]').value, model: r.querySelector('[data-f="model"]').value, serial: r.querySelector('[data-f="serial"]').value, qty: qty, price: price, total: total, remarks: r.querySelector('[data-f="remarks"]').value });
+      }
+      if (items.length === 0) { showToast('Add at least one product', 'error'); return; }
       if (inv) {
-        inv.date = date; inv.invoiceNo = invoiceNo; inv.customer = customer; inv.subject = subject;
-        inv.total = total; inv.note = note; inv.status = status;
+        inv.date = date; inv.invoiceNo = invoiceNo; inv.customer = customer; inv.note = note; inv.status = status;
+        inv.items = items; inv.total = grandTotal;
         closeModal(); showToast('Invoice updated'); renderPage();
       } else {
-        DB.invoices.push({ id: Date.now(), date: date, invoiceNo: invoiceNo, customer: customer, subject: subject, total: total, note: note, status: status });
+        DB.invoices.push({ id: Date.now(), date: date, invoiceNo: invoiceNo, customer: customer, note: note, status: status, items: items, total: grandTotal });
         closeModal(); showToast('Invoice added'); renderPage();
       }
     });
   }
+}
+
+function invoiceTableRowHTML(catOpts, brandOpts, prdArr) {
+  var h = '<tr>';
+  h += '<td class="pur-td">' + purSearchableHTML('product', 'data-f="product"', prdArr || [], '', 'Select Product', 'Search product...') + '</td>';
+  h += '<td class="pur-td"><select data-f="category" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + catOpts + '</select></td>';
+  h += '<td class="pur-td"><select data-f="brand">' + brandOpts + '</select></td>';
+  h += '<td class="pur-td"><input data-f="model" placeholder="Model" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
+  h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
+  h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);background:#f5f7f5;"></td>';
+  h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
+  h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
+  h += '</tr>';
+  return h;
 }
 
 function renderDamageList() {
