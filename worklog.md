@@ -554,3 +554,20 @@ Stage Summary:
 - ✅ Modal already collects & persists q.subject — no data model change needed
 - ✅ Commit b8d72c2 (local only)
 - ⚠️ Not pushed to GitHub (credential issue in this session) — user can push manually
+
+---
+Task ID: 15
+Agent: main
+Task: User said "Back to Previous" — wants to revert the change made in Task ID 14 (replacing Customer/Status meta-box with Subject box in the printed Sell Proposal).
+
+Work Log:
+- Ran `git log --oneline -5` and confirmed the commit to revert: b8d72c2 "feat(sell-proposal): replace Customer/Status box with Subject in printed Sell Proposal doc".
+- Ran `git revert --no-edit b8d72c2` — created revert commit 1bc352f cleanly (no merge conflicts).
+- Verified the printed Sell Proposal meta-grid now shows Customer + Status again (lines 3394–3397).
+- Re-extracted inline script (494,768 chars) and ran `node --check` → SYNTAX OK.
+
+Stage Summary:
+- ✅ Reverted to previous state — Customer + Status meta-box is restored in the printed Sell Proposal document.
+- ✅ Subject field is no longer shown on the printed doc (was added in Task 14, now removed).
+- ✅ Revert commit 1bc352f (local only — same credential caveat as before).
+- ✅ JS syntax verified clean.
