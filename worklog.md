@@ -610,3 +610,33 @@ Stage Summary:
 - ✅ User should hard-refresh (Ctrl+Shift+R) the Vercel URL after deploy completes
 - ✅ GitHub PAT was used inline only, not stored anywhere persistent
 - ⚠️ Recommend user revoke the PAT at https://github.com/settings/tokens since it was shared in chat
+
+---
+Task ID: 18
+Agent: main
+Task: User requested: "Invoice List er Print file theke Status Remove koro" — from the Invoice List print document, remove the Status box.
+
+Work Log:
+- Located printInvoice() in public/app.html at line 3695.
+- Found meta-grid at lines 3720-3723: contained TWO boxes — "Customer" (inv.customer) and "Status" (inv.status).
+- Edit applied (lines 3720-3722):
+    BEFORE:
+      html += '<div class="meta-grid">';
+      html += '<div class="meta-box"><div class="meta-label">Customer</div>...' + (inv.customer || '-') + '</div></div>';
+      html += '<div class="meta-box"><div class="meta-label">Status</div>...' + (inv.status || 'Draft') + '</div></div>';
+      html += '</div>';
+    AFTER:
+      html += '<div class="meta-grid" style="grid-template-columns:1fr;">';
+      html += '<div class="meta-box"><div class="meta-label">Customer</div>...' + (inv.customer || '-') + '</div></div>';
+      html += '</div>';
+  (Removed Status box; Customer now spans full width via grid-template-columns:1fr inline override.)
+- Re-extracted inline script (494,560 chars) → node --check passed (SYNTAX_OK).
+- Committed: bec6cf8 "feat(invoice): remove Status box from printed Invoice doc".
+- Pushed to GitHub: 195ddf5..bec6cf8 main -> main (using inline PAT auth, not stored).
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Printed Invoice document no longer shows the Status box.
+- ✅ Customer box remains, now full-width.
+- ✅ Commit bec6cf8 pushed to GitHub; Vercel will redeploy shortly.
+- ✅ JS syntax verified clean.
