@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IT Asset Management System</title>
+<title>Assets Management System</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@
         <i class="fas fa-microchip" style="color:white;font-size:18px;"></i>
       </div>
       <div class="logo-text">
-        <div style="color:white;font-size:16px;font-weight:700;line-height:1.2;">IT Assets</div>
+        <div style="color:white;font-size:16px;font-weight:700;line-height:1.2;">Assets Management</div>
         <div style="color:#5eea7e;font-size:11px;font-weight:500;letter-spacing:1px;">MANAGEMENT</div>
       </div>
     </div>
@@ -1954,7 +1954,7 @@ function printInventoryStock() {
   html += '<div class="sign-box"><div class="sign-line">Verified By</div></div>';
   html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
   html += '</div>';
-  html += '<div class="foot"><span>This is a system-generated Inventory Stock Report from the IT Asset Management System.</span><span>Page 1</span></div>';
+  html += '<div class="foot"><span>This is a system-generated Inventory Stock Report from the Assets Management System.</span><span>Page 1</span></div>';
   html += '<div style="text-align:center;margin-top:18px;">';
   html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
   html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
@@ -2056,7 +2056,7 @@ function printDeliveryList() {
   html += '<div class="sign-box"><div class="sign-line">Approved By</div></div>';
   html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
   html += '</div>';
-  html += '<div class="foot"><span>This is a system-generated document from the IT Asset Management System.</span><span>Page 1</span></div>';
+  html += '<div class="foot"><span>This is a system-generated document from the Assets Management System.</span><span>Page 1</span></div>';
   html += '<div style="text-align:center;margin-top:18px;">';
   html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
   html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
@@ -2257,7 +2257,7 @@ function printDelivery(delId) {
   html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
   html += '</div>';
   // Footer
-  html += '<div class="foot">This is a system-generated Delivery Chalan from the IT Asset Management System.</div>';
+  html += '<div class="foot">This is a system-generated Delivery Chalan from the Assets Management System.</div>';
   // Action buttons (hidden on print)
   html += '<div style="text-align:center;margin-top:18px;">';
   html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
@@ -5924,7 +5924,7 @@ function bindBackupRestoreEvents() {
 // Export entire DB as JSON
 function exportFullBackup() {
   var data = {
-    type: 'it-asset-management-backup',
+    type: 'assets-management-system-backup',
     version: '1.0',
     exportedAt: new Date().toISOString(),
     collections: {
@@ -5957,7 +5957,7 @@ function exportFullBackup() {
   var a = document.createElement('a');
   a.href = url;
   var stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '-');
-  a.download = 'it-asset-backup-' + stamp + '.json';
+  a.download = 'assets-backup-' + stamp + '.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -6606,7 +6606,7 @@ function renderLoginPage() {
   html += '<div style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,0.18);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;border:1px solid rgba(255,255,255,0.25);">';
   html += '<i class="fas fa-microchip" style="color:white;font-size:30px;"></i>';
   html += '</div>';
-  html += '<div style="color:white;font-size:22px;font-weight:800;letter-spacing:0.5px;">IT Asset Management</div>';
+  html += '<div style="color:white;font-size:22px;font-weight:800;letter-spacing:0.5px;">Assets Management System</div>';
   html += '<div style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:500;letter-spacing:2px;margin-top:4px;">SYSTEM</div>';
   html += '</div>';
   // Form body
@@ -6643,7 +6643,7 @@ function renderLoginPage() {
   html += '</button>';
   html += '</form>';
   // Footer
-  html += '<div style="margin-top:22px;text-align:center;font-size:11px;color:#6b7c6b;">© ' + new Date().getFullYear() + ' IT Asset Management System. All rights reserved.</div>';
+  html += '<div style="margin-top:22px;text-align:center;font-size:11px;color:#6b7c6b;">© ' + new Date().getFullYear() + ' Assets Management System. All rights reserved.</div>';
   html += '</div>';
   html += '</div>';
   html += '</div>';
@@ -6842,7 +6842,7 @@ function showBootSplash() {
     + '<div style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.25);">'
     + '<i class="fas fa-microchip" style="font-size:30px;"></i>'
     + '</div>'
-    + '<div style="font-size:18px;font-weight:700;letter-spacing:0.5px;">IT Asset Management</div>'
+    + '<div style="font-size:18px;font-weight:700;letter-spacing:0.5px;">Assets Management System</div>'
     + '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(255,255,255,0.7);">'
     + '<div style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>'
     + 'Loading data from server...'
