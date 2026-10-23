@@ -1986,7 +1986,6 @@ function renderDeliveryList() {
   html += '<div style="font-size:20px;font-weight:800;">Delivery List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
-  html += '<button class="btn btn-secondary" id="btn-print-delivery" title="Print Delivery List"><i class="fas fa-print"></i> Print</button>';
   html += '<button class="btn btn-primary" id="btn-add-delivery"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Chalan No</th><th>Date</th><th>Product</th><th style="text-align:center;">Qty</th><th>Branch</th><th>Received By</th><th>Status</th><th style="width:180px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
@@ -2891,8 +2890,7 @@ function renderAdjustmentList() {
   html += '<div style="font-size:20px;font-weight:800;">Adjustment List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
-  html += '<button class="btn btn-primary" id="btn-add-adjustment"><i class="fas fa-plus"></i> Add New</button>';
-  html += '<button class="btn btn-secondary" id="btn-print-adjustment-list" title="Print Adjustment List"><i class="fas fa-print"></i> Print</button></div></div>';
+  html += '<button class="btn btn-primary" id="btn-add-adjustment"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Type</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
@@ -3275,8 +3273,7 @@ function renderDamageList() {
   html += '<div style="font-size:20px;font-weight:800;">Damage List</div>';
   html += '<div style="display:flex;gap:12px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
-  html += '<button class="btn btn-primary" id="btn-add-damage"><i class="fas fa-plus"></i> Add New</button>';
-  html += '<button class="btn btn-secondary" id="btn-print-damage-list" title="Print Damage List"><i class="fas fa-print"></i> Print</button></div></div>';
+  html += '<button class="btn btn-primary" id="btn-add-damage"><i class="fas fa-plus"></i> Add New</button></div></div>';
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr><th>Reference</th><th>Date</th><th>Product</th><th>Branch</th><th style="text-align:center;">Qty</th><th>Reason</th><th>Status</th><th style="width:140px;">Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   return html;
