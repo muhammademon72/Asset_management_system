@@ -1181,3 +1181,41 @@ Stage Summary:
 - ✅ Modal widened to fit the wider table.
 - ✅ Commit c4e37d3 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 31
+Agent: main
+Task: User requested "Form er Sathe Justify koro" with a screenshot showing the Purchase Approval View modal. The View modal should be visually aligned with the Add/Edit Purchase form's styling.
+
+Work Log:
+- Located the View modal code in bindApprovalEvents (line ~5915).
+- Identified that the View modal was using generic .data-table styling and a simple 2-col grid for top fields, while the Add/Edit Purchase modal uses the .pur-field pattern with label-on-left (accent-light bg) and value-on-right.
+- Updated the View modal for type==='purchase':
+    1. Top fields (Date/Supplier/Branch/Status): replaced simple grid with .pur-field pattern, wrapped in a bordered rounded container (12px border-radius). Top row keeps border-bottom as a horizontal divider; bottom row has border-bottom:none.
+    2. Table: switched to .pur-th and .pur-td classes (same as Add/Edit form). Header row now has accent-light bg, uppercase, letter-spacing. Body cells have border-right and border-bottom separators. Hover row highlights with accent-light bg.
+    3. Wrapped table in overflow-x:auto + max-height:320px so long tables scroll vertically inside the modal.
+    4. Increased modal width from 760px to 1100px (maxWidth 96vw).
+    5. Called injectPurStyles() before opening the modal so the .pur-field/.pur-th/.pur-td classes are defined.
+
+Verification (headless Chrome):
+- Created test data: 6 IP Phone Set purchases under invoice '2022004022' with serials JZD4225007373, 7359, 7370, 7367, 7369, 7360, all qty=1, price=4190, status=Approved.
+- Opened View modal via Purchase Approval page.
+- Verified:
+    Top fields displayed as labeled boxes (Date: 2022-12-12 | Supplier: Tech Deal | Branch: Head Office | Status: Approved).
+    Table headers in correct order: Product | Brand | Model | Serial | Condition | Warranty | Qty | Price | Total.
+    Modal width is 1100px.
+- Saved screenshot to /home/z/my-project/download/approval-view-justified.png.
+- Cleanup: removed all test data. DB back to empty.
+- Re-extracted inline script (535,162 chars) → node --check passed (SYNTAX_OK).
+- Committed as 4e8dbc0.
+- Pushed to GitHub: c4e37d3..4e8dbc0 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Purchase Approval View modal now matches the Add/Edit Purchase form's visual style.
+- ✅ Top fields use the same .pur-field pattern (label on left, accent-light bg).
+- ✅ Table uses the same .pur-th and .pur-td classes for consistency.
+- ✅ Modal widened to fit the 9-column table.
+- ✅ Vertical scroll added for long tables (max-height:320px).
+- ✅ Commit 4e8dbc0 pushed to GitHub.
+- ✅ JS syntax verified clean.
