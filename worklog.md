@@ -1314,3 +1314,49 @@ Stage Summary:
     - (renderInventoryStock uses its own copy, can be refactored later if needed)
 - ✅ Commit b381ea9 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 34
+Agent: main
+Task: User requested "Add New Purchase — Quantity er pore UOM Column add koro". Add a UoM column right after the Quantity column in the Add/Edit Purchase modal.
+
+Work Log:
+- Located the Purchase modal table structure:
+    • Add New Purchase modal header at line ~4877
+    • Edit Purchase modal header at line ~5179
+    • purTableRowHTML function at line 5588 (used by both Add and Edit)
+- Confirmed DB.uoms exists and is used elsewhere (Product modal uses UoM dropdown already).
+- Added UoM column in 6 places:
+
+  1. purTableRowHTML — added a <select data-f="uom"> after the qty input.
+     Options populated from DB.uoms (Pieces, Box, Dozen, etc.).
+
+  2. Add New Purchase table header — added '<th class="pur-th">UoM</th>' between Quantity and Price.
+
+  3. Edit Purchase table header — same UoM column added between Quantity and Price.
+
+  4. Edit Purchase pre-fill logic — added: var uo = tr.querySelector('[data-f="uom"]'); if (uo) uo.value = rowData.uom || '';
+
+  5. Add New Purchase save handler — added uom field to DB.purchases.push object, read from [data-f="uom"].
+
+  6. Edit Purchase save handler — added uom field to DB.purchases.push object, read from [data-f="uom"].
+
+Verified in headless Chrome:
+- Created 3 test UoMs (Pieces, Box, Dozen) in DB.uoms.
+- Opened Add New Purchase modal — confirmed table headers now show:
+    Product | Category | Brand | Model | Serial Number | Condition | Warranty | Quantity | UoM | Price | Total | Remarks
+- UoM dropdown in the first row contains: Select, Pieces, Box, Dozen.
+- Cleanup: removed test data.
+- Re-extracted inline script (540,648 chars) → node --check passed (SYNTAX_OK).
+- Committed as 7b82ba0.
+- Pushed to GitHub: b381ea9..7b82ba0 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Add New Purchase modal — UoM column added after Quantity.
+- ✅ Edit Purchase modal — same UoM column added after Quantity.
+- ✅ UoM dropdown options come from DB.uoms (managed via Settings → Manage Product → UoM).
+- ✅ Saved purchases store the uom field in DB.purchases.
+- ✅ Editing a purchase correctly pre-fills the saved uom value.
+- ✅ Commit 7b82ba0 pushed to GitHub.
+- ✅ JS syntax verified clean.
