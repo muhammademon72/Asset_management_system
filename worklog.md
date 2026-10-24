@@ -1144,3 +1144,40 @@ Stage Summary:
 - ✅ Verified end-to-end with test data.
 - ✅ Commit d799507 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 30
+Agent: main
+Task: User requested the Purchase Approval View modal table to be serialized in this column order:
+  Product | Brand | Model | Serial | Condition | Warranty | Qty | Price | Total
+
+Work Log:
+- Located the Purchase Approval View modal code in bindApprovalEvents (lines 5907-5965).
+- Found that the existing modal table only had 6 columns: Product, Brand, Model, Qty, Price, Total — missing Serial, Condition, and Warranty.
+- Updated the modal table:
+    • Added Serial, Condition, Warranty columns between Model and Qty.
+    • Wrapped the table in a horizontal scroll container (overflow-x:auto) so it scrolls on narrow viewports.
+    • Updated the grand-total row colspan from 3 to 6 (Product through Warranty).
+    • Grand total row now reads 'Grand Total (N items):' for clarity.
+    • Widened the modal from 760px to 1100px (maxWidth 96vw) to fit the wider table.
+
+Verification (headless Chrome):
+- Created test data: invoice INV-VIEW-001 with 2 rows (serials LT-001 New 1yr qty=1, and LT-002 Used 6mo qty=2).
+- Opened the View modal — confirmed headers in correct order:
+    Product | Brand | Model | Serial | Condition | Warranty | Qty | Price | Total
+- Row 1: Laptop | Dell | Latitude 5520 | LT-001 | New | 1 Year | 1 | ৳50,000 | ৳50,000
+- Row 2: Laptop | Dell | Latitude 5520 | LT-002 | Used | 6 Months | 2 | ৳45,000 | ৳90,000
+- Grand Total row: 'Grand Total (2 items):' | 3 | ৳1,40,000
+- Cleanup: removed all test data. DB back to empty.
+- Re-extracted inline script (533,340 chars) → node --check passed (SYNTAX_OK).
+- Committed as c4e37d3.
+- Pushed to GitHub: d799507..c4e37d3 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Purchase Approval View modal table now shows all 9 columns in the user-requested order.
+- ✅ Table is wrapped in horizontal scroll for narrow viewports.
+- ✅ Grand total row updated to span the new column count and label items count.
+- ✅ Modal widened to fit the wider table.
+- ✅ Commit c4e37d3 pushed to GitHub.
+- ✅ JS syntax verified clean.
