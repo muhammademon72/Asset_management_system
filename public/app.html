@@ -4994,11 +4994,11 @@ function bindPurchaseEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        // Limit to 1.5 MB to stay within Vercel's 4.5MB serverless body limit.
-        // Base64 encoding adds ~33% overhead, so a 1.5MB file becomes ~2MB base64,
-        // plus the rest of the DB JSON, keeping total POST body well under 4.5MB.
-        if (f.size > 1.5 * 1024 * 1024) {
-          showToast('Attachment too large (max 1.5 MB). Use a smaller file or compress it.', 'error');
+        // Limit to 1 MB to stay within Vercel's 4.5MB serverless body limit.
+        // Base64 encoding adds ~33% overhead, so a 1MB file becomes ~1.3MB base64.
+        // Combined with the rest of the DB JSON, total POST body stays under 4.5MB.
+        if (f.size > 1 * 1024 * 1024) {
+          showToast('Attachment too large (max 1 MB). Use a smaller file or compress it.', 'error');
           return;
         }
         // Show "saving..." feedback so the user knows we're reading the file
@@ -8134,6 +8134,30 @@ function mergeDBWithServer(serverDB, localDB) {
   return merged;
 }
 
+// Safely parse a fetch response. If the server returns a non-JSON response
+// (e.g., Vercel's plain-text "Request Entity Too Large" 413 error), this
+// returns a structured error object instead of throwing a JSON parse error.
+function safeParseFetchResponse(response) {
+  if (!response.ok) {
+    // HTTP error (4xx, 5xx) — read body as text to get the actual error message
+    return response.text().then(function(text) {
+      var errSummary = text.substring(0, 200);
+      return { ok: false, status: response.status, error: errSummary };
+    }).catch(function() {
+      return { ok: false, status: response.status, error: 'HTTP ' + response.status };
+    });
+  }
+  // Response is OK — try to parse as JSON
+  return response.json().catch(function() {
+    // JSON parse failed — read as text and return as error
+    return response.text().then(function(text) {
+      return { ok: false, error: 'Non-JSON response: ' + text.substring(0, 200) };
+    }).catch(function() {
+      return { ok: false, error: 'Invalid response' };
+    });
+  });
+}
+
 function saveDBNow(onDone, options) {
   options = options || {};
   var skipMerge = options.skipMerge || false;
@@ -8155,23 +8179,34 @@ function saveDBNow(onDone, options) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: localPayload })
-      }).then(function(r) { return r.json(); }).then(function(res) {
+      }).then(function(r) { return safeParseFetchResponse(r); }).then(function(res) {
         if (res && res.ok) {
           DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
           showSaveStatusIndicator('saved');
         } else {
           console.warn('saveDB: server returned error', res);
           DB_LOCAL_DIRTY = true;
-          showSaveStatusIndicator('error', 'Server error: ' + (res && res.error ? res.error : 'unknown'));
-          showToast('Save failed: ' + (res && res.error ? res.error : 'server error') + '.', 'error');
+          var errMsg = (res && res.error) ? res.error : 'unknown error';
+          // If it's a body-size error, show a helpful message
+          if (errMsg.indexOf('too large') !== -1 || errMsg.indexOf('413') !== -1 || errMsg.indexOf('Entity Too Large') !== -1) {
+            errMsg = 'File too large for server. Use a smaller file (max 1 MB).';
+          }
+          showSaveStatusIndicator('error', errMsg);
+          showToast('Save failed: ' + errMsg, 'error');
         }
         if (onDone) onDone(res);
       }).catch(function(err) {
         console.warn('saveDB: network error', err);
         DB_LOCAL_DIRTY = true;
-        showSaveStatusIndicator('error', 'Network: ' + (err && err.message ? err.message : 'unknown'));
-        showToast('Save failed (network): ' + (err && err.message ? err.message : 'network error') + '.', 'error');
-        if (onDone) onDone({ ok: false, error: err && err.message });
+        var errMsg = err && err.message ? err.message : 'network error';
+        // If it's a JSON parse error from a non-JSON response (e.g., Vercel 413),
+        // show a more helpful message
+        if (errMsg.indexOf('Unexpected token') !== -1 || errMsg.indexOf('is not valid JSON') !== -1) {
+          errMsg = 'Server rejected the request (file may be too large). Use a smaller file (max 1 MB).';
+        }
+        showSaveStatusIndicator('error', errMsg);
+        showToast('Save failed: ' + errMsg, 'error');
+        if (onDone) onDone({ ok: false, error: errMsg });
       });
       return;
     }
@@ -8180,7 +8215,7 @@ function saveDBNow(onDone, options) {
     // This is critical for multi-user scenarios — without it, a stale local DB
     // would overwrite purchases/records that other users just saved.
     fetch('/api/db', { method: 'GET' })
-      .then(function(r) { return r.json(); })
+      .then(function(r) { return safeParseFetchResponse(r); })
       .then(function(getRes) {
         var serverDB = (getRes && getRes.ok && getRes.data) ? getRes.data : null;
         // STEP 2: Merge local items into the server DB (union by id, local wins)
@@ -8194,7 +8229,7 @@ function saveDBNow(onDone, options) {
           body: JSON.stringify({ data: mergedPayload })
         });
       })
-      .then(function(r) { return r.json(); })
+      .then(function(r) { return safeParseFetchResponse(r); })
       .then(function(res) {
         if (res && res.ok) {
           DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
@@ -8202,17 +8237,25 @@ function saveDBNow(onDone, options) {
         } else {
           console.warn('saveDB: server returned error', res);
           DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
-          showSaveStatusIndicator('error', 'Server error: ' + (res && res.error ? res.error : 'unknown'));
-          showToast('Save failed: ' + (res && res.error ? res.error : 'server error') + '. Your changes are NOT saved.', 'error');
+          var errMsg2 = (res && res.error) ? res.error : 'unknown error';
+          if (errMsg2.indexOf('too large') !== -1 || errMsg2.indexOf('413') !== -1 || errMsg2.indexOf('Entity Too Large') !== -1) {
+            errMsg2 = 'File too large for server. Use a smaller file (max 1 MB).';
+          }
+          showSaveStatusIndicator('error', errMsg2);
+          showToast('Save failed: ' + errMsg2, 'error');
         }
         if (onDone) onDone(res);
       })
       .catch(function(err) {
         console.warn('saveDB: network error', err);
         DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
-        showSaveStatusIndicator('error', 'Network: ' + (err && err.message ? err.message : 'unknown'));
-        showToast('Save failed (network): ' + (err && err.message ? err.message : 'network error') + '. Your changes are NOT saved.', 'error');
-        if (onDone) onDone({ ok: false, error: err && err.message });
+        var errMsg3 = err && err.message ? err.message : 'network error';
+        if (errMsg3.indexOf('Unexpected token') !== -1 || errMsg3.indexOf('is not valid JSON') !== -1) {
+          errMsg3 = 'Server rejected the request (file may be too large). Use a smaller file (max 1 MB).';
+        }
+        showSaveStatusIndicator('error', errMsg3);
+        showToast('Save failed: ' + errMsg3, 'error');
+        if (onDone) onDone({ ok: false, error: errMsg3 });
       });
   } catch (e) {
     console.warn('saveDB failed:', e);
