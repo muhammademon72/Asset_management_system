@@ -744,6 +744,10 @@ function deleteItem(collection, id, page) {
 function confirmDelete(collection, id, page) {
   DB[collection] = DB[collection].filter(function(x) { return x.id !== id; });
   closeModal(); showToast('Item deleted successfully'); navigate(page);
+  // Use skipMerge: true — the GET-merge step would RE-ADD the deleted item
+  // from the server. By skipping the merge, we POST the local DB (which has
+  // the item removed) directly to the server.
+  saveDBNow(null, { skipMerge: true });
 }
 
 function modalHeader(title) {
@@ -2316,6 +2320,10 @@ function bindDeliveryEvents() {
         document.getElementById('btn-confirm-del-chalan').addEventListener('click', function() {
           DB.deliveries = DB.deliveries.filter(function(x) { return x.chalan !== chalan; });
           closeModal(); showToast('Chalan ' + chalan + ' deleted (' + count + ' rows)'); renderPage();
+          // Use skipMerge: true — the GET-merge step would RE-ADD the deleted
+          // deliveries from the server. By skipping the merge, we POST the local
+          // DB (which has the deliveries removed) directly to the server.
+          saveDBNow(null, { skipMerge: true });
         });
       });
     })(delChalanBtns[dc]);
@@ -5409,7 +5417,11 @@ function bindPurchaseEvents() {
         if (!confirm('Delete invoice "' + invoice + '" with ' + count + ' item(s)? This cannot be undone.')) return;
         DB.purchases = DB.purchases.filter(function(p) { return p.invoice !== invoice; });
         showToast('Invoice ' + invoice + ' deleted (' + count + ' items)'); renderPage();
-        saveDBNow(); // Save immediately — don't wait for debounce
+        // Use skipMerge: true — the GET-merge step would RE-ADD the deleted
+        // purchase from the server (since the server still has it). By skipping
+        // the merge, we POST the local DB (which has the purchase removed)
+        // directly to the server.
+        saveDBNow(null, { skipMerge: true });
       });
     })(delBtns[d]);
   }
@@ -6337,7 +6349,10 @@ function bindApprovalEvents() {
             closeModal();
             showToast('Invoice ' + invoice + ' deleted (' + count + ' items)');
             renderPage();
-            saveDBNow(); // Save immediately — don't wait for debounce
+            // Use skipMerge: true — the GET-merge step would RE-ADD the deleted
+            // purchase from the server. By skipping the merge, we POST the local
+            // DB (which has the purchase removed) directly to the server.
+            saveDBNow(null, { skipMerge: true });
           } else {
             // Single-record delete — use the standard deleteItem helper
             deleteItem(collection, id, page);
@@ -6588,6 +6603,8 @@ function revertDelivery(delId) {
     closeModal();
     showToast('Delivery reverted — product returned to stock');
     renderPage();
+    // Use skipMerge: true so the reverted delivery is not re-added from server.
+    saveDBNow(null, { skipMerge: true });
   });
 }
 
