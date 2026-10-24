@@ -869,3 +869,57 @@ Stage Summary:
 - ✅ Boot sequence no longer shows 'Access Denied' behind login screen.
 - ✅ Commit ca38f36 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 24
+Agent: main
+Task: User reported "Approval: Purchase permission kaj kore na" — Approval submenu permissions not being enforced.
+
+Work Log:
+- Surveyed the Approval pages (renderApprovalList, bindApprovalEvents). Found that approval pages use button attributes that enforceActionPermissions() didn't recognize:
+    • data-approve (Approve action button — modifies status field)
+    • data-approve-edit-pur/del/adj/dmg (Edit buttons)
+    • data-approve-del-purchase/delivery/adjustment/damage (Delete buttons)
+  These stayed visible regardless of role permissions, and the click handlers had no defense-in-depth.
+
+Fixes applied:
+1. enforceActionPermissions():
+   - Added selectors for approval buttons:
+     • [data-approve-edit-pur], [data-approve-edit-del], [data-approve-edit-adj], [data-approve-edit-dmg] → hidden when !can(module, 'edit')
+     • [data-approve-del-purchase], [data-approve-del-delivery], [data-approve-del-adjustment], [data-approve-del-damage] → hidden when !can(module, 'delete')
+     • [data-approve] → hidden when !can(module, 'edit') (Approve modifies status field, treat as edit-level action)
+
+2. bindApprovalEvents():
+   - Added defense-in-depth checks in click handlers:
+     • Approve handler: returns early with toast if !can(currentPage, 'edit')
+     • Reject handler: same check (also a status-modifying edit)
+     • Edit handlers (pur/del/adj/dmg): same edit-perm check at top
+
+Verified end-to-end with headless Chrome:
+- Created test role with perms:
+    approval-purchase: ['view']         // view only
+    approval-delivery: ['view','edit','delete']  // full approve power
+- Logged in as test user, redirected to approval-purchase (first allowed submenu).
+- On approval-purchase (view only):
+    ✅ Approve button: 0/1 visible (HIDDEN)
+    ✅ Edit button: 0/1 visible (HIDDEN)
+    ✅ Delete button: 0/1 visible (HIDDEN)
+    ✅ Programmatically made Approve visible + clicked → toast 'Access denied — you do not have approve permission for approval-purchase' + status NOT changed (stayed 'Submitted')
+- On approval-delivery (full perms):
+    ✅ Approve button: 1/1 visible
+    ✅ Edit button: 1/1 visible
+    ✅ Delete button: 1/1 visible
+- Cleanup: removed all test data. DB back to admin/admin123 only (5 roles, 1 user).
+- Re-extracted inline script (508,778 chars) → node --check passed (SYNTAX_OK).
+- Committed as c5764dc.
+- Pushed to GitHub: ca38f36..c5764dc main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Approval: Purchase (and Delivery, Adjustment, Damage) submenu permissions now properly enforced at 2 layers:
+    LAYER 1: Button visibility (enforceActionPermissions hides approval buttons)
+    LAYER 2: Defense-in-depth (click handlers return early with toast)
+- ✅ Approve action treated as 'edit' permission (status field modification).
+- ✅ Verified end-to-end: view-only role sees no action buttons, full-perm role sees all.
+- ✅ Commit c5764dc pushed to GitHub.
+- ✅ JS syntax verified clean.
