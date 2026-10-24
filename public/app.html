@@ -663,7 +663,11 @@ function closeModal() {
 // ==================== HELPERS ====================
 function fmt(n) { return '\u09F3' + Number(n).toLocaleString('en-IN'); }
 function statusBadge(s) {
-  var m = { Active: 'green', Approved: 'green', Received: 'green', Completed: 'green', Inactive: 'red', Rejected: 'red', Pending: 'amber', 'In Transit': 'blue' };
+  var m = { Active: 'green', Approved: 'green', Received: 'green', Completed: 'green',
+            Inactive: 'red', Rejected: 'red',
+            Pending: 'amber', Confirm: 'amber', Submitted: 'amber',
+            Draft: 'gray',
+            'In Transit': 'blue' };
   return '<span class="badge badge-' + (m[s] || 'gray') + '">' + s + '</span>';
 }
 function getBreadcrumb() {
@@ -743,7 +747,7 @@ function renderDashboard() {
   var totalDelivery = DB.deliveries.length;
   var totalCashIn = DB.cashIn.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
   var totalCashOut = DB.cashOut.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
-  var pendingCount = DB.purchases.filter(function(p){return p.status==='Pending';}).length + DB.adjustments.filter(function(a){return a.status==='Pending';}).length + DB.damages.filter(function(d){return d.status==='Pending';}).length;
+  var pendingCount = DB.purchases.filter(function(p){return p.status==='Pending'||p.status==='Confirm'||p.status==='Submitted';}).length + DB.adjustments.filter(function(a){return a.status==='Pending'||a.status==='Confirm';}).length + DB.damages.filter(function(d){return d.status==='Pending'||d.status==='Confirm';}).length;
 
   var quickActions = [
     { label: 'New Purchase', icon: 'fa-cart-plus', color: 'var(--accent)', page: 'purchase-list' },
@@ -1579,8 +1583,14 @@ function renderPurchaseList() {
     var inv = invoices[i];
     var p = inv.record;
     var hasAttach = p.attachment && p.attachment.name;
+    // Edit is allowed ONLY when status is Draft. Once Confirm is chosen, the
+    // purchase is locked (Approve Request has been sent) — no more editing.
+    var canEdit = (p.status === 'Draft' || !p.status);
+    var editBtnTitle = canEdit ? 'Edit' : 'Editing locked — purchase is ' + (p.status || 'Confirm');
+    var editBtnStyle = canEdit ? '' : 'opacity:0.4;cursor:not-allowed;';
+    var editBtnAttr = canEdit ? 'data-edit-pur="' + p.id + '"' : 'data-edit-locked-pur="' + p.id + '"';
     rows += '<tr><td>' + p.date + '</td><td style="font-weight:600;">' + p.invoice + '</td><td>' + (p.supplier || '-') + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(inv.total) + ' <span style="font-size:10px;color:var(--muted);font-weight:400;">(' + inv.itemCount + ' items)</span></td><td style="text-align:center;"><i class="fas fa-paperclip" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';font-size:14px;cursor:pointer;" data-attach-pur="' + p.id + '" title="View Attachment"></i></td><td>' + statusBadge(p.status) + '</td>';
-    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-pur="' + p.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-pur="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-pur="' + p.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" ' + editBtnAttr + ' title="' + editBtnTitle + '" style="' + editBtnStyle + '"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Purchase List</div>';
@@ -4629,7 +4639,7 @@ function bindPurchaseEvents() {
     html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
     html += '<div style="display:flex;align-items:center;gap:10px;">';
     html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
-    html += '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option>Draft</option><option>Submitted</option></select>';
+    html += '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option value="Draft">Draft</option><option value="Confirm">Confirm</option></select>';
     html += '</div>';
     html += '<div style="flex:1;"></div>';
     html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
@@ -4661,9 +4671,11 @@ function bindPurchaseEvents() {
     document.getElementById('btn-save-pur').addEventListener('click', function() {
       var date = document.querySelector('[data-top="date"]').value;
       var invoice = document.querySelector('[data-top="invoice"]').value.trim();
-      if (!invoice) { showToast('Invoice No required', 'error'); return; }
-      if (!date) { showToast('Date required', 'error'); return; }
       var supplier = document.querySelector('[data-top="supplier"]').value;
+      // Mandatory top fields
+      if (!date) { showToast('Date is required', 'error'); return; }
+      if (!invoice) { showToast('Invoice No is required', 'error'); return; }
+      if (!supplier) { showToast('Supplier is required', 'error'); return; }
       var status = document.getElementById('f-pur-status').value;
       var rows = document.querySelectorAll('#pur-entries-body tr');
       var hasItem = false;
@@ -4672,6 +4684,26 @@ function bindPurchaseEvents() {
         if (p && p.value) { hasItem = true; break; }
       }
       if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+      // Mandatory row fields: Brand, Model, Serial Number, Condition, Warranty, Quantity, Price
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var prod = r.querySelector('[data-f="product"]').value;
+        if (!prod) continue;  // skip empty rows
+        var brand = r.querySelector('[data-f="brand"]').value;
+        var model = r.querySelector('[data-f="model"]').value;
+        var serial = r.querySelector('[data-f="serial"]').value;
+        var cond = r.querySelector('[data-f="condition"]').value;
+        var war = r.querySelector('[data-f="warranty"]').value;
+        var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
+        var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+        if (!brand) { showToast('Brand is required for product: ' + prod, 'error'); return; }
+        if (!model) { showToast('Model is required for product: ' + prod, 'error'); return; }
+        if (!serial) { showToast('Serial Number is required for product: ' + prod, 'error'); return; }
+        if (!cond) { showToast('Condition is required for product: ' + prod, 'error'); return; }
+        if (!war) { showToast('Warranty is required for product: ' + prod, 'error'); return; }
+        if (!qty || qty <= 0) { showToast('Quantity must be greater than 0 for product: ' + prod, 'error'); return; }
+        if (!price || price <= 0) { showToast('Price must be greater than 0 for product: ' + prod, 'error'); return; }
+      }
       var attachInput = document.querySelector('[data-top="attach"]');
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
@@ -4722,6 +4754,20 @@ function bindPurchaseEvents() {
     });
 
   });
+
+  // Locked Edit buttons — show toast explaining why editing is blocked
+  var lockedEditBtns = document.querySelectorAll('[data-edit-locked-pur]');
+  for (var le = 0; le < lockedEditBtns.length; le++) {
+    (function(b) {
+      b.addEventListener('click', function() {
+        var purId = parseInt(b.getAttribute('data-edit-locked-pur'));
+        var pur = null;
+        for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
+        var st = pur ? (pur.status || 'Confirm') : 'Confirm';
+        showToast('Editing locked — this purchase is "' + st + '". Only Draft purchases can be edited. Approve Request already sent.', 'error');
+      });
+    })(lockedEditBtns[le]);
+  }
 
   // View buttons — grouped by invoice, shows all rows under same invoice
   var viewBtns = document.querySelectorAll('[data-view-pur]');
@@ -4891,7 +4937,7 @@ function bindPurchaseEvents() {
         html += '<div style="display:flex;align-items:center;gap:14px;padding-top:4px;">';
         html += '<div style="display:flex;align-items:center;gap:10px;">';
         html += '<span style="font-size:13px;font-weight:600;color:var(--muted);">Status:</span>';
-        html += '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option' + (pur.status === 'Draft' ? ' selected' : '') + '>Draft</option><option' + (pur.status === 'Submitted' ? ' selected' : '') + '>Submitted</option><option' + (pur.status === 'Pending' ? ' selected' : '') + '>Pending</option><option' + (pur.status === 'Approved' ? ' selected' : '') + '>Approved</option></select>';
+        html += '<select class="form-input" id="f-pur-status" style="width:160px;border-radius:8px;"><option value="Draft"' + (pur.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (pur.status === 'Confirm' || pur.status === 'Submitted' || pur.status === 'Pending' ? ' selected' : '') + '>Confirm</option>' + (pur.status === 'Approved' ? '<option value="Approved" selected>Approved</option>' : '') + (pur.status === 'Rejected' ? '<option value="Rejected" selected>Rejected</option>' : '') + '</select>';
         html += '</div>';
         html += '<div style="flex:1;"></div>';
         html += '<button class="btn btn-secondary" onclick="closeModal()" style="border-radius:8px;">Cancel</button>';
@@ -4940,18 +4986,41 @@ function bindPurchaseEvents() {
         document.getElementById('btn-update-pur').addEventListener('click', function() {
           var date = document.querySelector('[data-top="date"]').value;
           var invoice = document.querySelector('[data-top="invoice"]').value.trim();
-          if (!invoice) { showToast('Invoice No required', 'error'); return; }
-          if (!date) { showToast('Date required', 'error'); return; }
           var supplier = document.querySelector('[data-top="supplier"]').value;
+          // Mandatory top fields
+          if (!date) { showToast('Date is required', 'error'); return; }
+          if (!invoice) { showToast('Invoice No is required', 'error'); return; }
+          if (!supplier) { showToast('Supplier is required', 'error'); return; }
           var status = document.getElementById('f-pur-status').value;
           var note = document.getElementById('f-pur-note').value.trim();
+
+          // Mandatory row fields: Brand, Model, Serial Number, Condition, Warranty, Quantity, Price
+          var rows = document.querySelectorAll('#pur-entries-body tr');
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var prod = r.querySelector('[data-f="product"]').value;
+            if (!prod) continue;  // skip empty rows
+            var brand = r.querySelector('[data-f="brand"]').value;
+            var model = r.querySelector('[data-f="model"]').value;
+            var serial = r.querySelector('[data-f="serial"]').value;
+            var cond = r.querySelector('[data-f="condition"]').value;
+            var war = r.querySelector('[data-f="warranty"]').value;
+            var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
+            var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+            if (!brand) { showToast('Brand is required for product: ' + prod, 'error'); return; }
+            if (!model) { showToast('Model is required for product: ' + prod, 'error'); return; }
+            if (!serial) { showToast('Serial Number is required for product: ' + prod, 'error'); return; }
+            if (!cond) { showToast('Condition is required for product: ' + prod, 'error'); return; }
+            if (!war) { showToast('Warranty is required for product: ' + prod, 'error'); return; }
+            if (!qty || qty <= 0) { showToast('Quantity must be greater than 0 for product: ' + prod, 'error'); return; }
+            if (!price || price <= 0) { showToast('Price must be greater than 0 for product: ' + prod, 'error'); return; }
+          }
 
           // Delete ALL old purchase records with this invoice, then re-insert
           var oldInvoice = pur.invoice;
           DB.purchases = DB.purchases.filter(function(p) { return p.invoice !== oldInvoice; });
 
-          // Read all rows from the table and create new purchase records
-          var rows = document.querySelectorAll('#pur-entries-body tr');
+          // Read all rows from the table and create new purchase records (re-using `rows` from above)
           for (var ri = 0; ri < rows.length; ri++) {
             var r = rows[ri];
             var product = r.querySelector('[data-f="product"]').value;
@@ -5523,10 +5592,11 @@ function bindCashOutEvents() {
 // ==================== APPROVAL PAGES ====================
 function renderApprovalList(type, data) {
   // Approval pipeline:
-  // - Submitted: needs review (shown as pending approval)
-  // - Pending: legacy status — also shown as pending approval
+  // - Confirm: user confirmed the purchase — Approve Request has been sent, awaiting approval
+  // - Submitted / Pending: legacy statuses — also shown as pending approval
   // - Approved / Rejected: shown as already-decided rows
-  var pendingStatuses = ['Submitted', 'Pending'];
+  // - Draft: NOT shown here — Draft purchases are still being edited by the user
+  var pendingStatuses = ['Confirm', 'Submitted', 'Pending'];
   var pending = data.filter(function(d){ return pendingStatuses.indexOf(d.status) !== -1; });
   var approved = data.filter(function(d){ return d.status === 'Approved'; });
   var rejected = data.filter(function(d){ return d.status === 'Rejected'; });
@@ -7659,6 +7729,26 @@ function ensureDefaultAdmin() {
       DB.roles[mi2].permissions = newPerms;
     }
   }
+
+  // Migration: convert legacy purchase statuses to the new Draft/Confirm flow.
+  // Old statuses: 'Submitted' → 'Confirm' (means Approve Request sent).
+  // 'Pending' stays as 'Pending' (still pending in approval queue).
+  // 'Draft' stays as 'Draft' (user can still edit).
+  // 'Approved' / 'Rejected' stay as-is.
+  if (Array.isArray(DB.purchases)) {
+    var purchaseStatusChanged = false;
+    for (var pi = 0; pi < DB.purchases.length; pi++) {
+      if (DB.purchases[pi].status === 'Submitted') {
+        DB.purchases[pi].status = 'Confirm';
+        purchaseStatusChanged = true;
+      }
+    }
+    if (purchaseStatusChanged) {
+      console.log('Migrated purchase statuses: Submitted → Confirm');
+      saveDB();
+    }
+  }
+
   if (!Array.isArray(DB.roles) || DB.roles.length === 0) {
     DB.roles = [
       { id: 1, name: 'Super Admin', description: 'Full system access — can do everything', permissions: { fullAccess: true } },
