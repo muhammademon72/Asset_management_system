@@ -1219,3 +1219,48 @@ Stage Summary:
 - ✅ Vertical scroll added for long tables (max-height:320px).
 - ✅ Commit 4e8dbc0 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 32
+Agent: main
+Task: User reported "Add New Delivery — Product er ekhane Inventory Stock er all product show kore na". The Product dropdown in Add New Delivery modal wasn't showing all inventory stock items (one per serial).
+
+Work Log:
+- Located openDeliveryAddModal() at line 2801.
+- Diagnosed: function was iterating over DB.products (one entry per product name) and using the LATEST purchase record's serial. So if a product had 3 different serials in stock, only the latest serial showed in the dropdown — the other 2 serials were hidden.
+- After the Inventory Stock fix (Task 28), inventory shows one row per purchase record (each serial gets its own row). The Delivery modal needed to match this behavior.
+
+Fix applied:
+1. Switched from iterating DB.products to iterating APPROVED purchase rows.
+2. Grouped purchases by product name, sorted by date ascending (FIFO allocation).
+3. Allocated deliveries, damages, adjustments FIFO across purchase rows (matches renderInventoryStock logic).
+4. Each purchase row with stock > 0 becomes its own dropdown entry:
+   - value: 'productName||serial' (unique identifier)
+   - label: 'productName · serial · invoice' (readable)
+5. Updated purProductSelectCb to look up the matched item in prdArr and auto-fill Brand/Model/Serial/Condition/Warranty/Category/B.QTY for the selected row (instead of just Category).
+6. Updated saveDeliveryRows to strip the '||serial' suffix from the product value before saving (so DB.deliveries stores the clean product name).
+
+Verified in headless Chrome:
+- Created 3 APPROVED purchase rows for 'Laptop' with serials LT-001, LT-002, LT-003 under invoice 'INV-DELIVERY-TEST', qty=1 each.
+- Opened Add New Delivery modal.
+- Product dropdown now shows 3 separate options:
+    'Laptop · LT-001 · INV-DELIVERY-TEST'
+    'Laptop · LT-002 · INV-DELIVERY-TEST'
+    'Laptop · LT-003 · INV-DELIVERY-TEST'
+- Selecting 'LT-001' auto-fills the row:
+    Product=Laptop||LT-001, Category=Electronics, Brand=Dell,
+    Model=Latitude 5520, Serial=LT-001, Condition=New, B.QTY=1.
+- Cleanup: removed all test data. DB back to empty.
+- Re-extracted inline script (538,434 chars) → node --check passed (SYNTAX_OK).
+- Committed as 244cfaf.
+- Pushed to GitHub: 4e8dbc0..244cfaf main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Add New Delivery modal now shows all inventory stock items (one per serial).
+- ✅ Each dropdown entry is labeled with product name + serial + invoice for easy identification.
+- ✅ Selecting an item auto-fills Brand/Model/Serial/Condition/Warranty/Category/B.QTY.
+- ✅ Stock allocation matches the Inventory Stock page (FIFO).
+- ✅ Saved delivery record stores the clean product name (||serial suffix stripped).
+- ✅ Commit 244cfaf pushed to GitHub.
+- ✅ JS syntax verified clean.
