@@ -336,8 +336,9 @@ function renderNav() {
     if (hasChildren) {
       html += '<div class="submenu ' + (isOpen ? 'open' : '') + '">';
       item.children.forEach(function(ch) {
-        // Sub-items inherit the parent module's view permission
-        // (the top-level filter already covers this, but we keep this for safety)
+        // Sub-items are filtered by their OWN submenu permission first,
+        // falling back to the parent module's permission via can().
+        if (!can(ch.id, 'view')) return;
         html += '<div class="nav-item ' + (currentPage === ch.id ? 'active' : '') + '" onclick="event.stopPropagation();navigate(\'' + ch.id + '\')">';
         html += '<i class="fas fa-circle" style="font-size:5px;margin-right:12px;"></i>';
         html += '<span class="nav-text">' + ch.label + '</span>';
@@ -676,10 +677,21 @@ function filterTable(q) {
 }
 
 function deleteItem(collection, id, page) {
-  // Defense-in-depth: verify user has 'delete' permission for this module
-  var module = pageToModule(page);
-  if (module && !can(module, 'delete')) {
-    showToast('Access denied — you do not have delete permission for ' + module, 'error');
+  // Defense-in-depth: verify user has 'delete' permission for this module/submenu
+  // Pass `page` directly so submenu perms are checked first, falling back
+  // to parent module perms inside can().
+  if (page && !can(page, 'delete')) {
+    var deniedLabel = page;
+    // Try to find a human-readable label for the toast message
+    for (var i = 0; i < NAV.length; i++) {
+      if (NAV[i].id === page) { deniedLabel = NAV[i].label; break; }
+      if (NAV[i].children) {
+        for (var j = 0; j < NAV[i].children.length; j++) {
+          if (NAV[i].children[j].id === page) { deniedLabel = NAV[i].children[j].label; break; }
+        }
+      }
+    }
+    showToast('Access denied — you do not have delete permission for ' + deniedLabel, 'error');
     return;
   }
   openModal(
@@ -2124,10 +2136,11 @@ function bindDeliveryEvents() {
   for (var dc = 0; dc < delChalanBtns.length; dc++) {
     (function(btn) {
       btn.addEventListener('click', function() {
-        // Defense-in-depth: verify user has 'delete' permission for this module
-        var delModule = pageToModule(currentPage);
-        if (delModule && !can(delModule, 'delete')) {
-          showToast('Access denied — you do not have delete permission for ' + delModule, 'error');
+        // Defense-in-depth: verify user has 'delete' permission for this submenu
+        // Pass currentPage directly so submenu perms are checked first,
+        // falling back to parent module perms inside can().
+        if (!can(currentPage, 'delete')) {
+          showToast('Access denied — you do not have delete permission for Delivery List', 'error');
           return;
         }
         var chalan = btn.getAttribute('data-del-chalan');
@@ -6420,16 +6433,61 @@ function summarizePermissions(perms) {
 // All privilege modules — used by the role modal to render checkboxes
 var PRIVILEGE_MODULES = [
   { id: 'dashboard',  label: 'Dashboard',         icon: 'fa-grid-2' },
-  { id: 'branch',     label: 'Branch',            icon: 'fa-building' },
-  { id: 'employee',   label: 'Employee',          icon: 'fa-users' },
-  { id: 'product',    label: 'Product',           icon: 'fa-box-open' },
-  { id: 'purchase',   label: 'Purchase',          icon: 'fa-cart-shopping' },
-  { id: 'inventory',  label: 'Inventory',          icon: 'fa-warehouse' },
-  { id: 'cashbook',   label: 'Cash Book',         icon: 'fa-money-bill-wave' },
-  { id: 'approval',   label: 'Approval',          icon: 'fa-clipboard-check' },
-  { id: 'report',     label: 'Report',             icon: 'fa-chart-pie' },
-  { id: 'sell',       label: 'Sell',               icon: 'fa-handshake' },
-  { id: 'settings',   label: 'Settings',          icon: 'fa-gear' }
+  { id: 'branch',     label: 'Branch',            icon: 'fa-building', children: [
+    { id: 'branch-list',          label: 'Branch List' }
+  ]},
+  { id: 'employee',   label: 'Employee',          icon: 'fa-users', children: [
+    { id: 'emp-list',             label: 'Employee List' },
+    { id: 'designation-list',     label: 'Designation List' },
+    { id: 'department-list',      label: 'Department' }
+  ]},
+  { id: 'product',    label: 'Product',           icon: 'fa-box-open', children: [
+    { id: 'categories',           label: 'Categories' },
+    { id: 'brand',                label: 'Brand' },
+    { id: 'uom',                  label: 'UoM' },
+    { id: 'product-list',         label: 'Product List' },
+    { id: 'condition',            label: 'Condition' },
+    { id: 'warranty',             label: 'Warranty' }
+  ]},
+  { id: 'purchase',   label: 'Purchase',          icon: 'fa-cart-shopping', children: [
+    { id: 'purchase-list',        label: 'Purchase List' },
+    { id: 'inventory-stock',       label: 'Inventory Stock' },
+    { id: 'supplier',             label: 'Supplier List' }
+  ]},
+  { id: 'inventory',  label: 'Inventory',         icon: 'fa-warehouse', children: [
+    { id: 'delivery-list',         label: 'Delivery List' },
+    { id: 'adjustment-list',       label: 'Adjustment List' },
+    { id: 'damage-list',          label: 'Damage List' },
+    { id: 'transfer-list',         label: 'Internal Transfer List' }
+  ]},
+  { id: 'cashbook',   label: 'Cash Book',         icon: 'fa-money-bill-wave', children: [
+    { id: 'cash-in',              label: 'Cash In' },
+    { id: 'cash-out',             label: 'Cash Out' }
+  ]},
+  { id: 'approval',   label: 'Approval',          icon: 'fa-clipboard-check', children: [
+    { id: 'approval-purchase',    label: 'Approval: Purchase' },
+    { id: 'approval-delivery',    label: 'Approval: Delivery' },
+    { id: 'approval-adjustment',  label: 'Approval: Adjustment' },
+    { id: 'approval-damage',      label: 'Approval: Damage' }
+  ]},
+  { id: 'report',     label: 'Report',            icon: 'fa-chart-pie', children: [
+    { id: 'report-purchase',      label: 'Report: Purchase' },
+    { id: 'report-delivery',      label: 'Report: Delivery' },
+    { id: 'report-adjustment',    label: 'Report: Adjustment' },
+    { id: 'report-damage',        label: 'Report: Damage' },
+    { id: 'report-cash-in',       label: 'Report: Cash In' },
+    { id: 'report-cash-out',      label: 'Report: Cash Out' }
+  ]},
+  { id: 'sell',       label: 'Sell',              icon: 'fa-handshake', children: [
+    { id: 'quotation-list',       label: 'Sell Proposal' },
+    { id: 'invoice-list',         label: 'Invoice' }
+  ]},
+  { id: 'settings',   label: 'Settings',          icon: 'fa-gear', children: [
+    { id: 'company-profile',      label: 'Company Profile' },
+    { id: 'user-list',            label: 'User Create List' },
+    { id: 'role-list',            label: 'Role Create List' },
+    { id: 'backup-restore',       label: 'Backup / Restore' }
+  ]}
 ];
 
 // Per-module operations — these are the actions that can be granted per module
@@ -6443,8 +6501,18 @@ var PRIVILEGE_ACTIONS = [
   { id: 'print',  label: 'Print',   icon: 'fa-print' }
 ];
 
-// Check if current user has permission to do an action on a module
+// Check if current user has permission to do an action on a module or submenu.
 // Returns true if allowed, false otherwise. Super Admin always returns true.
+//
+// Resolution order:
+//   1. If `module` is a submenu id (e.g. 'branch-list') AND the role has an
+//      explicit permission array for that submenu id, use it.
+//   2. Otherwise, fall back to the PARENT module's permission array (if any).
+//   3. Otherwise, deny.
+//
+// This means a role that only sets `branch: ['view']` will still allow viewing
+// `branch-list` (parent fallback). And a role that sets `branch-list: ['view']`
+// but not `branch` will also allow viewing `branch-list` (submenu direct).
 function can(module, action) {
   if (!currentUser) return false;
   if (currentUser.role === 'Super Admin') return true;
@@ -6456,9 +6524,23 @@ function can(module, action) {
   if (!roleObj) return false;
   var perms = roleObj.permissions || {};
   if (perms.fullAccess) return true;
+
+  // Step 1: try the exact module/submenu id
   var modulePerms = perms[module];
-  if (!modulePerms || !Array.isArray(modulePerms)) return false;
-  return modulePerms.indexOf(action) !== -1;
+  if (modulePerms && Array.isArray(modulePerms) && modulePerms.indexOf(action) !== -1) {
+    return true;
+  }
+
+  // Step 2: if this is a submenu, fall back to parent module perms
+  var parentModule = pageToModule(module);
+  if (parentModule && parentModule !== module) {
+    var parentPerms = perms[parentModule];
+    if (parentPerms && Array.isArray(parentPerms) && parentPerms.indexOf(action) !== -1) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Map a page ID (e.g. 'branch-list') to its parent NAV module ID (e.g. 'branch')
@@ -6480,7 +6562,9 @@ function pageToModule(pageId) {
 // Super Admin is always allowed everything (early return).
 function enforceActionPermissions() {
   if (!currentUser || currentUser.role === 'Super Admin') return;
-  var module = pageToModule(currentPage);
+  // Use currentPage directly so submenu-specific perms are checked first
+  // (with fallback to parent module perms inside can()).
+  var module = currentPage;
   if (!module) return;
 
   // Helper to hide an element
@@ -6593,7 +6677,7 @@ function openRoleModal(editId) {
   }
   html += '</div>';
 
-  // One row per module
+  // One row per module + (optionally) submenu rows indented beneath
   for (var mi = 0; mi < PRIVILEGE_MODULES.length; mi++) {
     var mod = PRIVILEGE_MODULES[mi];
     var modPerms = perms[mod.id] || [];
@@ -6611,6 +6695,27 @@ function openRoleModal(editId) {
       html += '</label></div>';
     }
     html += '</div>';
+
+    // Render submenu rows (indented, lighter) for modules that have children
+    if (mod.children && mod.children.length) {
+      for (var ci = 0; ci < mod.children.length; ci++) {
+        var sub = mod.children[ci];
+        var subPerms = perms[sub.id] || [];
+        if (!Array.isArray(subPerms)) subPerms = [];
+
+        html += '<div style="display:grid;grid-template-columns:180px repeat(' + PRIVILEGE_ACTIONS.length + ',1fr);border-bottom:1px solid var(--border);background:#fbfdfb;">';
+        html += '<div style="padding:7px 14px 7px 32px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--muted);"><i class="fas fa-angle-right" style="color:var(--muted);width:14px;text-align:center;font-size:10px;"></i>' + sub.label + '</div>';
+        for (var sbi = 0; sbi < PRIVILEGE_ACTIONS.length; sbi++) {
+          var sact = PRIVILEGE_ACTIONS[sbi];
+          var schecked = subPerms.indexOf(sact.id) !== -1;
+          html += '<div style="padding:6px;text-align:center;">';
+          html += '<label style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;" title="' + sact.label + '">';
+          html += '<input type="checkbox" class="priv-checkbox" data-module="' + sub.id + '" data-action="' + sact.id + '" ' + (schecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;accent-color:var(--accent);">';
+          html += '</label></div>';
+        }
+        html += '</div>';
+      }
+    }
   }
   html += '</div>';
 
@@ -7027,13 +7132,19 @@ function renderPage() {
   var pc = document.getElementById('page-content');
 
   // ============ PERMISSION ENFORCEMENT ============
-  // Block access to pages the current user can't view
-  var module = pageToModule(currentPage);
-  if (module && !can(module, 'view')) {
+  // Block access to pages the current user can't view.
+  // Pass currentPage directly to can() so submenu-specific perms are checked
+  // first, then falling back to parent module perms (see can()).
+  if (!can(currentPage, 'view')) {
     // Find the human-readable module label for the Access Denied message
-    var moduleLabel = module;
+    var moduleLabel = currentPage;
     for (var i = 0; i < NAV.length; i++) {
-      if (NAV[i].id === module) { moduleLabel = NAV[i].label; break; }
+      if (NAV[i].id === currentPage) { moduleLabel = NAV[i].label; break; }
+      if (NAV[i].children) {
+        for (var j = 0; j < NAV[i].children.length; j++) {
+          if (NAV[i].children[j].id === currentPage) { moduleLabel = NAV[i].children[j].label; break; }
+        }
+      }
     }
     pc.innerHTML = '<div class="page-content">' + renderAccessDenied(moduleLabel) + '</div>';
     return; // Stop here — don't render the page, don't bind any events
