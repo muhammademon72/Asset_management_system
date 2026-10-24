@@ -1530,3 +1530,52 @@ Stage Summary:
 - ✅ Verified end-to-end — User A's purchase survives admin's save.
 - ✅ Commit fb95cbb pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 38
+Agent: main
+Task: User reported "Add New Purchase — File Attach diye save dile save hoy na" — when saving a purchase with a file attachment, the save doesn't complete.
+
+Work Log:
+- Diagnosed the root cause:
+    1. Vercel serverless functions have a 4.5MB body size limit (Hobby plan).
+       A 5MB file becomes ~6.7MB base64, easily exceeding this limit.
+    2. The save was debounced (300ms) and fire-and-forget — the user saw
+       "Purchase saved successfully" BEFORE the server save actually completed.
+       If the server save failed (body too large), the user never knew.
+    3. The saveDBNow GET-merge-POST pattern (Task 37) doubles the data
+       transfer — GET response contains all existing attachments, POST sends
+       the entire merged DB back.
+
+Fixes applied:
+1. Reduced attachment size limit from 5MB to 2MB in Add New Purchase save handler.
+   - A 2MB file becomes ~2.7MB base64.
+   - Plus the rest of the DB JSON, total stays under Vercel's 4.5MB limit.
+   - Updated error message: "Attachment too large (max 2 MB). Use a smaller file or compress it."
+
+2. When saving WITH an attachment, call saveDBNow() directly (no 300ms debounce)
+   and wait for the server response via callback:
+   - Shows "Saving purchase with attachment..." while saving.
+   - Shows "Purchase saved successfully (with attachment)" on success.
+   - Shows "Purchase saved locally but server save failed. The attachment may not be persisted. Please try again or use a smaller file." on failure.
+
+3. Same pattern applied to Edit Purchase handler — if the purchase has an
+   attachment with data, save immediately and wait for server response.
+
+4. Added route segment config to /api/db route:
+   - maxDuration = 60 (seconds) — gives more time for large payloads (default is 10s).
+   - runtime = 'nodejs' — better body parsing than Edge runtime.
+
+Verified:
+- Re-extracted inline script (553,823 chars) → node --check passed (SYNTAX_OK).
+- Committed as c276711.
+- Pushed to GitHub: fb95cbb..c276711 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Attachment size limit reduced from 5MB to 2MB (stays within Vercel's 4.5MB body limit).
+- ✅ Save with attachment now waits for server response before showing success/failure.
+- ✅ Clear error message if the server save fails.
+- ✅ API route maxDuration increased to 60s for large payloads.
+- ✅ Commit c276711 pushed to GitHub.
+- ✅ JS syntax verified clean.
