@@ -4875,6 +4875,7 @@ function bindPurchaseEvents() {
     html += '<th class="pur-th">Condition</th>';
     html += '<th class="pur-th">Warranty</th>';
     html += '<th class="pur-th">Quantity</th>';
+    html += '<th class="pur-th">UoM</th>';
     html += '<th class="pur-th">Price</th>';
     html += '<th class="pur-th">Total</th>';
     html += '<th class="pur-th">Remarks</th>';
@@ -4991,6 +4992,7 @@ function bindPurchaseEvents() {
         var category = r.querySelector('[data-f="category"]').value;
         var qty = parseFloat(r.querySelector('[data-f="qty"]').value) || 0;
         var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
+        var uom = r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '';
         // Attach the file data ONLY on the first row of the invoice (so we don't duplicate large base64 blobs)
         var rowAttach = (i === 0) ? attachInfo : null;
         DB.purchases.push({
@@ -5002,6 +5004,7 @@ function bindPurchaseEvents() {
           serial: r.querySelector('[data-f="serial"]').value,
           condition: r.querySelector('[data-f="condition"]').value,
           warranty: r.querySelector('[data-f="warranty"]').value,
+          uom: uom,
           remarks: r.querySelector('[data-f="remarks"]').value
         });
       }
@@ -5175,7 +5178,7 @@ function bindPurchaseEvents() {
         html += '<thead><tr>';
         html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
         html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
-        html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
+        html += '<th class="pur-th">Quantity</th><th class="pur-th">UoM</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
         html += '<th class="pur-th" style="width:42px;"></th>';
         html += '</tr></thead><tbody id="pur-entries-body">';
         // Add a row for EACH purchase record under this invoice
@@ -5223,6 +5226,7 @@ function bindPurchaseEvents() {
           var cd = tr.querySelector('[data-f="condition"]'); if (cd) cd.value = rowData.condition || 'New';
           var ws = tr.querySelector('[data-f="warranty"]'); if (ws) ws.value = rowData.warranty || '';
           var qi = tr.querySelector('[data-f="qty"]'); if (qi) qi.value = rowData.qty || 0;
+          var uo = tr.querySelector('[data-f="uom"]'); if (uo) uo.value = rowData.uom || '';
           var pi = tr.querySelector('[data-f="price"]'); if (pi) pi.value = rowData.unitPrice || 0;
           var tt = tr.querySelector('[data-f="total"]'); if (tt) tt.value = fmt(rowData.total || 0);
           var rm = tr.querySelector('[data-f="remarks"]'); if (rm) rm.value = rowData.remarks || '';
@@ -5291,6 +5295,7 @@ function bindPurchaseEvents() {
               serial: r.querySelector('[data-f="serial"]').value,
               condition: r.querySelector('[data-f="condition"]').value,
               warranty: r.querySelector('[data-f="warranty"]').value,
+              uom: r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '',
               qty: qty, unitPrice: price, total: qty * price,
               status: status, branch: 'Head Office',
               attachment: pur.attachment, note: note,
@@ -5597,6 +5602,10 @@ function purTableRowHTML(catOpts, brandOpts, prdOpts, prdArr) {
   for (var wi = 0; wi < DB.warranties.length; wi++) warOpts += '<option>' + DB.warranties[wi].name + '</option>';
   h += '<td class="pur-td"><select data-f="warranty">' + warOpts + '</select></td>';
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  // UOM column — dropdown of units of measure (Pieces, Box, Dozen, etc.)
+  var uomOpts = '<option value="">Select</option>';
+  for (var ui = 0; ui < DB.uoms.length; ui++) uomOpts += '<option>' + DB.uoms[ui].name + '</option>';
+  h += '<td class="pur-td"><select data-f="uom" style="min-width:90px;">' + uomOpts + '</select></td>';
   h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
