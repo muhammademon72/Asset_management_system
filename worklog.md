@@ -993,3 +993,37 @@ Stage Summary:
 - ✅ Migration handles legacy 'Submitted' purchases by upgrading to 'Confirm'.
 - ✅ Commit 23233d0 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 26
+Agent: main
+Task: User requested "Delivery Report — Search box er Right side Print Icon add koro" — add a Print icon to the right of the search box on the Delivery Report page.
+
+Work Log:
+- Located the Delivery Report render code in renderReport('delivery') (line 6084).
+- Located the Detailed Records section with search box (lines 6114-6119).
+- Restructured the section: wrapped search box and Print button in a flex container with gap:10px. The Print button (#btn-print-delivery-report) is added ONLY when type === 'delivery'.
+- Other report types (purchase, adjustment, damage, cash-in/out) are unchanged.
+- Added click handler in the report event binding (after bindAllPurSearchable for the delivery filters).
+- Wrote new function printDeliveryReport():
+    • Reads the active filter values from the page (Branch / Employee / Department searchable dropdowns).
+    • Iterates over the visible rows of #main-table (skipping rows hidden by filter and the grand-total row).
+    • Opens a new window with a print-friendly HTML document containing:
+        - Company header (name, address, phone, email from DB.company)
+        - Document title 'Delivery Report' + printed timestamp + total records count
+        - Filters summary banner showing Branch/Employee/Department values
+        - Full table with same columns as on-screen (drops the Actions column for print)
+        - Footer with system-generated notice
+        - Three signature lines (Prepared By + Approved By show the logged-in user's full name; Received By stays blank)
+    - Auto-triggers the browser Print dialog after content loads.
+- Verified JS syntax (522,522 chars inline) — node --check passed (SYNTAX_OK).
+- Committed as b4bff08.
+- Pushed to GitHub: 23233d0..b4bff08 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Delivery Report now has a Print icon button on the right side of the search box.
+- ✅ Print respects current filters (only visible rows are printed, with a "Filters applied" banner showing Branch/Employee/Department).
+- ✅ Print document follows the same styling pattern as other print docs (company header, signature lines with logged-in user's name).
+- ✅ Commit b4bff08 pushed to GitHub.
+- ✅ JS syntax verified clean.
