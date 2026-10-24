@@ -5937,6 +5937,101 @@ function filterDeliveryReport() {
   }
 }
 
+// Print the currently-filtered Delivery Report (only visible rows are printed).
+// Honors the Branch / Employee Name / Department filters the user has applied.
+function printDeliveryReport() {
+  var co = DB.company || {};
+  // Read the active filter values for the report header
+  var bh = document.querySelector('[data-sr="filter-branch"] input[type="hidden"]');
+  var eh = document.querySelector('[data-sr="filter-emp"] input[type="hidden"]');
+  var dh = document.querySelector('[data-sr="filter-dept"] input[type="hidden"]');
+  var branchFilter = bh ? (bh.value || 'All Branches') : 'All Branches';
+  var empFilter = eh ? (eh.value || 'All Employees') : 'All Employees';
+  var deptFilter = dh ? (dh.value || 'All Departments') : 'All Departments';
+
+  var table = document.getElementById('main-table');
+  if (!table) { showToast('No table found', 'error'); return; }
+  var allRows = table.querySelectorAll('tbody tr');
+  var visibleCount = 0;
+  var rowsHTML = '';
+  for (var i = 0; i < allRows.length; i++) {
+    var r = allRows[i];
+    // Skip rows hidden by the filter
+    if (r.style.display === 'none') continue;
+    // Skip the grand total row (recompute below)
+    if (r.style.background && r.style.background.indexOf('accent') !== -1) continue;
+    visibleCount++;
+    var cells = r.querySelectorAll('td');
+    // Delivery Report columns: #, Date, Branch, Employee Name, Employee ID,
+    // Department, Product, Brand, Model, Serial, Condition, Warranty, Price,
+    // Qty, Remarks, Status, Actions
+    // For print, drop the Actions column (last cell).
+    var tds = '';
+    for (var c = 0; c < cells.length - 1; c++) {
+      tds += '<td>' + (cells[c] ? cells[c].innerHTML : '') + '</td>';
+    }
+    rowsHTML += '<tr>' + tds + '</tr>';
+  }
+  var stamp = new Date().toLocaleString();
+
+  var win = window.open('', '_blank', 'width=1200,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Delivery Report — Print</title><style>';
+  html += '@page { margin: 12mm; }';
+  html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 18px; font-size: 11px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 12px; margin-bottom: 14px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #1a2e1a; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.filters { margin-bottom: 12px; padding: 8px 12px; background: #f5f9f5; border: 1px solid #d4ddd4; border-radius: 8px; font-size: 11px; color: #6b7c6b; }';
+  html += '.filters strong { color: #1a5c30; font-weight: 700; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 6px; }';
+  html += 'thead th { background: #2d8a4e; color: #fff; padding: 7px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; text-align: left; border: 1px solid #2d8a4e; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }';
+  html += 'tbody td { padding: 6px; font-size: 10px; border: 1px solid #d4ddd4; vertical-align: top; }';
+  html += 'tbody tr:nth-child(even) td { background: #f5f9f5; }';
+  html += '.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; } .badge-green { background: #dcfce7; color: #166534; } .badge-amber { background: #fef3c7; color: #92400e; } .badge-red { background: #fee2e2; color: #991b1b; } .badge-gray { background: #e5e7eb; color: #374151; } .badge-blue { background: #dbeafe; color: #1e40af; }';
+  html += '.foot { margin-top: 18px; display: flex; justify-content: space-between; font-size: 11px; color: #6b7c6b; padding-top: 8px; border-top: 1px solid #d4ddd4; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; min-height: 80px; } .sign-line { border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }';
+  html += '</style></head><body>';
+
+  // Header
+  html += '<div class="head"><div><div class="co-name">' + (co.name || 'Company Name') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email;
+  html += '</div></div><div><div class="doc-title">Delivery Report</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + visibleCount + '</div></div></div>';
+
+  // Active filters
+  html += '<div class="filters">Filters applied: &nbsp; <strong>Branch:</strong> ' + branchFilter + ' &nbsp;|&nbsp; <strong>Employee:</strong> ' + empFilter + ' &nbsp;|&nbsp; <strong>Department:</strong> ' + deptFilter + '</div>';
+
+  // Table — replicate Delivery Report column structure (omit the Actions column)
+  html += '<table><thead><tr>';
+  var headers = ['#', 'Date', 'Branch', 'Employee Name', 'Employee ID', 'Department', 'Product', 'Brand', 'Model', 'Serial', 'Condition', 'Warranty', 'Price', 'Qty', 'Remarks', 'Status'];
+  for (var h = 0; h < headers.length; h++) html += '<th>' + headers[h] + '</th>';
+  html += '</tr></thead><tbody>' + rowsHTML + '</tbody></table>';
+
+  // Footer
+  html += '<div class="foot"><span>This is a system-generated Delivery Report from the Assets Management System.</span><span>Page 1</span></div>';
+
+  // Signature lines (matches the pattern from other print docs)
+  html += '<div class="sign">';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
+  html += '</div>';
+
+  // Print buttons
+  html += '<div style="text-align:center;margin-top:18px;">';
+  html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
+  html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
+  html += '</div>';
+
+  html += '</body></html>';
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+}
+
 function clearDeliveryFilters() {
   // Reset searchable dropdowns
   var bw = document.querySelector('[data-sr="filter-branch"]');
@@ -6115,7 +6210,13 @@ function renderReport(type) {
   html += '<div class="stat-card" style="padding:20px;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
   html += '<div style="font-size:15px;font-weight:700;">Detailed Records</div>';
+  // Group search box + Print button (Print button only on Delivery Report)
+  html += '<div style="display:flex;gap:10px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search records..." oninput="filterTable(this.value)"></div>';
+  if (type === 'delivery') {
+    html += '<button class="btn btn-secondary" id="btn-print-delivery-report" title="Print Delivery Report" style="border-radius:8px;"><i class="fas fa-print"></i></button>';
+  }
+  html += '</div>';
   html += '</div>';
   html += '<div style="overflow-x:auto;max-height:calc(100vh - 480px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
@@ -7372,6 +7473,13 @@ function renderPage() {
             revertDelivery(id);
           });
         })(revertBtns[rb]);
+      }
+      // Bind Print button — opens a print-friendly window with the current filtered view
+      var printReportBtn = document.getElementById('btn-print-delivery-report');
+      if (printReportBtn) {
+        printReportBtn.addEventListener('click', function() {
+          printDeliveryReport();
+        });
       }
     }
     // Bind revert buttons for Adjustment Report
