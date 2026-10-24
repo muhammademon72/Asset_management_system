@@ -5063,7 +5063,7 @@ function bindPurchaseEvents() {
 
   });
 
-  // Locked Edit buttons — show toast explaining why editing is blocked
+  // Locked Edit buttons — show info toast explaining why editing is blocked
   var lockedEditBtns = document.querySelectorAll('[data-edit-locked-pur]');
   for (var le = 0; le < lockedEditBtns.length; le++) {
     (function(b) {
@@ -5072,7 +5072,9 @@ function bindPurchaseEvents() {
         var pur = null;
         for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].id === purId) { pur = DB.purchases[j]; break; } }
         var st = pur ? (pur.status || 'Confirm') : 'Confirm';
-        showToast('Editing locked — this purchase is "' + st + '". Only Draft purchases can be edited. Approve Request already sent.', 'error');
+        // Use 'info' (blue) instead of 'error' (red) — this is an expected
+        // behavior, not an error. The red message was alarming users.
+        showToast('This purchase is "' + st + '" — only Draft purchases can be edited.', 'info');
       });
     })(lockedEditBtns[le]);
   }
