@@ -1469,3 +1469,64 @@ Next step for user:
    env var needs to be a Turso cloud URL (libsql://...), not a local file path.
 4. Set up Turso via: bash scripts/setup-turso.sh (one-time, creates a free cloud DB)
 5. Then update Vercel env vars: DATABASE_URL + DATABASE_AUTH_TOKEN.
+
+---
+Task ID: 37
+Agent: main
+Task: User reported critical bug: "User List er kono user Add New Purchase korle Super admin software Refresh dile Purchase List theke Auto Invoice Delete hoyjay" — when a non-admin user adds a purchase and the super admin refreshes the page, the purchase auto-deletes from the Purchase List.
+
+Work Log:
+- Diagnosed the ROOT CAUSE: "last-write-wins" data loss.
+  The entire DB is stored as one JSON blob in the app_data table. Every save (POST /api/db) REPLACES the entire blob. In a multi-user scenario:
+    1. User A adds a purchase at T=10s → POST saves to server ✓
+    2. Super Admin had the page open since T=5s → Admin's local DB is STALE (doesn't have User A's purchase).
+    3. Admin refreshes → beforeunload fires → flushPendingSave() POSTs Admin's STALE entire DB → OVERWRITES User A's purchase → DATA LOSS.
+    4. Admin's page reloads → GET fetches from server → User A's purchase is gone.
+
+- Implemented the FIX: GET-merge-POST pattern.
+  Before every POST, the save functions now do a GET first to fetch the latest server DB, then MERGE local items into it (union by id, local wins on id conflicts), then POST the merged result.
+
+Changes:
+1. New function mergeDBWithServer(serverDB, localDB):
+   - For each collection (purchases, deliveries, etc.), union by id.
+   - Server items are kept; local items are overlaid on top (local wins on id conflicts).
+   - Insertion order is preserved.
+   - Non-array fields (company, _lastBackup) use local values.
+
+2. saveDBNow() — now does GET → merge → POST (async fetch):
+   - GET /api/db to fetch the latest server DB.
+   - Merge local items into the server DB.
+   - applyDBData(merged) so the local DB is now up-to-date.
+   - POST the merged DB.
+   - If GET fails, falls back to POSTing the local DB (old behavior).
+
+3. flushPendingSave() (unload handler) — now does SYNC GET → merge → POST:
+   - Sync XHR GET /api/db (blocks page unload).
+   - Merge local items into the server DB.
+   - POST the merged DB via sendBeacon or sync XHR.
+   - This is the CRITICAL fix — it prevents the admin's stale DB from overwriting other users' purchases when the admin refreshes.
+
+Verified in headless Chrome:
+- Simulated User A saving a purchase (id=99999) directly to the server DB via fetch.
+- Admin's local DB did NOT have User A's purchase.
+- Admin saved a change (new product id=2).
+- Checked server DB after save:
+    ✅ User A's purchase (id=99999, invoice 'USER-A-PURCHASE') is PRESERVED.
+    ✅ Admin's new product (id=2) is also saved.
+    ✅ Both changes coexist — no data loss.
+- Before the fix: User A's purchase would have been overwritten and lost.
+- Cleanup: removed all test data.
+- Re-extracted inline script (552,235 chars) → node --check passed (SYNTAX_OK).
+- Committed as fb95cbb.
+- Pushed to GitHub: 8e4a2f1..fb95cbb main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+TRADE-OFF:
+Deletions from other users may be "undone" if the local DB still has the deleted item. This is an acceptable trade-off for preventing data loss — it's better to have a deleted item reappear than to lose a user's entire new purchase.
+
+Stage Summary:
+- ✅ Root cause identified: "last-write-wins" data loss on multi-user save.
+- ✅ Fix applied: GET-merge-POST pattern in both saveDBNow() and flushPendingSave().
+- ✅ Verified end-to-end — User A's purchase survives admin's save.
+- ✅ Commit fb95cbb pushed to GitHub.
+- ✅ JS syntax verified clean.
