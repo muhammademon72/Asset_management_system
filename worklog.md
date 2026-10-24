@@ -1649,3 +1649,44 @@ Stage Summary:
 - ✅ Message shortened and made less alarming.
 - ✅ Commit 569f65a pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 41
+Agent: main
+Task: User reported "ei Red and Navi blue Massage show kore" — when saving with a file attachment, the user sees confusing red and blue error messages:
+  - Red: "Save failed (network): Unexpected token 'R', 'Request En'... is not valid JSON"
+  - Red: "Purchase saved locally but server save failed. The attachment may not be persisted..."
+  - Blue: "Reading attachment..." / "Saving purchase with attachment..."
+
+Work Log:
+- Diagnosed the ROOT CAUSE: Vercel's Hobby plan has a 4.5MB body size limit. When the POST body (entire DB JSON + base64 attachment) exceeds this limit, Vercel returns a plain-text "Request Entity Too Large" (HTTP 413) error BEFORE the serverless function even runs. The fetch handler tried to parse this plain-text response as JSON, causing "Unexpected token 'R'" parse error.
+
+Fixes applied:
+1. Added `safeParseFetchResponse(response)` helper function:
+   - Checks `response.ok` before trying JSON.parse
+   - If not OK (HTTP 4xx/5xx), reads body as text and returns structured error object
+   - If JSON parse fails, reads as text and returns structured error
+   - Never throws — always returns a usable { ok: false, error: '...' } object
+
+2. Updated both save paths (skipMerge and GET-merge-POST) in `saveDBNow()` to use `safeParseFetchResponse()` instead of raw `response.json()`.
+
+3. Added intelligent error message detection in the catch handlers:
+   - If error message contains "Unexpected token" or "is not valid JSON":
+     → shows "Server rejected the request (file may be too large). Use a smaller file (max 1 MB)."
+   - If error message contains "413" or "Entity Too Large":
+     → shows "File too large for server. Use a smaller file (max 1 MB)."
+
+4. Reduced attachment size limit from 1.5MB to 1MB — a 1MB file becomes ~1.3MB base64, and with the rest of the DB JSON, total POST body stays well under Vercel's 4.5MB limit.
+
+Verification:
+- Re-extracted inline script (557,807 chars) → node --check passed (SYNTAX_OK).
+- Committed as fc3c867.
+- Pushed to GitHub: 569f65a..fc3c867 main -> main ✅.
+
+Stage Summary:
+- ✅ Root cause identified: Vercel 413 "Request Entity Too Large" returned as plain text, causing JSON parse error.
+- ✅ Fix applied: safeParseFetchResponse() handles non-JSON responses gracefully.
+- ✅ Intelligent error messages guide the user to use smaller files.
+- ✅ Attachment size limit reduced to 1MB (stays within Vercel's 4.5MB body limit).
+- ✅ Commit fc3c867 pushed to GitHub.
+- ✅ JS syntax verified clean.
