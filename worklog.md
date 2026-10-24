@@ -923,3 +923,73 @@ Stage Summary:
 - ✅ Verified end-to-end: view-only role sees no action buttons, full-perm role sees all.
 - ✅ Commit c5764dc pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 25
+Agent: main
+Task: User requested two changes to "Add New Purchase" modal:
+1. Make these fields mandatory (required validation):
+   Date, Invoice No, Supplier, Brand, Model, Serial Number, Condition,
+   Warranty, Quantity, Price.
+2. Status behavior change:
+   - Draft: user can edit later, Approve Request NOT sent
+   - Confirm: user CANNOT edit later, Approve Request IS sent
+
+Work Log:
+- Surveyed the Add New Purchase modal in bindPurchaseEvents (line 4557) and the Edit Purchase modal at line 4821.
+- Located the save handler (~4661) and update handler (~4940) — both had minimal validation (only Date and Invoice No).
+- Located the status dropdown — was using 'Draft' / 'Submitted' options.
+
+Changes applied:
+
+1. MANDATORY FIELD VALIDATION:
+   - Add modal save handler (btn-save-pur click):
+       Added top-field checks: Date, Invoice No, Supplier — each with its own toast.
+       Added per-row checks: Brand, Model, Serial Number, Condition, Warranty,
+       Quantity (>0), Price (>0). Each error toast mentions the specific product
+       that's missing the field (e.g. 'Brand is required for product: X').
+   - Edit modal update handler (btn-update-pur click):
+       Same mandatory checks added.
+       Fixed a duplicate `var rows` declaration (re-using the rows from validation loop).
+
+2. STATUS FLOW CHANGE (Draft / Confirm):
+   - Add modal status dropdown: now has Draft and Confirm options only.
+   - Edit modal status dropdown: shows Draft and Confirm options, plus
+     Approved/Rejected only if the purchase is already in that status
+     (so audit trail is preserved).
+   - renderPurchaseList (line 1557): Edit button is greyed out
+     (opacity:0.4, cursor:not-allowed) when status is NOT Draft.
+     Uses data-edit-locked-pur attribute instead of data-edit-pur so the
+     regular edit handler doesn't fire.
+   - New click handler for [data-edit-locked-pur] in bindPurchaseEvents:
+       Shows toast: 'Editing locked — this purchase is "Confirm". Only Draft
+       purchases can be edited. Approve Request already sent.'
+   - renderApprovalList pendingStatuses: now includes 'Confirm' (alongside
+     legacy 'Submitted' and 'Pending') so confirmed purchases appear in the
+     approval queue.
+   - Dashboard pendingCount: now includes purchases with status 'Confirm'
+     or 'Submitted' (alongside 'Pending').
+   - statusBadge: added color mapping for 'Confirm' (amber), 'Submitted'
+     (amber), 'Draft' (gray).
+   - Migration: existing purchases with status 'Submitted' are migrated to
+     'Confirm' on next DB load (one-time, auto-saved). 'Pending' stays
+     as 'Pending' so legacy data continues to show in the approval queue.
+
+Verification:
+- Re-extracted inline script (514,562 chars) → node --check passed (SYNTAX_OK).
+- Committed as 23233d0.
+- Pushed to GitHub: c5764dc..23233d0 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Mandatory fields now enforced on Add New Purchase + Edit Purchase:
+    Date, Invoice No, Supplier (top), Brand, Model, Serial Number, Condition,
+    Warranty, Quantity (>0), Price (>0) per row.
+- ✅ Status flow changed to Draft/Confirm:
+    • Draft = user can edit later, NOT in approval queue.
+    • Confirm = locked from editing, IN approval queue (Approve Request sent).
+- ✅ Edit button visually greyed out + locked when status is Confirm/Approved/Rejected.
+- ✅ Locked edit click shows toast explaining the lock.
+- ✅ Migration handles legacy 'Submitted' purchases by upgrading to 'Confirm'.
+- ✅ Commit 23233d0 pushed to GitHub.
+- ✅ JS syntax verified clean.
