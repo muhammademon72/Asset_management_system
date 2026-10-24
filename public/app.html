@@ -8179,11 +8179,66 @@ function safeParseFetchResponse(response) {
   });
 }
 
+// Vercel's Hobby plan limits request body to 4.5MB. When the DB already
+// contains many purchases with attachments, the total payload can exceed
+// this limit. This function trims old attachment DATA (base64) from
+// purchases/deliveries to bring the payload under the safe threshold.
+//
+// It keeps the attachment metadata (name, type, size) so the user still
+// sees that an attachment existed — only the base64 `data` field is dropped.
+// The most recent attachments are preserved; oldest are trimmed first.
+//
+// `keepRecentCount` — number of most-recent attachments to preserve (default 3).
+// `maxBytes` — target maximum payload size (default 4MB, safely under Vercel's 4.5MB).
+function trimLargePayload(payload, keepRecentCount, maxBytes) {
+  keepRecentCount = keepRecentCount || 3;
+  maxBytes = maxBytes || (4 * 1024 * 1024);  // 4 MB safe threshold
+
+  var payloadStr = JSON.stringify(payload);
+  if (payloadStr.length <= maxBytes) return payload;  // no trimming needed
+
+  console.warn('trimLargePayload: payload is ' + (payloadStr.length / 1024 / 1024).toFixed(2) + ' MB, trimming old attachment data...');
+
+  // Collect all attachments with their data, sorted by recency (newest first)
+  var collections = ['purchases', 'deliveries', 'adjustments', 'damages'];
+  var allAttachments = [];  // { ref: <object>, hasData: true }
+  for (var ci = 0; ci < collections.length; ci++) {
+    var coll = payload[collections[ci]];
+    if (!Array.isArray(coll)) continue;
+    for (var ii = coll.length - 1; ii >= 0; ii--) {
+      var item = coll[ii];
+      if (item.attachment && item.attachment.data) {
+        allAttachments.push({ ref: item, attach: item.attachment });
+      }
+    }
+  }
+
+  // Keep the `keepRecentCount` most recent (already in reverse order), trim the rest
+  var trimmedCount = 0;
+  for (var ti = keepRecentCount; ti < allAttachments.length; ti++) {
+    var a = allAttachments[ti].attach;
+    // Keep name, type, size — drop only the large `data` field
+    delete a.data;
+    a.trimmed = true;  // mark so the UI can show "data no longer available"
+    trimmedCount++;
+    // Check if we're now under the limit
+    if (JSON.stringify(payload).length <= maxBytes) break;
+  }
+
+  console.warn('trimLargePayload: trimmed ' + trimmedCount + ' old attachment(s). New size: ' + (JSON.stringify(payload).length / 1024 / 1024).toFixed(2) + ' MB');
+  return payload;
+}
+
 function saveDBNow(onDone, options) {
   options = options || {};
   var skipMerge = options.skipMerge || false;
   try {
     var localPayload = buildDBSnapshot();
+    // AUTO-TRIM: If the payload is too large for Vercel (4.5MB body limit),
+    // automatically strip old attachment DATA (base64) while keeping metadata.
+    // This prevents "File too large for server" errors when the DB has grown
+    // large with many existing attachments.
+    localPayload = trimLargePayload(localPayload);
     DB_LOCAL_DIRTY = false; // optimistic — set true again if save fails
     // Optimistically also cache in localStorage so the next page load
     // can paint quickly before the server round-trip completes.
@@ -8241,6 +8296,9 @@ function saveDBNow(onDone, options) {
         var serverDB = (getRes && getRes.ok && getRes.data) ? getRes.data : null;
         // STEP 2: Merge local items into the server DB (union by id, local wins)
         var mergedPayload = serverDB ? mergeDBWithServer(serverDB, localPayload) : localPayload;
+        // AUTO-TRIM: After merge, the payload may be too large (server had old
+        // attachments + local has new ones). Trim old attachment data to fit.
+        mergedPayload = trimLargePayload(mergedPayload);
         // Update local DB with the merged result so subsequent saves are also safe
         applyDBData(mergedPayload);
         // STEP 3: POST the merged DB
