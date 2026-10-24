@@ -8033,39 +8033,116 @@ function saveDB() {
 
 // Save immediately (no debounce). Called by saveDB debouncer and explicitly
 // when a user clicks "Backup" or similar critical actions.
+// Merge two DB snapshots: for each collection, UNION by id with LOCAL winning
+// on id conflicts. This prevents the "last-write-wins" data loss that happens
+// when one user's stale DB overwrites another user's recent changes on the server.
+//
+// Scenario this fixes:
+//   1. User A adds a purchase → saved to server.
+//   2. Admin had the page open BEFORE User A's save → Admin's local DB is stale.
+//   3. Admin refreshes → beforeunload fires → flushPendingSave() POSTs Admin's
+//      stale DB → User A's purchase is overwritten and LOST.
+//
+// With this merge: Admin's save first GETs the latest server DB (which has
+// User A's purchase), merges Admin's local items on top, then POSTs the merged
+// result → User A's purchase is preserved.
+//
+// Trade-off: deletions from other users may be "undone" if the local DB still
+// has the deleted item. This is an acceptable trade-off for preventing data loss.
+function mergeDBWithServer(serverDB, localDB) {
+  if (!serverDB || typeof serverDB !== 'object') return buildDBSnapshot();
+  var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','quotations','invoices','users','roles'];
+  var merged = {};
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var serverArr = Array.isArray(serverDB[k]) ? serverDB[k] : [];
+    var localArr = Array.isArray(localDB[k]) ? localDB[k] : [];
+    // Build a map of items by id from the server collection
+    var byId = {};
+    var order = [];  // preserve insertion order
+    for (var s = 0; s < serverArr.length; s++) {
+      var srvItem = serverArr[s];
+      if (srvItem && srvItem.id !== undefined && srvItem.id !== null) {
+        var idKey = String(srvItem.id);
+        if (!byId[idKey]) { byId[idKey] = srvItem; order.push(idKey); }
+        else { byId[idKey] = srvItem; } // server wins on duplicate ids within server
+      } else {
+        // Server item without an id — keep it (rare, shouldn't happen)
+        byId['__noid_' + s] = srvItem; order.push('__noid_' + s);
+      }
+    }
+    // Overlay local items — LOCAL WINS on id conflicts (local has the user's latest edit)
+    for (var l = 0; l < localArr.length; l++) {
+      var locItem = localArr[l];
+      if (locItem && locItem.id !== undefined && locItem.id !== null) {
+        var lidKey = String(locItem.id);
+        if (!byId[lidKey]) { byId[lidKey] = locItem; order.push(lidKey); }
+        else { byId[lidKey] = locItem; } // local overwrites server
+      } else {
+        byId['__noidlocal_' + l] = locItem; order.push('__noidlocal_' + l);
+      }
+    }
+    // Rebuild the array in order
+    merged[k] = [];
+    for (var oi = 0; oi < order.length; oi++) {
+      merged[k].push(byId[order[oi]]);
+    }
+  }
+  // Non-array fields: local wins
+  merged.company = (localDB.company && typeof localDB.company === 'object') ? localDB.company : (serverDB.company || {});
+  merged._lastBackup = localDB._lastBackup || serverDB._lastBackup;
+  merged._savedAt = new Date().toISOString();
+  return merged;
+}
+
 function saveDBNow(onDone) {
   try {
-    var payload = buildDBSnapshot();
+    var localPayload = buildDBSnapshot();
     DB_LOCAL_DIRTY = false; // optimistic — set true again if save fails
     // Optimistically also cache in localStorage so the next page load
     // can paint quickly before the server round-trip completes.
-    try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
+    try { localStorage.setItem('itAssetDB', JSON.stringify(localPayload)); } catch (e) {}
     // Show "Saving..." indicator (subtle, non-blocking)
     showSaveStatusIndicator('saving');
-    // Fire-and-forget POST — keep UI snappy
-    fetch('/api/db', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: payload })
-    }).then(function(r) { return r.json(); }).then(function(res) {
-      if (res && res.ok) {
-        DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
-        showSaveStatusIndicator('saved');
-      } else {
-        console.warn('saveDB: server returned error', res);
+
+    // STEP 1: GET the latest server DB so we don't overwrite other users' changes.
+    // This is critical for multi-user scenarios — without it, a stale local DB
+    // would overwrite purchases/records that other users just saved.
+    fetch('/api/db', { method: 'GET' })
+      .then(function(r) { return r.json(); })
+      .then(function(getRes) {
+        var serverDB = (getRes && getRes.ok && getRes.data) ? getRes.data : null;
+        // STEP 2: Merge local items into the server DB (union by id, local wins)
+        var mergedPayload = serverDB ? mergeDBWithServer(serverDB, localPayload) : localPayload;
+        // Update local DB with the merged result so subsequent saves are also safe
+        applyDBData(mergedPayload);
+        // STEP 3: POST the merged DB
+        return fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: mergedPayload })
+        });
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res && res.ok) {
+          DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
+          showSaveStatusIndicator('saved');
+        } else {
+          console.warn('saveDB: server returned error', res);
+          DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
+          showSaveStatusIndicator('error', 'Server error: ' + (res && res.error ? res.error : 'unknown'));
+          showToast('Save failed: ' + (res && res.error ? res.error : 'server error') + '. Your changes are NOT saved.', 'error');
+        }
+        if (onDone) onDone(res);
+      })
+      .catch(function(err) {
+        console.warn('saveDB: network error', err);
         DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
-        showSaveStatusIndicator('error', 'Server error: ' + (res && res.error ? res.error : 'unknown'));
-        // Show toast for visibility (especially helpful when Vercel DB is misconfigured)
-        showToast('Save failed: ' + (res && res.error ? res.error : 'server error') + '. Your changes are NOT saved — please check your connection.', 'error');
-      }
-      if (onDone) onDone(res);
-    }).catch(function(err) {
-      console.warn('saveDB: network error', err);
-      DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
-      showSaveStatusIndicator('error', 'Network: ' + (err && err.message ? err.message : 'unknown'));
-      showToast('Save failed (network): ' + (err && err.message ? err.message : 'network error') + '. Your changes are NOT saved.', 'error');
-      if (onDone) onDone({ ok: false, error: err && err.message });
-    });
+        showSaveStatusIndicator('error', 'Network: ' + (err && err.message ? err.message : 'unknown'));
+        showToast('Save failed (network): ' + (err && err.message ? err.message : 'network error') + '. Your changes are NOT saved.', 'error');
+        if (onDone) onDone({ ok: false, error: err && err.message });
+      });
   } catch (e) {
     console.warn('saveDB failed:', e);
     DB_LOCAL_DIRTY = true;
@@ -8180,19 +8257,47 @@ function applyDBData(data) {
 // Uses sendBeacon (works during unload) AND a synchronous XHR fallback to
 // GUARANTEE the save completes before the browser navigates away — this is
 // critical for attachment uploads which take longer than a simple text edit.
+//
+// CRITICAL: Before POSTing, this does a SYNC GET to fetch the latest server DB,
+// then MERGES local items into it (union by id). This prevents the
+// "last-write-wins" data loss where a stale local DB overwrites other users'
+// recent changes on the server.
 function flushPendingSave() {
   if (!DB_LOCAL_DIRTY) return;
   // Cancel the debounced timer — we're saving NOW
   if (DB_SAVE_TIMER) { clearTimeout(DB_SAVE_TIMER); DB_SAVE_TIMER = null; }
-  var payload = buildDBSnapshot();
+  var localPayload = buildDBSnapshot();
   // Always update localStorage first (synchronous, instant)
-  try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
+  try { localStorage.setItem('itAssetDB', JSON.stringify(localPayload)); } catch (e) {}
 
+  // STEP 1: Sync GET the latest server DB so we can merge (prevents overwriting
+  // other users' changes). This is the key fix for the "purchases auto-delete"
+  // bug — without this, a stale local DB would overwrite purchases that other
+  // users just saved.
+  var mergedPayload = localPayload;  // fallback: just POST local if GET fails
+  try {
+    var getXhr = new XMLHttpRequest();
+    getXhr.open('GET', '/api/db', false); // false = synchronous
+    getXhr.send();
+    if (getXhr.status === 200) {
+      var getRes = JSON.parse(getXhr.responseText);
+      if (getRes && getRes.ok && getRes.data) {
+        mergedPayload = mergeDBWithServer(getRes.data, localPayload);
+        // Update local DB with merged result so the next page load sees it
+        applyDBData(mergedPayload);
+      }
+    }
+  } catch (e) {
+    // GET failed (network error) — fall back to just POSTing local payload
+    console.warn('flushPendingSave: sync GET failed, using local payload only', e);
+  }
+
+  // STEP 2: POST the merged DB
   // Strategy 1: sendBeacon (fire-and-forget, works during unload)
   var beaconSent = false;
   if (navigator.sendBeacon) {
     try {
-      var blob = new Blob([JSON.stringify({ data: payload })], { type: 'application/json' });
+      var blob = new Blob([JSON.stringify({ data: mergedPayload })], { type: 'application/json' });
       beaconSent = navigator.sendBeacon('/api/db', blob);
     } catch (e) { beaconSent = false; }
   }
@@ -8200,21 +8305,19 @@ function flushPendingSave() {
   // Strategy 2: Synchronous XHR — blocks the page unload until the save
   // completes. This is the ONLY way to guarantee attachments (which can be
   // large base64 blobs) are fully persisted before the page reloads.
-  // Modern browsers show a brief "Leave site?" dialog for sync XHR during
-  // unload, but that's acceptable for data-safety.
   if (!beaconSent) {
     try {
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/db', false); // false = synchronous
       xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.send(JSON.stringify({ data: payload }));
+      xhr.send(JSON.stringify({ data: mergedPayload }));
     } catch (e) {
       // Last resort: async fetch with keepalive (may not complete)
       try {
         fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: payload }),
+          body: JSON.stringify({ data: mergedPayload }),
           keepalive: true
         });
       } catch (e2) {}
