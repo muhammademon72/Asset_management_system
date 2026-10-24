@@ -3198,39 +3198,118 @@ function generateAdjustmentRef() {
   return prefix + seq;
 }
 
+// Build a product option array from Inventory Stock — ONE ENTRY PER APPROVED
+// PURCHASE ROW (so each serial shows up separately in the dropdown, matching
+// the Inventory Stock page). Only rows with stock > 0 are included.
+//
+// Stock allocation uses FIFO (oldest purchase rows consume deliveries and
+// damages first) — same logic as renderInventoryStock() and
+// openDeliveryAddModal().
+//
+// Each prdArr entry has:
+//   - value:    'productName||serial' (unique per row, used internally)
+//   - productName: the clean product name (without '||serial')
+//   - label:    'productName · serial · invoice' (readable)
+//   - category, brand, model, serial, condition, warranty, stock
+function buildInventoryStockProductArray() {
+  var prdArr = [];
+
+  // Step 1: Group APPROVED purchases by product name, oldest first (FIFO).
+  var perProduct = {};
+  for (var j = 0; j < DB.purchases.length; j++) {
+    var pur = DB.purchases[j];
+    if (pur.status !== 'Approved') continue;
+    if (!perProduct[pur.product]) perProduct[pur.product] = [];
+    perProduct[pur.product].push(pur);
+  }
+  for (var pn in perProduct) {
+    perProduct[pn].sort(function(a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da < db) return -1;
+      if (da > db) return 1;
+      return 0;
+    });
+  }
+
+  // Step 2: For each product, allocate deliveries/damages/adjustments FIFO.
+  for (var productName in perProduct) {
+    var purchaseRows = perProduct[productName];
+    var delQty = 0;
+    for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
+      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+    }
+    var dmgQty = 0;
+    for (var dmi = 0; dmi < DB.damages.length; dmi++) {
+      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+    }
+    var adjQtyNet = 0;
+    for (var ai = 0; ai < DB.adjustments.length; ai++) {
+      if (DB.adjustments[ai].product === productName) {
+        var aq = DB.adjustments[ai].qty || 0;
+        adjQtyNet += (DB.adjustments[ai].type === 'Increase') ? aq : -aq;
+      }
+    }
+    var delRemaining = delQty;
+    var dmgRemaining = dmgQty;
+    var adjRemaining = adjQtyNet;
+
+    var prodMaster = null;
+    for (var pi3 = 0; pi3 < DB.products.length; pi3++) {
+      if (DB.products[pi3].name === productName) { prodMaster = DB.products[pi3]; break; }
+    }
+
+    for (var ri = 0; ri < purchaseRows.length; ri++) {
+      var pr = purchaseRows[ri];
+      var rowQty = pr.qty || 0;
+      var allocDel = Math.min(rowQty, delRemaining); delRemaining -= allocDel;
+      var allocDmg = Math.min(rowQty - allocDel, dmgRemaining); dmgRemaining -= allocDmg;
+      var allocAdj = 0;
+      if (adjRemaining > 0) {
+        allocAdj = Math.min(rowQty - allocDel - allocDmg, adjRemaining);
+        adjRemaining -= allocAdj;
+      } else if (adjRemaining < 0) {
+        var take = Math.min(rowQty - allocDel - allocDmg, -adjRemaining);
+        allocAdj = -take;
+        adjRemaining += take;
+      }
+      var rowStock = rowQty - allocDel - allocDmg + allocAdj;
+      if (rowStock < 0) rowStock = 0;
+      if (rowStock === 0) continue;  // skip fully-delivered rows
+
+      var serial = pr.serial || '';
+      prdArr.push({
+        value: productName + (serial ? '||' + serial : ''),
+        productName: productName,
+        label: productName + (serial ? ' · ' + serial : '') + ' · ' + (pr.invoice || ''),
+        category: pr.category || (prodMaster && prodMaster.category) || '',
+        brand: pr.brand || (prodMaster && prodMaster.brand) || '',
+        model: pr.model || '',
+        serial: serial,
+        condition: pr.condition || '',
+        warranty: pr.warranty || '',
+        stock: rowStock
+      });
+    }
+  }
+  return prdArr;
+}
+
+// Strip the '||serial' suffix used internally by buildInventoryStockProductArray().
+// Use this in save handlers before storing the product name in DB.*.
+function stripProductSerialSuffix(value) {
+  if (!value) return value;
+  return (value.indexOf('||') !== -1) ? value.split('||')[0] : value;
+}
+
 function openAdjustmentModal(adjId, readOnly) {
   var adj = null;
   if (adjId) { for (var i = 0; i < DB.adjustments.length; i++) { if (DB.adjustments[i].id === adjId) { adj = DB.adjustments[i]; break; } } }
   var title = adj ? (readOnly ? 'Adjustment Details' : 'Edit Adjustment') : 'Add New Adjustment';
 
-  // Build option arrays — only show products with stock > 0 (same as Delivery)
-  var prdArr = [];
-  for (var k = 0; k < DB.products.length; k++) {
-    var p = DB.products[k];
-    // Compute current stock
-    var pur = 0, del = 0, dmg = 0, adj2 = 0;
-    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
-    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
-    for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
-    var stk = pur - del - dmg + adj2; if (stk < 0) stk = 0;
-    // Skip products with zero stock — only show in-stock products for adjustment
-    if (stk === 0) continue;
-    // Pull latest purchase for brand/model/serial/condition/warranty
-    var latestPur = null;
-    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
-    prdArr.push({
-      value: p.name,
-      label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''),
-      category: p.category || (latestPur && latestPur.category) || '',
-      brand: p.brand || (latestPur && latestPur.brand) || '',
-      model: (latestPur && latestPur.model) || '',
-      serial: (latestPur && latestPur.serial) || '',
-      condition: (latestPur && latestPur.condition) || '',
-      warranty: (latestPur && latestPur.warranty) || '',
-      stock: stk
-    });
-  }
+  // Build product option array from Inventory Stock — ONE ENTRY PER APPROVED
+  // PURCHASE ROW (so each serial shows up separately, matching the Inventory
+  // Stock page). Only rows with stock > 0 are shown.
+  var prdArr = buildInventoryStockProductArray();
   var catOpts = '<option value="">Select</option>';
   for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
   var brandOpts = '<option value="">Select</option>';
@@ -3405,7 +3484,10 @@ function openAdjustmentModal(adjId, readOnly) {
         if (pSel && pSel.value) { firstValid = rows[ri]; break; }
       }
       if (!firstValid) { showToast('Add at least one product', 'error'); return; }
-      var product = firstValid.querySelector('[data-f="product"]').value;
+      var productValue = firstValid.querySelector('[data-f="product"]').value;
+      // The dropdown value may include a '||serial' suffix used for unique
+      // identification of each purchase row. Strip it to get the clean product name.
+      var product = stripProductSerialSuffix(productValue);
       var category = firstValid.querySelector('[data-f="category"]').value;
       var brand = firstValid.querySelector('[data-f="brand"]').value;
       var model = firstValid.querySelector('[data-f="model"]').value;
@@ -4237,31 +4319,10 @@ function openDamageModal(dmgId, readOnly) {
   if (dmgId) { for (var i = 0; i < DB.damages.length; i++) { if (DB.damages[i].id === dmgId) { dmg = DB.damages[i]; break; } } }
   var title = dmg ? (readOnly ? 'Damage Details' : 'Edit Damage') : 'Add New Damage';
 
-  // Build product array — only show products with stock > 0 (same as Adjustment)
-  var prdArr = [];
-  for (var k = 0; k < DB.products.length; k++) {
-    var p = DB.products[k];
-    var pur = 0, del = 0, dmg2 = 0, adj2 = 0;
-    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].status === 'Approved' && DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
-    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg2 += (DB.damages[j].qty || 0); }
-    for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
-    var stk = pur - del - dmg2 + adj2; if (stk < 0) stk = 0;
-    if (stk === 0) continue;
-    var latestPur = null;
-    for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].product === p.name) { if (!latestPur || (DB.purchases[j].date||'') > (latestPur.date||'')) latestPur = DB.purchases[j]; } }
-    prdArr.push({
-      value: p.name,
-      label: p.name + ((latestPur && latestPur.serial) ? ' · ' + latestPur.serial : ''),
-      category: p.category || (latestPur && latestPur.category) || '',
-      brand: p.brand || (latestPur && latestPur.brand) || '',
-      model: (latestPur && latestPur.model) || '',
-      serial: (latestPur && latestPur.serial) || '',
-      condition: (latestPur && latestPur.condition) || '',
-      warranty: (latestPur && latestPur.warranty) || '',
-      stock: stk
-    });
-  }
+  // Build product option array from Inventory Stock — ONE ENTRY PER APPROVED
+  // PURCHASE ROW (so each serial shows up separately, matching the Inventory
+  // Stock page). Only rows with stock > 0 are shown.
+  var prdArr = buildInventoryStockProductArray();
   var catOpts = '<option value="">Select</option>';
   for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
   var brandOpts = '<option value="">Select</option>';
@@ -4422,7 +4483,10 @@ function openDamageModal(dmgId, readOnly) {
         if (pSel && pSel.value) { firstValid = rows[ri]; break; }
       }
       if (!firstValid) { showToast('Add at least one product', 'error'); return; }
-      var product = firstValid.querySelector('[data-f="product"]').value;
+      var productValue = firstValid.querySelector('[data-f="product"]').value;
+      // The dropdown value may include a '||serial' suffix used for unique
+      // identification of each purchase row. Strip it to get the clean product name.
+      var product = stripProductSerialSuffix(productValue);
       var category = firstValid.querySelector('[data-f="category"]').value;
       var brand = firstValid.querySelector('[data-f="brand"]').value;
       var model = firstValid.querySelector('[data-f="model"]').value;
