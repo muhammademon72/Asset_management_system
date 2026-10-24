@@ -4994,11 +4994,11 @@ function bindPurchaseEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        // Limit to 2 MB to stay within Vercel's 4.5MB serverless body limit.
-        // Base64 encoding adds ~33% overhead, so a 2MB file becomes ~2.7MB base64,
-        // plus the rest of the DB JSON, keeping total POST body under 4.5MB.
-        if (f.size > 2 * 1024 * 1024) {
-          showToast('Attachment too large (max 2 MB). Use a smaller file or compress it.', 'error');
+        // Limit to 1.5 MB to stay within Vercel's 4.5MB serverless body limit.
+        // Base64 encoding adds ~33% overhead, so a 1.5MB file becomes ~2MB base64,
+        // plus the rest of the DB JSON, keeping total POST body well under 4.5MB.
+        if (f.size > 1.5 * 1024 * 1024) {
+          showToast('Attachment too large (max 1.5 MB). Use a smaller file or compress it.', 'error');
           return;
         }
         // Show "saving..." feedback so the user knows we're reading the file
@@ -5043,6 +5043,8 @@ function bindPurchaseEvents() {
       // If there's an attachment, save IMMEDIATELY (no debounce) and wait
       // for the server response before showing success/failure. Without
       // this, the debounced save might fail silently on large payloads.
+      // Use skipMerge: true to avoid the GET-merge-POST doubling the data
+      // transfer, which causes "Network unexpected" errors on large attachments.
       if (attachInfo) {
         showToast('Saving purchase with attachment...', 'info');
         saveDBNow(function(res) {
@@ -5051,7 +5053,7 @@ function bindPurchaseEvents() {
           } else {
             showToast('Purchase saved locally but server save failed. The attachment may not be persisted. Please try again or use a smaller file.', 'error');
           }
-        });
+        }, { skipMerge: true });
       } else {
         showToast('Purchase saved successfully');
         saveDB(); // normal debounced save
@@ -5353,6 +5355,8 @@ function bindPurchaseEvents() {
           closeModal(); renderPage();
           // If the purchase has an attachment, save IMMEDIATELY (no debounce)
           // and wait for server response before showing success/failure.
+          // Use skipMerge: true to avoid the GET-merge-POST doubling the data
+          // transfer, which causes "Network unexpected" errors on large attachments.
           if (pur.attachment && pur.attachment.data) {
             showToast('Saving purchase with attachment...', 'info');
             saveDBNow(function(res) {
@@ -5361,7 +5365,7 @@ function bindPurchaseEvents() {
               } else {
                 showToast('Purchase updated locally but server save failed. Please try again.', 'error');
               }
-            });
+            }, { skipMerge: true });
           } else {
             showToast('Purchase updated');
             saveDB();
@@ -8128,7 +8132,9 @@ function mergeDBWithServer(serverDB, localDB) {
   return merged;
 }
 
-function saveDBNow(onDone) {
+function saveDBNow(onDone, options) {
+  options = options || {};
+  var skipMerge = options.skipMerge || false;
   try {
     var localPayload = buildDBSnapshot();
     DB_LOCAL_DIRTY = false; // optimistic — set true again if save fails
@@ -8137,6 +8143,36 @@ function saveDBNow(onDone) {
     try { localStorage.setItem('itAssetDB', JSON.stringify(localPayload)); } catch (e) {}
     // Show "Saving..." indicator (subtle, non-blocking)
     showSaveStatusIndicator('saving');
+
+    // If skipMerge is true (e.g., for large attachment saves), POST directly
+    // without the GET-merge step. This avoids doubling the data transfer,
+    // which can exceed Vercel's body size limit and cause "Network unexpected"
+    // errors when attachments are involved.
+    if (skipMerge) {
+      fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: localPayload })
+      }).then(function(r) { return r.json(); }).then(function(res) {
+        if (res && res.ok) {
+          DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
+          showSaveStatusIndicator('saved');
+        } else {
+          console.warn('saveDB: server returned error', res);
+          DB_LOCAL_DIRTY = true;
+          showSaveStatusIndicator('error', 'Server error: ' + (res && res.error ? res.error : 'unknown'));
+          showToast('Save failed: ' + (res && res.error ? res.error : 'server error') + '.', 'error');
+        }
+        if (onDone) onDone(res);
+      }).catch(function(err) {
+        console.warn('saveDB: network error', err);
+        DB_LOCAL_DIRTY = true;
+        showSaveStatusIndicator('error', 'Network: ' + (err && err.message ? err.message : 'unknown'));
+        showToast('Save failed (network): ' + (err && err.message ? err.message : 'network error') + '.', 'error');
+        if (onDone) onDone({ ok: false, error: err && err.message });
+      });
+      return;
+    }
 
     // STEP 1: GET the latest server DB so we don't overwrite other users' changes.
     // This is critical for multi-user scenarios — without it, a stale local DB
