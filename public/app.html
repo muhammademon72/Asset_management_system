@@ -8040,6 +8040,8 @@ function saveDBNow(onDone) {
     // Optimistically also cache in localStorage so the next page load
     // can paint quickly before the server round-trip completes.
     try { localStorage.setItem('itAssetDB', JSON.stringify(payload)); } catch (e) {}
+    // Show "Saving..." indicator (subtle, non-blocking)
+    showSaveStatusIndicator('saving');
     // Fire-and-forget POST — keep UI snappy
     fetch('/api/db', {
       method: 'POST',
@@ -8048,20 +8050,63 @@ function saveDBNow(onDone) {
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (res && res.ok) {
         DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
+        showSaveStatusIndicator('saved');
       } else {
         console.warn('saveDB: server returned error', res);
         DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
+        showSaveStatusIndicator('error', 'Server error: ' + (res && res.error ? res.error : 'unknown'));
+        // Show toast for visibility (especially helpful when Vercel DB is misconfigured)
+        showToast('Save failed: ' + (res && res.error ? res.error : 'server error') + '. Your changes are NOT saved — please check your connection.', 'error');
       }
       if (onDone) onDone(res);
     }).catch(function(err) {
       console.warn('saveDB: network error', err);
       DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
+      showSaveStatusIndicator('error', 'Network: ' + (err && err.message ? err.message : 'unknown'));
+      showToast('Save failed (network): ' + (err && err.message ? err.message : 'network error') + '. Your changes are NOT saved.', 'error');
       if (onDone) onDone({ ok: false, error: err && err.message });
     });
   } catch (e) {
     console.warn('saveDB failed:', e);
     DB_LOCAL_DIRTY = true;
+    showSaveStatusIndicator('error', 'Exception: ' + (e && e.message ? e.message : 'unknown'));
+    showToast('Save failed: ' + (e && e.message ? e.message : 'unknown error') + '. Your changes are NOT saved.', 'error');
     if (onDone) onDone({ ok: false, error: e && e.message });
+  }
+}
+
+// Show a small "Saving..." / "Saved" / "Error" indicator in the top bar.
+// Helps the user see whether their changes have been persisted to the server.
+// status: 'saving' | 'saved' | 'error'
+function showSaveStatusIndicator(status, errorMsg) {
+  var indicator = document.getElementById('save-status-indicator');
+  if (!indicator) {
+    // Create the indicator if it doesn't exist yet — inject into the top bar.
+    indicator = document.createElement('div');
+    indicator.id = 'save-status-indicator';
+    indicator.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:99998;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;font-family:Outfit,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.18);display:flex;align-items:center;gap:8px;transition:opacity 0.3s;opacity:0;pointer-events:none;';
+    document.body.appendChild(indicator);
+  }
+  // Clear any previous auto-hide timer
+  if (indicator._hideTimer) { clearTimeout(indicator._hideTimer); indicator._hideTimer = null; }
+  // Set appearance based on status
+  if (status === 'saving') {
+    indicator.style.background = 'rgba(45,138,78,0.95)';
+    indicator.style.color = '#fff';
+    indicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    indicator.style.opacity = '1';
+  } else if (status === 'saved') {
+    indicator.style.background = 'rgba(45,138,78,0.95)';
+    indicator.style.color = '#fff';
+    indicator.innerHTML = '<i class="fas fa-check-circle"></i> Saved';
+    indicator.style.opacity = '1';
+    indicator._hideTimer = setTimeout(function() { indicator.style.opacity = '0'; }, 1500);
+  } else if (status === 'error') {
+    indicator.style.background = 'rgba(220,38,38,0.95)';
+    indicator.style.color = '#fff';
+    indicator.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (errorMsg || 'Save failed');
+    indicator.style.opacity = '1';
+    indicator._hideTimer = setTimeout(function() { indicator.style.opacity = '0'; }, 5000);
   }
 }
 
