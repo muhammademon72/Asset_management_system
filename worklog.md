@@ -1408,3 +1408,64 @@ Stage Summary:
 - ✅ Approval View modal also shows the UoM column.
 - ✅ Commit e6bb73c pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 36
+Agent: main
+Task: User reported "Purchase List — user er Purchase data entry auto hariye jache check dao ki hoyche" — purchases are auto-disappearing. Need to investigate.
+
+Work Log:
+- Inspected all DB.purchases mutations:
+    • Line 5027: DB.purchases.push (Add New Purchase save handler) — adds new
+    • Line 5311: DB.purchases = DB.purchases.filter (Edit Purchase — deletes old invoice rows then re-inserts)
+    • Line 5354: DB.purchases = DB.purchases.filter (Delete handler — removes invoice)
+    • Line 6278: DB.purchases = DB.purchases.filter (Approval delete)
+    • Line 7783: DB.purchases = [] (explicit "Delete All Data" button — only when user types DELETE)
+- All these mutations are user-triggered and intentional — none auto-delete data.
+- Checked the migration code (line 8295): only converts 'Submitted' → 'Confirm' status, doesn't delete.
+- Checked ensureDefaultAdmin: only handles users/roles, doesn't touch purchases.
+- Tested local persistence end-to-end:
+    • Added test purchase via UI flow → saved → reloaded → purchase persisted.
+    • Confirmed the data is in the local SQLite file.
+- Diagnosed the root cause: most likely the Vercel deployment.
+    • Vercel serverless functions have EPHEMERAL filesystems.
+    • If DATABASE_URL is set to file:./db/custom.db (instead of Turso libsql:// URL),
+      every cold start wipes the DB file → purchases disappear.
+    • Even with Turso configured, saveDBNow was silently swallowing errors via
+      console.warn — the user had no visible feedback that their save failed.
+
+Fix applied:
+1. Added visible "Saving..." / "Saved" / "Save failed: <error>" indicator
+   (bottom-right corner of the screen) in showSaveStatusIndicator().
+2. Modified saveDBNow() to call showSaveStatusIndicator() at each transition:
+    • 'saving' — when POST request starts
+    • 'saved' — when POST completes successfully (auto-hides after 1.5s)
+    • 'error' — when POST fails or returns ok:false (auto-hides after 5s)
+3. Added explicit toast notifications on save failure:
+    • 'Save failed: <error>. Your changes are NOT saved — please check your connection.'
+    • 'Save failed (network): <error>. Your changes are NOT saved.'
+4. The DB_LOCAL_DIRTY flag is restored to true when a save fails, so the next
+   saveDB call retries.
+
+Verification:
+- Re-extracted inline script (547,207 chars) → node --check passed (SYNTAX_OK).
+- Tested save flow locally — saw the "Saving..." → "Saved" indicator transition.
+- Committed as 8e4a2f1.
+- Pushed to GitHub: e6bb73c..8e4a2f1 main -> main ✅.
+
+Stage Summary:
+- ✅ The local sandbox works correctly — purchases persist.
+- ✅ Root cause of "data disappearing" is likely the Vercel deployment using an
+  ephemeral file DB instead of Turso cloud DB.
+- ✅ Added visible save status indicator so user can SEE when saves succeed or fail.
+- ✅ Added explicit toast on save failure so user gets immediate feedback.
+- ✅ Commit 8e4a2f1 pushed to GitHub.
+- ✅ JS syntax verified clean.
+
+Next step for user:
+1. After Vercel deploys, hard-refresh and try adding a purchase.
+2. Watch the bottom-right corner — you should see "Saving..." then "Saved".
+3. If you see "Save failed: ..." instead, the Vercel deployment's DATABASE_URL
+   env var needs to be a Turso cloud URL (libsql://...), not a local file path.
+4. Set up Turso via: bash scripts/setup-turso.sh (one-time, creates a free cloud DB)
+5. Then update Vercel env vars: DATABASE_URL + DATABASE_AUTH_TOKEN.
