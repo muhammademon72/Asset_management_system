@@ -5922,31 +5922,40 @@ function bindApprovalEvents() {
           }
           var totalQty = 0, grandTotal = 0;
           for (var r = 0; r < allRows.length; r++) { totalQty += allRows[r].qty; grandTotal += allRows[r].total; }
-          var html = '<div style="padding:24px;max-width:760px;">' + modalHeader('Purchase — ' + item.invoice) + '<div style="padding-top:16px;">';
-          html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-bottom:16px;font-size:13px;">';
-          html += '<div><span style="color:var(--muted);">Date:</span> <strong>' + (item.date || '-') + '</strong></div>';
-          html += '<div><span style="color:var(--muted);">Supplier:</span> <strong>' + (item.supplier || '-') + '</strong></div>';
-          html += '<div><span style="color:var(--muted);">Branch:</span> <strong>' + (item.branch || '-') + '</strong></div>';
-          html += '<div><span style="color:var(--muted);">Status:</span> ' + statusBadge(item.status) + '</div>';
+          var html = '<div style="padding:24px;max-width:1100px;">' + modalHeader('Purchase — ' + item.invoice) + '<div style="padding-top:16px;">';
+          // Top fields — use the same .pur-field pattern as the Add/Edit Purchase
+          // modal for visual consistency (label on left in accent-light bg,
+          // value on right).
+          html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
+          html += '<div style="display:grid;grid-template-columns:1fr 1fr;">';
+          // Override .pur-field border-bottom to avoid awkward half-lines in
+          // the 2-column grid layout; add horizontal divider only between rows.
+          html += '<div class="pur-field" style="border-bottom:1px solid var(--border);"><div class="pur-lbl">Date</div><div class="pur-val"><span style="font-size:13px;color:var(--fg);font-weight:600;">' + (item.date || '-') + '</span></div></div>';
+          html += '<div class="pur-field" style="border-bottom:1px solid var(--border);"><div class="pur-lbl">Supplier</div><div class="pur-val"><span style="font-size:13px;color:var(--fg);font-weight:600;">' + (item.supplier || '-') + '</span></div></div>';
+          html += '<div class="pur-field" style="border-bottom:none;"><div class="pur-lbl">Branch</div><div class="pur-val"><span style="font-size:13px;color:var(--fg);font-weight:600;">' + (item.branch || '-') + '</span></div></div>';
+          html += '<div class="pur-field" style="border-bottom:none;"><div class="pur-lbl">Status</div><div class="pur-val">' + statusBadge(item.status) + '</div></div>';
+          html += '</div>';
           html += '</div>';
           html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;">';
-          html += '<div style="overflow-x:auto;"><table class="data-table" style="font-size:12px;"><thead><tr><th>Product</th><th>Brand</th><th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>';
+          html += '<div style="overflow-x:auto;max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>';
+          html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th><th class="pur-th">Serial</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th>';
+          html += '</tr></thead><tbody>';
           for (var rr = 0; rr < allRows.length; rr++) {
             var row = allRows[rr];
             html += '<tr>';
-            html += '<td style="font-weight:600;">' + (row.product || '-') + '</td>';
-            html += '<td>' + (row.brand || '-') + '</td>';
-            html += '<td>' + (row.model || '-') + '</td>';
-            html += '<td>' + (row.serial || '-') + '</td>';
-            html += '<td>' + (row.condition || '-') + '</td>';
-            html += '<td>' + (row.warranty || '-') + '</td>';
-            html += '<td style="text-align:center;">' + (row.qty || 0) + '</td>';
-            html += '<td style="text-align:right;">' + fmt(row.unitPrice || 0) + '</td>';
-            html += '<td style="text-align:right;font-weight:600;color:var(--accent);">' + fmt(row.total || 0) + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;font-weight:600;">' + (row.product || '-') + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.brand || '-') + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.model || '-') + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.serial || '-') + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.condition || '-') + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.warranty || '-') + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (row.qty || 0) + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(row.unitPrice || 0) + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(row.total || 0) + '</td>';
             html += '</tr>';
           }
           // Grand total row — colspan 6 (Product through Warranty), then Qty, blank, Total
-          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="6" style="text-align:right;padding:10px;">Grand Total (' + allRows.length + ' items):</td><td style="text-align:center;padding:10px;">' + totalQty + '</td><td></td><td style="text-align:right;padding:10px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td></tr>';
+          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="6" style="padding:10px;text-align:right;border-top:1px solid var(--border);">Grand Total (' + allRows.length + ' items):</td><td style="padding:10px;text-align:center;border-top:1px solid var(--border);border-right:1px solid var(--border);">' + totalQty + '</td><td style="border-top:1px solid var(--border);border-right:1px solid var(--border);"></td><td style="padding:10px;text-align:right;border-top:1px solid var(--border);font-size:14px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td></tr>';
           html += '</tbody></table></div></div>';
           if (item.attachment && item.attachment.name) {
             html += '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
@@ -5960,6 +5969,7 @@ function bindApprovalEvents() {
             html += '</div>';
           }
           html += '<div style="display:flex;gap:10px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div></div>';
+          injectPurStyles();
           openModal(html);
           var modalBox = document.getElementById('modal-box');
           if (modalBox) { modalBox.style.width = '1100px'; modalBox.style.maxWidth = '96vw'; }
