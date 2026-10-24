@@ -2801,52 +2801,101 @@ function deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
 function openDeliveryAddModal() {
   var supArr = [];
   for (var k = 0; k < DB.suppliers.length; k++) supArr.push({ value: DB.suppliers[k].name, label: DB.suppliers[k].name });
-  // Build product array from Inventory Stock (products with stock > 0)
-  // For each product, pull the latest purchase record to get serial/model/condition/warranty
+  // Build product array from Inventory Stock — ONE ENTRY PER APPROVED PURCHASE
+  // ROW (so each serial shows up separately in the dropdown, matching the
+  // Inventory Stock page). Only rows with stock > 0 are included.
+  // Stock is allocated FIFO (oldest purchase rows first consume deliveries
+  // and damages).
   var prdArr = [];
-  for (var k = 0; k < DB.products.length; k++) {
-    var p = DB.products[k];
-    // Compute current stock for this product
-    var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
-    var latestPur = null;
-    for (var j = 0; j < DB.purchases.length; j++) {
-      if (DB.purchases[j].product === p.name) {
-        purchased += (DB.purchases[j].qty || 0);
-        if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
-      }
-    }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
-    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
-    for (var j = 0; j < DB.adjustments.length; j++) {
-      if (DB.adjustments[j].product === p.name) {
-        var adjQty = DB.adjustments[j].qty || 0;
-        adjusted += (DB.adjustments[j].type === 'Increase') ? adjQty : -adjQty;
-      }
-    }
-    var stock = purchased - delivered - damaged + adjusted;
-    if (stock < 0) stock = 0;
-    // Skip products with zero stock — only show in-stock products for delivery
-    if (stock === 0) continue;
-    // Pull product-level attributes from latest purchase (or product master as fallback)
-    var serial = (latestPur && latestPur.serial) || '';
-    var model = (latestPur && latestPur.model) || '';
-    var condition = (latestPur && latestPur.condition) || '';
-    var warranty = (latestPur && latestPur.warranty) || '';
-    var brand = p.brand || (latestPur && latestPur.brand) || '';
-    var category = p.category || (latestPur && latestPur.category) || '';
-    // Label: Product name + serial (if available), so user can see both and search by either
-    var label = p.name + (serial ? ' · ' + serial : '');
-    prdArr.push({
-      value: p.name,
-      label: label,
-      category: category,
-      brand: brand,
-      model: model,
-      serial: serial,
-      condition: condition,
-      warranty: warranty,
-      stock: stock
+
+  // Step 1: Group APPROVED purchases by product name, oldest first (FIFO).
+  var perProduct = {};
+  for (var j = 0; j < DB.purchases.length; j++) {
+    var pur = DB.purchases[j];
+    if (pur.status !== 'Approved') continue;
+    if (!perProduct[pur.product]) perProduct[pur.product] = [];
+    perProduct[pur.product].push(pur);
+  }
+  for (var pn in perProduct) {
+    perProduct[pn].sort(function(a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da < db) return -1;
+      if (da > db) return 1;
+      return 0;
     });
+  }
+
+  // Step 2: For each product, allocate deliveries/damages/adjustments FIFO.
+  for (var productName in perProduct) {
+    var purchaseRows = perProduct[productName];
+    // Aggregate totals per product
+    var delQty = 0;
+    for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
+      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+    }
+    var dmgQty = 0;
+    for (var dmi = 0; dmi < DB.damages.length; dmi++) {
+      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+    }
+    var adjQtyNet = 0;
+    for (var ai = 0; ai < DB.adjustments.length; ai++) {
+      if (DB.adjustments[ai].product === productName) {
+        var aq = DB.adjustments[ai].qty || 0;
+        adjQtyNet += (DB.adjustments[ai].type === 'Increase') ? aq : -aq;
+      }
+    }
+    var delRemaining = delQty;
+    var dmgRemaining = dmgQty;
+    var adjRemaining = adjQtyNet;
+
+    // Find the product master record (for category/brand fallback)
+    var prodMaster = null;
+    for (var pi3 = 0; pi3 < DB.products.length; pi3++) {
+      if (DB.products[pi3].name === productName) { prodMaster = DB.products[pi3]; break; }
+    }
+
+    // Step 3: For each purchase row, compute remaining stock and push to prdArr.
+    for (var ri = 0; ri < purchaseRows.length; ri++) {
+      var pr = purchaseRows[ri];
+      var rowQty = pr.qty || 0;
+      var allocDel = Math.min(rowQty, delRemaining); delRemaining -= allocDel;
+      var allocDmg = Math.min(rowQty - allocDel, dmgRemaining); dmgRemaining -= allocDmg;
+      var allocAdj = 0;
+      if (adjRemaining > 0) {
+        allocAdj = Math.min(rowQty - allocDel - allocDmg, adjRemaining);
+        adjRemaining -= allocAdj;
+      } else if (adjRemaining < 0) {
+        var take = Math.min(rowQty - allocDel - allocDmg, -adjRemaining);
+        allocAdj = -take;
+        adjRemaining += take;
+      }
+      var rowStock = rowQty - allocDel - allocDmg + allocAdj;
+      if (rowStock < 0) rowStock = 0;
+      if (rowStock === 0) continue;  // skip fully-delivered rows
+
+      var serial = pr.serial || '';
+      var model = pr.model || '';
+      var condition = pr.condition || '';
+      var warranty = pr.warranty || '';
+      var brand = pr.brand || (prodMaster && prodMaster.brand) || '';
+      var category = pr.category || (prodMaster && prodMaster.category) || '';
+      // Label: Product name + serial (if available) + invoice (if multiple invoices exist)
+      //        so user can identify which specific item they're picking.
+      var label = productName + (serial ? ' · ' + serial : '') + ' · ' + (pr.invoice || '');
+
+      prdArr.push({
+        value: productName + (serial ? '||' + serial : ''),  // unique value per row
+        productName: productName,
+        label: label,
+        category: category,
+        brand: brand,
+        model: model,
+        serial: serial,
+        condition: condition,
+        warranty: warranty,
+        stock: rowStock
+      });
+    }
   }
   var catOpts = '<option value="">Select</option>';
   for (var k = 0; k < DB.categories.length; k++) catOpts += '<option>' + DB.categories[k].name + '</option>';
@@ -2885,9 +2934,32 @@ function openDeliveryAddModal() {
   };
 
   var purProductSelectCb = function(val, lbl, cat, wrapper) {
-    if (wrapper.getAttribute('data-sr') === 'product' && cat) {
+    if (wrapper.getAttribute('data-sr') === 'product' && val) {
       var row = wrapper.closest('tr');
-      if (row) { var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = cat; }
+      if (row) {
+        // Look up the selected item in prdArr to pull its full attributes
+        // (value may include '||serial' suffix for unique identification).
+        var matched = null;
+        for (var pi = 0; pi < prdArr.length; pi++) {
+          if (prdArr[pi].value === val) { matched = prdArr[pi]; break; }
+        }
+        if (matched) {
+          var cs = row.querySelector('[data-f="category"]'); if (cs) cs.value = matched.category || '';
+          var bs = row.querySelector('[data-f="brand"]'); if (bs) bs.value = matched.brand || '';
+          var mi = row.querySelector('[data-f="model"]'); if (mi) mi.value = matched.model || '';
+          var si = row.querySelector('[data-f="serial"]'); if (si) si.value = matched.serial || '';
+          var cd = row.querySelector('[data-f="condition"]'); if (cd) cd.value = matched.condition || 'New';
+          var ws = row.querySelector('[data-f="warranty"]'); if (ws) ws.value = matched.warranty || '';
+          // B.QTY shows the available stock for this specific row
+          var bqty = row.querySelector('[data-f="bqty"]'); if (bqty) bqty.value = matched.stock || 0;
+        }
+        // Override trigger text to show only the product name (not the
+        // '||serial' value, which is internal).
+        var trigger = wrapper.querySelector('.pur-sr-trigger');
+        if (trigger && matched) {
+          trigger.innerHTML = matched.label + '<i class="fas fa-chevron-down pur-sr-caret"></i>';
+        }
+      }
     }
   };
 
@@ -3054,8 +3126,11 @@ function openDeliveryAddModal() {
     function saveDeliveryRows() {
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var product = r.querySelector('[data-f="product"]').value;
-      if (!product) continue;
+      var productValue = r.querySelector('[data-f="product"]').value;
+      if (!productValue) continue;
+      // The dropdown value may include a '||serial' suffix used for unique
+      // identification of each purchase row. Strip it to get just the product name.
+      var product = (productValue.indexOf('||') !== -1) ? productValue.split('||')[0] : productValue;
       // Attach the file ONLY on the first row of the invoice (avoid duplicating large base64 blobs)
       var rowAttach = (i === 0) ? attachInfo : null;
       DB.deliveries.push({
