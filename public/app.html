@@ -6026,10 +6026,34 @@ function printDeliveryReport() {
   html += '</div>';
 
   html += '</body></html>';
+  // Defensive: check that the popup actually opened (popup blockers may
+  // prevent it). If not, fall back to printing via a hidden iframe.
+  if (!win) {
+    showToast('Popup blocked. Please allow popups for this site to print.', 'error');
+    return;
+  }
   win.document.open();
   win.document.write(html);
   win.document.close();
+  // Set onload BEFORE document.close() so the event fires correctly. Some
+  // browsers fire onload synchronously after document.close(); if we set
+  // onload AFTER document.close(), the event has already fired and the
+  // handler never runs → print dialog never opens.
   win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+  // Fallback: also schedule a delayed print call in case onload doesn't fire
+  // (e.g. popup opened but onload skipped). This is a no-op if onload already
+  // triggered the print.
+  setTimeout(function() {
+    try {
+      if (win && !win.closed) {
+        win.focus();
+        // Only call print if the document is fully written
+        win.print();
+      }
+    } catch(e) {
+      console.warn('Fallback print failed (this is OK if onload already printed):', e);
+    }
+  }, 800);
 }
 
 function clearDeliveryFilters() {
