@@ -5930,13 +5930,24 @@ function bindApprovalEvents() {
           html += '<div><span style="color:var(--muted);">Status:</span> ' + statusBadge(item.status) + '</div>';
           html += '</div>';
           html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;">';
-          html += '<table class="data-table" style="font-size:12px;"><thead><tr><th>Product</th><th>Brand</th><th>Model</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>';
+          html += '<div style="overflow-x:auto;"><table class="data-table" style="font-size:12px;"><thead><tr><th>Product</th><th>Brand</th><th>Model</th><th>Serial</th><th>Condition</th><th>Warranty</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>';
           for (var rr = 0; rr < allRows.length; rr++) {
             var row = allRows[rr];
-            html += '<tr><td>' + (row.product || '-') + '</td><td>' + (row.brand || '-') + '</td><td>' + (row.model || '-') + '</td><td style="text-align:center;">' + row.qty + '</td><td>' + fmt(row.unitPrice) + '</td><td>' + fmt(row.total) + '</td></tr>';
+            html += '<tr>';
+            html += '<td style="font-weight:600;">' + (row.product || '-') + '</td>';
+            html += '<td>' + (row.brand || '-') + '</td>';
+            html += '<td>' + (row.model || '-') + '</td>';
+            html += '<td>' + (row.serial || '-') + '</td>';
+            html += '<td>' + (row.condition || '-') + '</td>';
+            html += '<td>' + (row.warranty || '-') + '</td>';
+            html += '<td style="text-align:center;">' + (row.qty || 0) + '</td>';
+            html += '<td style="text-align:right;">' + fmt(row.unitPrice || 0) + '</td>';
+            html += '<td style="text-align:right;font-weight:600;color:var(--accent);">' + fmt(row.total || 0) + '</td>';
+            html += '</tr>';
           }
-          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="3" style="text-align:right;">Total:</td><td style="text-align:center;">' + totalQty + '</td><td></td><td>' + fmt(grandTotal) + '</td></tr>';
-          html += '</tbody></table></div>';
+          // Grand total row — colspan 6 (Product through Warranty), then Qty, blank, Total
+          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="6" style="text-align:right;padding:10px;">Grand Total (' + allRows.length + ' items):</td><td style="text-align:center;padding:10px;">' + totalQty + '</td><td></td><td style="text-align:right;padding:10px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td></tr>';
+          html += '</tbody></table></div></div>';
           if (item.attachment && item.attachment.name) {
             html += '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
             html += '<i class="fas fa-paperclip" style="color:var(--accent);"></i>';
@@ -5951,7 +5962,7 @@ function bindApprovalEvents() {
           html += '<div style="display:flex;gap:10px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Close</button></div></div></div>';
           openModal(html);
           var modalBox = document.getElementById('modal-box');
-          if (modalBox) { modalBox.style.width = '760px'; modalBox.style.maxWidth = '95vw'; }
+          if (modalBox) { modalBox.style.width = '1100px'; modalBox.style.maxWidth = '96vw'; }
         } else if (type === 'delivery') {
           openDeliveryModal(id, true);
         } else if (type === 'adjustment') {
