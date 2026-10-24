@@ -5591,6 +5591,11 @@ function bindApprovalEvents() {
   for (var i = 0; i < approveBtns.length; i++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        // Defense-in-depth: Approve counts as 'edit' on the current submenu
+        if (!can(currentPage, 'edit')) {
+          showToast('Access denied — you do not have approve permission for ' + currentPage, 'error');
+          return;
+        }
         var parts = btn.getAttribute('data-approve').split('-');
         var type = parts[0], id = parseInt(parts.slice(1).join('-'));
         var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
@@ -5603,6 +5608,11 @@ function bindApprovalEvents() {
   for (var j = 0; j < rejectBtns.length; j++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        // Defense-in-depth: Reject also counts as 'edit' on the current submenu
+        if (!can(currentPage, 'edit')) {
+          showToast('Access denied — you do not have reject permission for ' + currentPage, 'error');
+          return;
+        }
         var parts = btn.getAttribute('data-reject').split('-');
         var type = parts[0], id = parseInt(parts.slice(1).join('-'));
         var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
@@ -5682,6 +5692,11 @@ function bindApprovalEvents() {
   for (var pe = 0; pe < purEditBtns.length; pe++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        // Defense-in-depth: edit perm on the current submenu
+        if (!can(currentPage, 'edit')) {
+          showToast('Access denied — you do not have edit permission for ' + currentPage, 'error');
+          return;
+        }
         var id = parseInt(btn.getAttribute('data-approve-edit-pur'));
         var pur = DB.purchases.find(function(x){ return x.id === id; });
         if (!pur) return;
@@ -5705,6 +5720,10 @@ function bindApprovalEvents() {
   for (var de = 0; de < delEditBtns.length; de++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        if (!can(currentPage, 'edit')) {
+          showToast('Access denied — you do not have edit permission for ' + currentPage, 'error');
+          return;
+        }
         var id = parseInt(btn.getAttribute('data-approve-edit-del'));
         navigate('delivery-list');
         setTimeout(function() {
@@ -5720,6 +5739,10 @@ function bindApprovalEvents() {
   for (var ae = 0; ae < adjEditBtns.length; ae++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        if (!can(currentPage, 'edit')) {
+          showToast('Access denied — you do not have edit permission for ' + currentPage, 'error');
+          return;
+        }
         var id = parseInt(btn.getAttribute('data-approve-edit-adj'));
         navigate('adjustment-list');
         setTimeout(function() {
@@ -5735,6 +5758,10 @@ function bindApprovalEvents() {
   for (var dm = 0; dm < dmgEditBtns.length; dm++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        if (!can(currentPage, 'edit')) {
+          showToast('Access denied — you do not have edit permission for ' + currentPage, 'error');
+          return;
+        }
         var id = parseInt(btn.getAttribute('data-approve-edit-dmg'));
         navigate('damage-list');
         setTimeout(function() {
@@ -6594,6 +6621,8 @@ function enforceActionPermissions() {
     // Row-level Edit buttons (various naming conventions used across modules)
     // Pattern: data-edit-<module>  or  data-edit-simple  or  data-edit-del  etc.
     document.querySelectorAll('[data-edit-branch], [data-edit-emp], [data-edit-prod], [data-edit-sup], [data-edit-pur], [data-edit-del], [data-edit-adj], [data-edit-dmg], [data-edit-trf], [data-edit-simple], [data-edit-role], [data-edit-user]').forEach(hide);
+    // Approval page Edit buttons (data-approve-edit-<type> on approval-purchase / approval-delivery / approval-adjustment / approval-damage)
+    document.querySelectorAll('[data-approve-edit-pur], [data-approve-edit-del], [data-approve-edit-adj], [data-approve-edit-dmg]').forEach(hide);
     // Top-level Edit buttons (rare, but safety)
     document.querySelectorAll('[id^="btn-edit-"]').forEach(hide);
   }
@@ -6604,8 +6633,17 @@ function enforceActionPermissions() {
     document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-pur], [data-del-del], [data-del-adj], [data-del-dmg], [data-del-trf], [data-del-simple], [data-del-role], [data-del-user], [data-del-quote], [data-del-invoice], [data-del-chalan]').forEach(hide);
     // data-delete-* (full word form, used by branch)
     document.querySelectorAll('[data-delete-branch], [data-delete-emp], [data-delete-prod], [data-delete-sup], [data-delete-pur], [data-delete-del], [data-delete-adj], [data-delete-dmg], [data-delete-trf], [data-delete-role], [data-delete-user]').forEach(hide);
+    // Approval page Delete buttons (data-approve-del-<type>)
+    document.querySelectorAll('[data-approve-del-purchase], [data-approve-del-delivery], [data-approve-del-adjustment], [data-approve-del-damage]').forEach(hide);
     // Top-level Delete buttons
     document.querySelectorAll('[id^="btn-del-"], [id^="btn-delete-"]').forEach(hide);
+  }
+
+  // ===== HIDE: Approve buttons (approval pages only) =====
+  // The Approve action is conceptually closer to "edit" (modifies status field),
+  // so we hide [data-approve] when the user lacks edit permission on this submenu.
+  if (!can(module, 'edit')) {
+    document.querySelectorAll('[data-approve]').forEach(hide);
   }
 
   // ===== HIDE: Export buttons =====
