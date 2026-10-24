@@ -5395,7 +5395,9 @@ function bindPurchaseEvents() {
             }, { skipMerge: true });
           } else {
             showToast('Purchase updated');
-            saveDB();
+            // Use skipMerge: true — the GET-merge step would RE-ADD any rows
+            // that were deleted from the edit modal (since the server still has them).
+            saveDBNow(null, { skipMerge: true });
           }
         });
       });
