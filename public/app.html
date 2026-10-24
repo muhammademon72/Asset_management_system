@@ -498,6 +498,24 @@ function readFileAsDataURL(file) {
   });
 }
 
+// Validate that a selected file is within the allowed size limit.
+// Called via onchange on file inputs. If the file exceeds the limit,
+// clears the input and shows an error toast so the user immediately knows.
+// `input` is the <input type="file"> element.
+// `maxBytes` is the maximum allowed file size in bytes (default 1MB = 1048576).
+function validateAttachmentSize(input, maxBytes) {
+  if (!input || !input.files || input.files.length === 0) return;
+  maxBytes = maxBytes || (1 * 1024 * 1024);  // default 1 MB
+  var file = input.files[0];
+  if (file.size > maxBytes) {
+    var maxMB = (maxBytes / (1024 * 1024)).toFixed(1);
+    var fileMB = (file.size / (1024 * 1024)).toFixed(2);
+    // Clear the input so the user can't accidentally submit the large file
+    input.value = '';
+    showToast('File too large: ' + fileMB + ' MB. Maximum allowed is ' + maxMB + ' MB. Please choose a smaller file.', 'error');
+  }
+}
+
 // Trigger a download for a file stored as a data URL (base64).
 // Falls back to opening in a new tab for viewable types (images/PDF).
 function downloadAttachment(attachInfo) {
@@ -3010,7 +3028,8 @@ function openDeliveryAddModal() {
   // Note
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-del-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note..."></textarea>');
-  html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="del-attach">');
+  html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="del-attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 1048576)">');
+  html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 1 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
   html += '</div>';
 
   // Bottom bar
@@ -4889,7 +4908,8 @@ function bindPurchaseEvents() {
     html += purFieldRow('Date', buildDDMMYYYYDateInput('f-pur-date', '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'date' }));
     html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" placeholder="Enter Invoice No">');
     html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, '', 'Select Supplier', 'Search supplier...'));
-    html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
+    html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 1048576)">');
+    html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 1 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
     html += '</div>';
 
     // Table section
@@ -5221,7 +5241,8 @@ function bindPurchaseEvents() {
         html += purFieldRow('Date', buildDDMMYYYYDateInput('f-pur-date', pur.date || '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'date' }));
         html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" value="' + (pur.invoice || '') + '">');
         html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, pur.supplier || '', 'Select Supplier', 'Search supplier...'));
-        html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach">');
+        html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 1048576)">');
+        html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 1 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
         html += '</div>';
 
         // Product table
