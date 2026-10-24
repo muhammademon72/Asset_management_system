@@ -1360,3 +1360,51 @@ Stage Summary:
 - ✅ Editing a purchase correctly pre-fills the saved uom value.
 - ✅ Commit 7b82ba0 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 35
+Agent: main
+Task: User said "ha koro" — apply the same UoM column (added in Task 34 for Purchase) to all other modules: Delivery, Adjustment, Damage, Sell Proposal, Invoice.
+
+Work Log:
+- Identified 5 row HTML functions to update:
+    • deliveryTableRowHTML (line 2781)
+    • adjustmentTableRowHTML (line 3524)
+    • damageTableRowHTML (line 4520)
+    • quotationTableRowHTML (line 3958) — Sell Proposal
+    • invoiceTableRowHTML (line 4257)
+- Wrote a Python script /home/z/my-project/scripts/add_uom_to_all_modals.py to systematically apply changes.
+- Applied changes to:
+  1. All 5 row HTML functions — added a UoM <select data-f="uom"> right after the qty input, populated from DB.uoms.
+  2. All Add modal table headers — added <th class="pur-th">UoM</th> between Quantity and the next column.
+  3. All Edit modal table headers — same UoM column added.
+  4. View (read-only) modal rows — added a UoM cell displaying the saved uom value.
+  5. Save handlers (Delivery, Adjustment, Damage, Sell Proposal, Invoice) — read [data-f="uom"] and store in the appropriate DB collection.
+  6. Update handlers (Adjustment, Damage) — same uom field added.
+  7. Edit pre-fill logic — restore the saved uom value when editing.
+  8. Approval View modal (Purchase Approval) — added UoM column to header, row, and adjusted grand total colspan.
+
+Verified in headless Chrome — opened all 6 Add modals:
+- Purchase: ...Quantity | UoM | Price | Total | Remarks ✓
+- Delivery: ...Quantity | UoM | Remarks ✓
+- Adjustment: ...Quantity | UoM | Remarks ✓
+- Damage: ...Quantity | UoM | Reason ✓
+- Sell Proposal: ...Qty | UoM | Price | Total | Remarks ✓
+- Invoice: ...Qty | UoM | Price | Total | Remarks ✓
+
+Cleanup: removed test data.
+Re-extracted inline script (544,287 chars) → node --check passed (SYNTAX_OK).
+Committed as e6bb73c.
+Pushed to GitHub: 7b82ba0..e6bb73c main -> main ✅.
+Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ UoM column added to ALL 6 Add/Edit/View modals (Purchase, Delivery, Adjustment, Damage, Sell Proposal, Invoice).
+- ✅ UoM dropdown options come from DB.uoms (managed via Settings → Manage Product → UoM).
+- ✅ All save handlers store the uom field in DB.
+- ✅ All update handlers update the uom field in DB.
+- ✅ All Edit pre-fill logic restores the saved uom value.
+- ✅ All View (read-only) modals display the saved uom value.
+- ✅ Approval View modal also shows the UoM column.
+- ✅ Commit e6bb73c pushed to GitHub.
+- ✅ JS syntax verified clean.
