@@ -5080,7 +5080,9 @@ function bindPurchaseEvents() {
         }, { skipMerge: true });
       } else {
         showToast('Purchase saved successfully');
-        saveDB(); // normal debounced save
+        // Use skipMerge: true — the GET-merge step would RE-ADD any rows
+        // that were deleted from the edit modal (since the server still has them).
+        saveDBNow(null, { skipMerge: true });
       }
       }
     });
@@ -7880,8 +7882,10 @@ function confirmDeleteAllData() {
 
 // ==================== PAGE ROUTER ====================
 function renderPage() {
-  // Persist any DB changes to localStorage so user-entered data survives page refresh / browser restart
-  saveDB();
+  // NOTE: Do NOT call saveDB() here. Action handlers (save/delete/update) now
+  // call saveDBNow() directly with the appropriate skipMerge setting. Calling
+  // saveDB() here would schedule a debounced GET-merge-POST that re-adds
+  // deleted rows from the server 300ms later.
   document.getElementById('breadcrumb').textContent = getBreadcrumb();
   var pc = document.getElementById('page-content');
 
@@ -8250,6 +8254,11 @@ function trimLargePayload(payload, keepRecentCount, maxBytes) {
 function saveDBNow(onDone, options) {
   options = options || {};
   var skipMerge = options.skipMerge || false;
+  // Cancel any pending debounced save — we're saving NOW, so the
+  // debounced version is redundant (and might use different merge settings).
+  // Without this, the debounced saveDB() timer fires 300ms later and calls
+  // saveDBNow() WITHOUT skipMerge, which does GET-merge and re-adds deleted rows.
+  if (DB_SAVE_TIMER) { clearTimeout(DB_SAVE_TIMER); DB_SAVE_TIMER = null; }
   try {
     var localPayload = buildDBSnapshot();
     // AUTO-TRIM: If the payload is too large for Vercel (4.5MB body limit),
