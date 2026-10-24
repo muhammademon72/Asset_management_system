@@ -2124,6 +2124,12 @@ function bindDeliveryEvents() {
   for (var dc = 0; dc < delChalanBtns.length; dc++) {
     (function(btn) {
       btn.addEventListener('click', function() {
+        // Defense-in-depth: verify user has 'delete' permission for this module
+        var delModule = pageToModule(currentPage);
+        if (delModule && !can(delModule, 'delete')) {
+          showToast('Access denied — you do not have delete permission for ' + delModule, 'error');
+          return;
+        }
         var chalan = btn.getAttribute('data-del-chalan');
         // Count how many rows will be deleted
         var count = 0;
@@ -6498,7 +6504,7 @@ function enforceActionPermissions() {
   // ===== HIDE: Delete buttons (both naming variants) =====
   if (!can(module, 'delete')) {
     // data-del-* (short form used by most modules)
-    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-pur], [data-del-del], [data-del-adj], [data-del-dmg], [data-del-trf], [data-del-simple], [data-del-role], [data-del-user], [data-del-quote], [data-del-invoice]').forEach(hide);
+    document.querySelectorAll('[data-del-branch], [data-del-emp], [data-del-prod], [data-del-sup], [data-del-pur], [data-del-del], [data-del-adj], [data-del-dmg], [data-del-trf], [data-del-simple], [data-del-role], [data-del-user], [data-del-quote], [data-del-invoice], [data-del-chalan]').forEach(hide);
     // data-delete-* (full word form, used by branch)
     document.querySelectorAll('[data-delete-branch], [data-delete-emp], [data-delete-prod], [data-delete-sup], [data-delete-pur], [data-delete-del], [data-delete-adj], [data-delete-dmg], [data-delete-trf], [data-delete-role], [data-delete-user]').forEach(hide);
     // Top-level Delete buttons
