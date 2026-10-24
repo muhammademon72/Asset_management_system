@@ -5713,13 +5713,63 @@ function renderApprovalList(type, data) {
   // - Submitted / Pending: legacy statuses — also shown as pending approval
   // - Approved / Rejected: shown as already-decided rows
   // - Draft: NOT shown here — Draft purchases are still being edited by the user
+  //
+  // For PURCHASE type: group all rows that share the same invoice into ONE
+  // display row. Approve/Reject/Edit/Delete operate on the whole invoice.
+  // For other types (delivery, adjustment, damage): each record stays its own row.
   var pendingStatuses = ['Confirm', 'Submitted', 'Pending'];
-  var pending = data.filter(function(d){ return pendingStatuses.indexOf(d.status) !== -1; });
-  var approved = data.filter(function(d){ return d.status === 'Approved'; });
-  var rejected = data.filter(function(d){ return d.status === 'Rejected'; });
-  var draft = data.filter(function(d){ return d.status === 'Draft'; });
+
+  // Build the list of items to render. For purchase, this is a list of
+  // invoice groups; for other types, it's the raw records.
+  var renderItems = [];
+  if (type === 'purchase') {
+    // Group rows by invoice — preserve insertion order (first-seen wins).
+    var invoiceGroups = {};  // invoice -> { invoice, date, supplier, branch, status, items: [...], total, ids: [...] }
+    var invoiceOrder = [];
+    for (var i = 0; i < data.length; i++) {
+      var p = data[i];
+      var key = p.invoice || ('__no_invoice_' + p.id);
+      if (!invoiceGroups[key]) {
+        invoiceGroups[key] = {
+          invoice: p.invoice,
+          date: p.date,
+          supplier: p.supplier,
+          branch: p.branch,
+          // Pick the most "advanced" status of the group (Approved > Rejected > Confirm/Submitted/Pending > Draft).
+          // For approval display purposes we want to reflect the most recent decision.
+          status: p.status,
+          items: [],
+          total: 0,
+          ids: []
+        };
+        invoiceOrder.push(key);
+      }
+      invoiceGroups[key].items.push(p);
+      invoiceGroups[key].total += (p.total || 0);
+      invoiceGroups[key].ids.push(p.id);
+      // Pick the "highest" status — Approved wins over Rejected, which wins over pending, which wins over Draft.
+      var s = p.status;
+      var g = invoiceGroups[key];
+      var rank = function(st) {
+        if (st === 'Approved') return 4;
+        if (st === 'Rejected') return 3;
+        if (st === 'Confirm' || st === 'Submitted' || st === 'Pending') return 2;
+        return 1; // Draft
+      };
+      if (rank(s) > rank(g.status)) g.status = s;
+    }
+    renderItems = invoiceOrder.map(function(k) { return invoiceGroups[k]; });
+  } else {
+    renderItems = data.slice();
+  }
+
+  // Counts for the top stats — count by display item (group) for purchase, by record for others
+  var pending = renderItems.filter(function(d){ return pendingStatuses.indexOf(d.status) !== -1; });
+  var approved = renderItems.filter(function(d){ return d.status === 'Approved'; });
+  var rejected = renderItems.filter(function(d){ return d.status === 'Rejected'; });
+  var draft = renderItems.filter(function(d){ return d.status === 'Draft'; });
   var cols, labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage' };
-  if (type === 'purchase') cols = ['Invoice', 'Date', 'Supplier', 'Product', 'Amount', 'Branch', 'Status'];
+  if (type === 'purchase') cols = ['Invoice', 'Date', 'Supplier', 'Items', 'Amount', 'Branch', 'Status'];
   else if (type === 'delivery') cols = ['Chalan', 'Date', 'Product', 'Qty', 'Branch', 'Received By', 'Status'];
   else if (type === 'adjustment') cols = ['Reference', 'Date', 'Product', 'Branch', 'Type', 'Qty', 'Status'];
   else cols = ['Reference', 'Date', 'Product', 'Branch', 'Qty', 'Reason', 'Status'];
@@ -5738,12 +5788,19 @@ function renderApprovalList(type, data) {
   html += '<table class="data-table" id="main-table"><thead><tr>';
   for (var c = 0; c < cols.length; c++) html += '<th>' + cols[c] + '</th>';
   html += '<th style="width:240px;">Actions</th></tr></thead><tbody>';
-  for (var i = 0; i < data.length; i++) {
-    var item = data[i];
+  for (var i = 0; i < renderItems.length; i++) {
+    var item = renderItems[i];
     // Skip Draft purchases — they belong only to Purchase List, not Approval
     if (item.status === 'Draft') continue;
     html += '<tr>';
-    if (type === 'purchase') html += '<td style="font-weight:600;">' + item.invoice + '</td><td>' + item.date + '</td><td>' + item.supplier + '</td><td>' + item.product + '</td><td style="font-weight:600;">' + fmt(item.total) + '</td><td>' + item.branch + '</td>';
+    if (type === 'purchase') {
+      // item is a group: { invoice, date, supplier, branch, status, items: [...], total, ids: [...] }
+      // Items column: show count, e.g. "3 items" (or the single product name if only 1)
+      var itemsLabel = item.items.length > 1
+        ? '<span style="font-weight:600;color:var(--accent);">' + item.items.length + ' items</span> <span style="font-size:11px;color:var(--muted);">(' + fmt(item.total) + ')</span>'
+        : (item.items[0].product || '-');
+      html += '<td style="font-weight:600;">' + (item.invoice || '-') + '</td><td>' + (item.date || '-') + '</td><td>' + (item.supplier || '-') + '</td><td>' + itemsLabel + '</td><td style="font-weight:600;">' + fmt(item.total) + '</td><td>' + (item.branch || '-') + '</td>';
+    }
     else if (type === 'delivery') html += '<td style="font-weight:600;">' + item.chalan + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.branch + '</td><td>' + item.receivedBy + '</td>';
     else if (type === 'adjustment') html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td><span class="badge ' + (item.type==='Increase'?'badge-green':'badge-red') + '">' + item.type + '</span></td><td style="text-align:center;">' + item.qty + '</td>';
     else html += '<td style="font-weight:600;">' + item.ref + '</td><td>' + item.date + '</td><td>' + item.product + '</td><td>' + item.branch + '</td><td style="text-align:center;">' + item.qty + '</td><td>' + item.reason + '</td>';
@@ -5752,20 +5809,25 @@ function renderApprovalList(type, data) {
     html += '<td>' + statusBadge(item.status) + '</td>';
 
     // Actions cell — View + Approve + Edit + Delete for all statuses
+    // For purchase (grouped), the action button's data-* attribute stores the
+    // FIRST id of the invoice group. Click handlers were updated to operate
+    // on all rows with the same invoice when the type is 'purchase'.
+    var actionId = (type === 'purchase') ? item.ids[0] : item.id;
+    var actionInvoice = (type === 'purchase') ? (item.invoice || '') : '';
     html += '<td style="white-space:nowrap;">';
     // View button (always shown)
-    html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-view="' + type + '-' + item.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> ';
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-view="' + type + '-' + actionId + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> ';
     // Approve button (shown for pending/submitted only)
     if (pendingStatuses.indexOf(item.status) !== -1) {
-      html += '<button class="btn btn-primary btn-sm btn-icon" data-approve="' + type + '-' + item.id + '" title="Approve" style="background:var(--accent);border-color:var(--accent);"><i class="fas fa-check" style="font-size:11px;"></i></button> ';
+      html += '<button class="btn btn-primary btn-sm btn-icon" data-approve="' + type + '-' + actionId + '" data-invoice="' + actionInvoice + '" title="Approve" style="background:var(--accent);border-color:var(--accent);"><i class="fas fa-check" style="font-size:11px;"></i></button> ';
     }
     // Edit button (shown for pending/submitted only — Approved rows can't be edited)
     if (pendingStatuses.indexOf(item.status) !== -1) {
       var editTarget = (type === 'purchase') ? 'pur' : (type === 'delivery' ? 'del' : (type === 'adjustment' ? 'adj' : 'dmg'));
-      html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-edit-' + editTarget + '="' + item.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
+      html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-edit-' + editTarget + '="' + actionId + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> ';
     }
     // Delete button (always shown — Draft excluded above so this is for pending/approved/rejected)
-    html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-del-' + type + '="' + item.id + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button>';
+    html += '<button class="btn btn-secondary btn-sm btn-icon" data-approve-del-' + type + '="' + actionId + '" data-invoice="' + actionInvoice + '" title="Delete" style="color:var(--danger);"><i class="fas fa-trash" style="font-size:11px;"></i></button>';
     html += '</td>';
     html += '</tr>';
   }
@@ -5785,9 +5847,23 @@ function bindApprovalEvents() {
         }
         var parts = btn.getAttribute('data-approve').split('-');
         var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+        var invoice = btn.getAttribute('data-invoice') || '';
         var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
-        var item = DB[map[type]].find(function(x){ return x.id === id; });
-        if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); }
+        if (type === 'purchase' && invoice) {
+          // Approve ALL rows with this invoice (the approval is at the invoice level)
+          var updatedCount = 0;
+          for (var k = 0; k < DB.purchases.length; k++) {
+            if (DB.purchases[k].invoice === invoice) {
+              DB.purchases[k].status = 'Approved';
+              updatedCount++;
+            }
+          }
+          showToast('Invoice ' + invoice + ' approved (' + updatedCount + ' item' + (updatedCount === 1 ? '' : 's') + ')');
+          renderPage();
+        } else {
+          var item = DB[map[type]].find(function(x){ return x.id === id; });
+          if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); }
+        }
       });
     })(approveBtns[i]);
   }
@@ -5802,9 +5878,23 @@ function bindApprovalEvents() {
         }
         var parts = btn.getAttribute('data-reject').split('-');
         var type = parts[0], id = parseInt(parts.slice(1).join('-'));
+        var invoice = btn.getAttribute('data-invoice') || '';
         var map = { purchase: 'purchases', delivery: 'deliveries', adjustment: 'adjustments', damage: 'damages' };
-        var item = DB[map[type]].find(function(x){ return x.id === id; });
-        if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); }
+        if (type === 'purchase' && invoice) {
+          // Reject ALL rows with this invoice (the rejection is at the invoice level)
+          var updatedCount = 0;
+          for (var k = 0; k < DB.purchases.length; k++) {
+            if (DB.purchases[k].invoice === invoice) {
+              DB.purchases[k].status = 'Rejected';
+              updatedCount++;
+            }
+          }
+          showToast('Invoice ' + invoice + ' rejected (' + updatedCount + ' item' + (updatedCount === 1 ? '' : 's') + ')', 'error');
+          renderPage();
+        } else {
+          var item = DB[map[type]].find(function(x){ return x.id === id; });
+          if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); }
+        }
       });
     })(rejectBtns[j]);
   }
@@ -5961,17 +6051,40 @@ function bindApprovalEvents() {
   }
 
   // ===== Delete buttons =====
+  // For purchase (grouped by invoice): delete ALL purchase rows with the same
+  // invoice. For other types: delete the single record.
   var delSelectors = ['[data-approve-del-purchase]', '[data-approve-del-delivery]', '[data-approve-del-adjustment]', '[data-approve-del-damage]'];
   var delCollections = ['purchases', 'deliveries', 'adjustments', 'damages'];
   var delPages = ['approval-purchase', 'approval-delivery', 'approval-adjustment', 'approval-damage'];
+  var delTypes = ['purchase', 'delivery', 'adjustment', 'damage'];
   for (var ds = 0; ds < delSelectors.length; ds++) {
     var delBtnList = document.querySelectorAll(delSelectors[ds]);
     for (var di = 0; di < delBtnList.length; di++) {
-      (function(btn, collection, page) {
+      (function(btn, collection, page, typeName) {
         btn.addEventListener('click', function() {
-          deleteItem(collection, parseInt(btn.getAttribute('data-approve-del-' + (collection === 'purchases' ? 'purchase' : collection === 'deliveries' ? 'delivery' : collection === 'adjustments' ? 'adjustment' : 'damage'))), page);
+          // Defense-in-depth: check delete perm
+          if (!can(page, 'delete')) {
+            showToast('Access denied — you do not have delete permission for ' + page, 'error');
+            return;
+          }
+          var id = parseInt(btn.getAttribute('data-approve-del-' + typeName));
+          var invoice = btn.getAttribute('data-invoice') || '';
+          if (typeName === 'purchase' && invoice) {
+            // Delete ALL purchase rows with this invoice
+            var matching = DB.purchases.filter(function(p){ return p.invoice === invoice; });
+            var count = matching.length;
+            if (count === 0) { showToast('No items found', 'error'); return; }
+            if (!confirm('Delete invoice "' + invoice + '" with ' + count + ' item(s)? This cannot be undone.')) return;
+            DB.purchases = DB.purchases.filter(function(p){ return p.invoice !== invoice; });
+            closeModal();
+            showToast('Invoice ' + invoice + ' deleted (' + count + ' items)');
+            renderPage();
+          } else {
+            // Single-record delete — use the standard deleteItem helper
+            deleteItem(collection, id, page);
+          }
         });
-      })(delBtnList[di], delCollections[ds], delPages[ds]);
+      })(delBtnList[di], delCollections[ds], delPages[ds], delTypes[ds]);
     }
   }
 }
