@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@libsql/client";
 
+// Allow up to 60 seconds for large payloads (e.g., purchases with attachments).
+// Default is 10s on Vercel Hobby — large base64 attachments can take longer.
+export const maxDuration = 60;
+// Force Node.js runtime (not Edge) for better body parsing and larger limits.
+export const runtime = "nodejs";
+
 // We use the libSQL/Turso client directly (without Prisma ORM) for maximum
 // compatibility with Vercel serverless + Turso cloud database.
 //

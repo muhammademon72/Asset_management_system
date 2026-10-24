@@ -4994,9 +4994,11 @@ function bindPurchaseEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        // Limit to 5 MB to keep DB size manageable
-        if (f.size > 5 * 1024 * 1024) {
-          showToast('Attachment too large (max 5 MB)', 'error');
+        // Limit to 2 MB to stay within Vercel's 4.5MB serverless body limit.
+        // Base64 encoding adds ~33% overhead, so a 2MB file becomes ~2.7MB base64,
+        // plus the rest of the DB JSON, keeping total POST body under 4.5MB.
+        if (f.size > 2 * 1024 * 1024) {
+          showToast('Attachment too large (max 2 MB). Use a smaller file or compress it.', 'error');
           return;
         }
         // Show "saving..." feedback so the user knows we're reading the file
@@ -5037,7 +5039,23 @@ function bindPurchaseEvents() {
           remarks: r.querySelector('[data-f="remarks"]').value
         });
       }
-      closeModal(); showToast('Purchase saved successfully'); renderPage();
+      closeModal(); renderPage();
+      // If there's an attachment, save IMMEDIATELY (no debounce) and wait
+      // for the server response before showing success/failure. Without
+      // this, the debounced save might fail silently on large payloads.
+      if (attachInfo) {
+        showToast('Saving purchase with attachment...', 'info');
+        saveDBNow(function(res) {
+          if (res && res.ok) {
+            showToast('Purchase saved successfully (with attachment)');
+          } else {
+            showToast('Purchase saved locally but server save failed. The attachment may not be persisted. Please try again or use a smaller file.', 'error');
+          }
+        });
+      } else {
+        showToast('Purchase saved successfully');
+        saveDB(); // normal debounced save
+      }
       }
     });
 
@@ -5332,7 +5350,22 @@ function bindPurchaseEvents() {
               remarks: r.querySelector('[data-f="remarks"]').value
             });
           }
-          closeModal(); showToast('Purchase updated'); renderPage();
+          closeModal(); renderPage();
+          // If the purchase has an attachment, save IMMEDIATELY (no debounce)
+          // and wait for server response before showing success/failure.
+          if (pur.attachment && pur.attachment.data) {
+            showToast('Saving purchase with attachment...', 'info');
+            saveDBNow(function(res) {
+              if (res && res.ok) {
+                showToast('Purchase updated (with attachment)');
+              } else {
+                showToast('Purchase updated locally but server save failed. Please try again.', 'error');
+              }
+            });
+          } else {
+            showToast('Purchase updated');
+            saveDB();
+          }
         });
       });
     })(editBtns[e]);
