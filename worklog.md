@@ -1059,3 +1059,39 @@ Stage Summary:
 - ✅ Defensive popup-blocker check shows a user-friendly toast if popups are blocked.
 - ✅ Commit 44f57e1 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 28
+Agent: main
+Task: User reported Inventory Stock issue — "2022004022 invoice er under multi serial product purchase kora hoiche kintu ekti serial keno holo" — purchased multiple products with different serial numbers under invoice 2022004022, but Inventory Stock only showed one serial.
+
+Work Log:
+- Located renderInventoryStock() at line 1803 and printInventoryStock() at line 1972.
+- Diagnosed the root cause: the function iterated over DB.products (one row per product), and for each product it picked only the latest purchase record's serial/model/brand. So if a product had multiple purchase rows (each with its own serial) under the same invoice, only the latest serial was shown.
+
+Fix applied to BOTH renderInventoryStock() AND printInventoryStock():
+- Iterate over APPROVED purchase records (not products).
+- Group purchases by product name, then sort each product's purchase rows by date ascending (FIFO allocation).
+- For each product, aggregate total deliveries/damages/adjustments.
+- Allocate deliveries, damages, and adjustments to the OLDEST purchase rows first (FIFO). Each row's stock = qty - allocatedDelivered - allocatedDamaged + allocatedAdjusted.
+- Render one row per purchase record so each serial gets its own row.
+- Rows with stock = 0 are hidden (shown as 'fully-delivered row(s) hidden' in the info banner).
+- Updated the info banner text and empty state message to match the new per-row semantics.
+
+Verification (headless Chrome):
+- Created 3 test purchase rows under invoice '2022004022' with different serials:
+    {SN-001, SN-002, SN-003}, all qty=1, all status='Approved'.
+- Inventory Stock now shows 3 separate rows — one per serial — each with stock = 1.
+- Cleanup: removed test data. DB back to empty (no test purchases/products).
+- Re-extracted inline script (526,936 chars) → node --check passed (SYNTAX_OK).
+- Committed as eb5a8dc.
+- Pushed to GitHub: 44f57e1..eb5a8dc main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Inventory Stock now shows one row per serial number, not per product.
+- ✅ Multi-serial purchases under one invoice are displayed correctly.
+- ✅ Stock calculation uses FIFO allocation of deliveries/damages/adjustments.
+- ✅ Print version uses the same per-row logic.
+- ✅ Commit eb5a8dc pushed to GitHub.
+- ✅ JS syntax verified clean.
