@@ -806,3 +806,66 @@ Submenu count by module (matches NAV children):
   • Settings: 4 (Company Profile, User List, Role List, Backup/Restore)
   • Dashboard: 0 (flat, no submenus)
   Total: 35 submenu rows + 11 parent rows = 46 rows in the matrix.
+
+---
+Task ID: 23
+Agent: main
+Task: User reported "Submenu permission kaj kore na" — submenu permissions not working despite the matrix being rendered correctly.
+
+Work Log:
+- Loaded the app in headless Chrome (agent-browser) to diagnose.
+- Logged in as admin/admin123, opened the role modal, confirmed the matrix renders correctly:
+    • 47 rows total (1 header + 11 parent module rows + 35 submenu rows).
+    • Parent rows use data-module="<parent-id>" (e.g. "branch").
+    • Submenu rows use data-module="<submenu-id>" (e.g. "branch-list").
+    • Save handler IS generic — reads data-module from each checkbox and saves to perms[module-id].
+- Created a test role via JS with explicit submenu perms:
+    perms: {
+      'branch-list': ['view'],
+      'emp-list': ['view'],
+      'delivery-list': ['view', 'add']
+    }
+  Saved successfully — DB.roles preserved perms correctly.
+- Created test users for this role, logged in, and tested:
+    ✅ can('branch-list', 'view') = true (submenu direct)
+    ✅ can('branch', 'view') = false (parent not set, correct)
+    ✅ can('branch-list', 'add') = false (only view was set)
+    ✅ can('delivery-list', 'add') = true (submenu direct)
+    ✅ can('adjustment-list', 'view') = false (no perms, correct)
+    ✅ can('dashboard', 'view') = false (no perms, correct)
+  → Permission resolution logic IS correct.
+- Found the real bug: navigation rendering and boot/login flow.
+  1. renderNav() filtered out the parent menu if user couldn't view the parent module, even if they had perms on a submenu — making the submenu unreachable.
+  2. attemptLogin() first-allowed-page loop only checked parent module ids (NAV[i].id), not submenu ids — so users without parent perms couldn't be redirected to their first viewable page.
+  3. Boot sequence called renderPage() even when not logged in, showing 'Access Denied' behind the login screen.
+
+Fixes applied:
+1. renderNav():
+   - Show parent menu if user can view it OR any of its children is viewable.
+   - Auto-expand the menu if submenus are viewable but parent isn't.
+2. attemptLogin() first-allowed-page loop:
+   - Check parent perms first; if not, check children — break with submenu id.
+3. Boot sequence:
+   - Don't renderPage() when not logged in (was showing Access Denied).
+   - If currentPage (default 'dashboard') isn't viewable, redirect to first allowed page/submenu (same logic as attemptLogin).
+
+Verification (after fix):
+- Logged in as test_save user (perms: branch-list:view, emp-list:view, delivery-list:view+add).
+- Confirmed:
+    ✅ User is redirected to 'branch-list' page on login (first allowed).
+    ✅ Sidebar shows Manage Branch (with Branch List submenu) + Manage Inventory (with Delivery List submenu).
+    ✅ Branch List page renders with view-only access (no Add button).
+    ✅ Delivery List page renders with Add button visible (user has 'add' perm).
+- Cleaned up: removed all test roles and test users. DB back to admin/admin123 only.
+- Re-extracted inline script (506,700 chars) → node --check passed (SYNTAX_OK).
+- Committed as ca38f36.
+- Pushed to GitHub: af4da08..ca38f36 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Submenu permission now works end-to-end: matrix render → save → load → resolve via can() → enforce at nav, page, button, and defense-in-depth layers.
+- ✅ User with only 'branch-list:view' perms is correctly redirected to branch-list on login.
+- ✅ Parent menu auto-shown/auto-expanded if any submenu is viewable, even if parent module perms aren't set.
+- ✅ Boot sequence no longer shows 'Access Denied' behind login screen.
+- ✅ Commit ca38f36 pushed to GitHub.
+- ✅ JS syntax verified clean.
