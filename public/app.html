@@ -2564,7 +2564,7 @@ function openDeliveryModal(delId, readOnly) {
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
   html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
-  html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
+  html += '<th class="pur-th">Quantity</th><th class="pur-th">UoM</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
   // Load ALL delivery rows with the same chalan (multi-product per chalan)
@@ -2586,6 +2586,7 @@ function openDeliveryModal(delId, readOnly) {
       html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.warranty || '-') + '</td>';
       html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (d.bqty !== undefined ? d.bqty : 0) + '</td>';
       html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (d.qty || 0) + '</td>';
+      html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (d.uom || '-') + '</td>';
       html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (d.remarks || '-') + '</td>';
       html += '</tr>';
     }
@@ -2670,6 +2671,7 @@ function openDeliveryModal(delId, readOnly) {
       var warSel = row.querySelector('[data-f="warranty"]'); if (warSel) warSel.value = d2.warranty || '';
       var bqIn = row.querySelector('[data-f="bqty"]'); if (bqIn) bqIn.value = (d2.bqty !== undefined ? d2.bqty : 0);
       var qtyIn = row.querySelector('[data-f="qty"]'); if (qtyIn) qtyIn.value = d2.qty || 0;
+      var uomIn = row.querySelector('[data-f="uom"]'); if (uomIn) uomIn.value = d2.uom || '';
       var remIn = row.querySelector('[data-f="remarks"]'); if (remIn) remIn.value = d2.remarks || '';
       bindPurRowDel(row);
     }
@@ -2792,6 +2794,10 @@ function deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
   h += '<td class="pur-td"><input type="text" data-f="bqty" value="0" readonly style="text-align:center;font-weight:700;color:var(--info);background:#f0f7ff;"></td>';
   // Editable fields
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
+  // UoM column — dropdown of units of measure (Pieces, Box, Dozen, etc.)
+  var uomOpts = '<option value="">Select</option>';
+  for (var ui = 0; ui < DB.uoms.length; ui++) uomOpts += '<option>' + DB.uoms[ui].name + '</option>';
+  h += '<td class="pur-td"><select data-f="uom" style="min-width:90px;">' + uomOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
   h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
   h += '</tr>';
@@ -2992,7 +2998,7 @@ function openDeliveryAddModal() {
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
   html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
-  html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
+  html += '<th class="pur-th">Quantity</th><th class="pur-th">UoM</th><th class="pur-th">Remarks</th>';
   html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
   html += deliveryTableRowHTML(catOpts, brandOpts, warOpts, prdArr);
@@ -3146,6 +3152,7 @@ function openDeliveryAddModal() {
         warranty: r.querySelector('[data-f="warranty"]').value,
         bqty: parseFloat(r.querySelector('[data-f="bqty"]').value) || 0,
         qty: parseFloat(r.querySelector('[data-f="qty"]').value) || 0,
+        uom: r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '',
         remarks: r.querySelector('[data-f="remarks"]').value
       });
     }
@@ -3371,7 +3378,7 @@ function openAdjustmentModal(adjId, readOnly) {
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
   html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
-  html += '<th class="pur-th">Quantity</th><th class="pur-th">Remarks</th>';
+  html += '<th class="pur-th">Quantity</th><th class="pur-th">UoM</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
   if (readOnly) {
@@ -3386,6 +3393,7 @@ function openAdjustmentModal(adjId, readOnly) {
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.warranty || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (adj.bqty !== undefined ? adj.bqty : 0) + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:600;color:var(--accent-dark);">' + (adj.qty || 0) + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (adj.uom || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (adj.remarks || '-') + '</td>';
     html += '</tr>';
   } else {
@@ -3453,6 +3461,8 @@ function openAdjustmentModal(adjId, readOnly) {
       if (warSel) warSel.value = adj.warranty || '';
       var qtyIn = firstRow.querySelector('[data-f="qty"]');
       if (qtyIn) qtyIn.value = adj.qty || 0;
+      var uomIn = firstRow.querySelector('[data-f="uom"]');
+      if (uomIn) uomIn.value = adj.uom || '';
       var remIn = firstRow.querySelector('[data-f="remarks"]');
       if (remIn) remIn.value = adj.remarks || '';
     }
@@ -3505,7 +3515,7 @@ function openAdjustmentModal(adjId, readOnly) {
         adj.product = product; adj.category = category; adj.brand = brand;
         adj.model = model; adj.serial = serial; adj.condition = condition;
         adj.warranty = warranty; adj.qty = absQty; adj.type = type;
-        adj.bqty = bqtyVal;
+        adj.bqty = bqtyVal; adj.uom = firstValid.querySelector('[data-f="uom"]') ? firstValid.querySelector('[data-f="uom"]').value : '';
         adj.reason = remarks; adj.remarks = remarks; adj.note = note; adj.status = status;
         closeModal(); showToast('Adjustment updated'); renderPage();
       } else {
@@ -3513,7 +3523,7 @@ function openAdjustmentModal(adjId, readOnly) {
           id: Date.now(), ref: ref, date: date, branch: branch,
           product: product, category: category, brand: brand, model: model,
           serial: serial, condition: condition, warranty: warranty,
-          bqty: bqtyVal, qty: absQty, type: type, reason: remarks, remarks: remarks, note: note, status: status
+          bqty: bqtyVal, qty: absQty, uom: document.querySelector('[data-f="uom"]') ? document.querySelector('[data-f="uom"]').value : '', type: type, reason: remarks, remarks: remarks, note: note, status: status
         });
         closeModal(); showToast('Adjustment added'); renderPage();
       }
@@ -3534,6 +3544,10 @@ function adjustmentTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
   h += '<td class="pur-td"><input type="text" data-f="bqty" value="0" readonly style="text-align:center;font-weight:700;color:var(--info);background:#f0f7ff;"></td>';
   // Editable fields
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;"></td>';
+  // UoM column — dropdown of units of measure (Pieces, Box, Dozen, etc.)
+  var uomOpts = '<option value="">Select</option>';
+  for (var ui = 0; ui < DB.uoms.length; ui++) uomOpts += '<option>' + DB.uoms[ui].name + '</option>';
+  h += '<td class="pur-td"><select data-f="uom" style="min-width:90px;">' + uomOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
   h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
   h += '</tr>';
@@ -3833,7 +3847,7 @@ function openQuotationModal(quoteId, readOnly) {
   html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
-  html += '<th class="pur-th">Serial Number</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th><th class="pur-th">Remarks</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th">UoM</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
   // Load saved items or create one empty row
@@ -3907,6 +3921,7 @@ function openQuotationModal(quoteId, readOnly) {
       var mi = row.querySelector('[data-f="model"]'); if (mi) mi.value = it2.model || '';
       var si = row.querySelector('[data-f="serial"]'); if (si) si.value = it2.serial || '';
       var qi = row.querySelector('[data-f="qty"]'); if (qi) qi.value = it2.qty || 0;
+      var uo = row.querySelector('[data-f="uom"]'); if (uo) uo.value = it2.uom || '';
       var pr = row.querySelector('[data-f="price"]'); if (pr) pr.value = it2.price || 0;
       var tl = row.querySelector('[data-f="total"]'); if (tl) tl.value = fmt((it2.qty||0)*(it2.price||0));
       var rm = row.querySelector('[data-f="remarks"]'); if (rm) rm.value = it2.remarks || '';
@@ -3940,7 +3955,7 @@ function openQuotationModal(quoteId, readOnly) {
         var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
         var total = qty * price;
         grandTotal += total;
-        items.push({ product: product, category: r.querySelector('[data-f="category"]').value, brand: r.querySelector('[data-f="brand"]').value, model: r.querySelector('[data-f="model"]').value, serial: r.querySelector('[data-f="serial"]').value, qty: qty, price: price, total: total, remarks: r.querySelector('[data-f="remarks"]').value });
+        items.push({ product: product, category: r.querySelector('[data-f="category"]').value, brand: r.querySelector('[data-f="brand"]').value, model: r.querySelector('[data-f="model"]').value, serial: r.querySelector('[data-f="serial"]').value, qty: qty, uom: r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '', price: price, total: total, remarks: r.querySelector('[data-f="remarks"]').value });
       }
       if (items.length === 0) { showToast('Add at least one product', 'error'); return; }
       if (q) {
@@ -3963,6 +3978,9 @@ function quotationTableRowHTML(catOpts, brandOpts, prdArr) {
   h += '<td class="pur-td"><input data-f="model" placeholder="Model" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  var uomOpts = '<option value="">Select</option>';
+  for (var ui = 0; ui < DB.uoms.length; ui++) uomOpts += '<option>' + DB.uoms[ui].name + '</option>';
+  h += '<td class="pur-td"><select data-f="uom" style="min-width:90px;">' + uomOpts + '</select></td>';
   h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);background:#f5f7f5;"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
@@ -4139,7 +4157,7 @@ function openInvoiceModal(invId, readOnly) {
   html += '<div style="overflow-x:auto;max-height:280px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">';
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
-  html += '<th class="pur-th">Serial Number</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th><th class="pur-th">Remarks</th>';
+  html += '<th class="pur-th">Serial Number</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th">UoM</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th><th class="pur-th">Remarks</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
   var savedItems = (inv && inv.items) ? inv.items : [];
@@ -4207,6 +4225,7 @@ function openInvoiceModal(invId, readOnly) {
       var mi = row.querySelector('[data-f="model"]'); if (mi) mi.value = it2.model || '';
       var si = row.querySelector('[data-f="serial"]'); if (si) si.value = it2.serial || '';
       var qi = row.querySelector('[data-f="qty"]'); if (qi) qi.value = it2.qty || 0;
+      var uo = row.querySelector('[data-f="uom"]'); if (uo) uo.value = it2.uom || '';
       var pr = row.querySelector('[data-f="price"]'); if (pr) pr.value = it2.price || 0;
       var tl = row.querySelector('[data-f="total"]'); if (tl) tl.value = fmt((it2.qty||0)*(it2.price||0));
       var rm = row.querySelector('[data-f="remarks"]'); if (rm) rm.value = it2.remarks || '';
@@ -4239,7 +4258,7 @@ function openInvoiceModal(invId, readOnly) {
         var price = parseFloat(r.querySelector('[data-f="price"]').value) || 0;
         var total = qty * price;
         grandTotal += total;
-        items.push({ product: product, category: r.querySelector('[data-f="category"]').value, brand: r.querySelector('[data-f="brand"]').value, model: r.querySelector('[data-f="model"]').value, serial: r.querySelector('[data-f="serial"]').value, qty: qty, price: price, total: total, remarks: r.querySelector('[data-f="remarks"]').value });
+        items.push({ product: product, category: r.querySelector('[data-f="category"]').value, brand: r.querySelector('[data-f="brand"]').value, model: r.querySelector('[data-f="model"]').value, serial: r.querySelector('[data-f="serial"]').value, qty: qty, uom: r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '', price: price, total: total, remarks: r.querySelector('[data-f="remarks"]').value });
       }
       if (items.length === 0) { showToast('Add at least one product', 'error'); return; }
       if (inv) {
@@ -4262,6 +4281,9 @@ function invoiceTableRowHTML(catOpts, brandOpts, prdArr) {
   h += '<td class="pur-td"><input data-f="model" placeholder="Model" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
   h += '<td class="pur-td"><input data-f="serial" placeholder="Serial Number" style="background:#f5f7f5;color:var(--muted);" readonly></td>';
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  var uomOpts = '<option value="">Select</option>';
+  for (var ui = 0; ui < DB.uoms.length; ui++) uomOpts += '<option>' + DB.uoms[ui].name + '</option>';
+  h += '<td class="pur-td"><select data-f="uom" style="min-width:90px;">' + uomOpts + '</select></td>';
   h += '<td class="pur-td"><input type="number" data-f="price" value="0" style="text-align:right;" oninput="purCalcRowTotal(this)"></td>';
   h += '<td class="pur-td"><input type="text" data-f="total" value="0" readonly style="text-align:right;font-weight:600;color:var(--accent);background:#f5f7f5;"></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Remarks"></td>';
@@ -4382,7 +4404,7 @@ function openDamageModal(dmgId, readOnly) {
   html += '<thead><tr>';
   html += '<th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
   html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">B.QTY</th>';
-  html += '<th class="pur-th">Quantity</th><th class="pur-th">Reason</th>';
+  html += '<th class="pur-th">Quantity</th><th class="pur-th">UoM</th><th class="pur-th">Reason</th>';
   if (!readOnly) html += '<th class="pur-th" style="width:42px;"></th>';
   html += '</tr></thead><tbody id="pur-entries-body">';
   if (readOnly) {
@@ -4396,6 +4418,7 @@ function openDamageModal(dmgId, readOnly) {
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.warranty || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:700;color:var(--info);">' + (dmg.bqty !== undefined ? dmg.bqty : 0) + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;font-weight:600;color:var(--danger);">' + (dmg.qty || 0) + '</td>';
+    html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (dmg.uom || '-') + '</td>';
     html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (dmg.reason || '-') + '</td>';
     html += '</tr>';
   } else {
@@ -4454,6 +4477,7 @@ function openDamageModal(dmgId, readOnly) {
       var condSel = firstRow.querySelector('[data-f="condition"]'); if (condSel) condSel.value = dmg.condition || 'New';
       var warSel = firstRow.querySelector('[data-f="warranty"]'); if (warSel) warSel.value = dmg.warranty || '';
       var qtyIn = firstRow.querySelector('[data-f="qty"]'); if (qtyIn) qtyIn.value = dmg.qty || 0;
+      var uomIn = firstRow.querySelector('[data-f="uom"]'); if (uomIn) uomIn.value = dmg.uom || '';
       var remIn = firstRow.querySelector('[data-f="remarks"]'); if (remIn) remIn.value = dmg.reason || '';
     }
     bindPurRowDel(firstRow);
@@ -4501,6 +4525,7 @@ function openDamageModal(dmgId, readOnly) {
         dmg.product = product; dmg.category = category; dmg.brand = brand;
         dmg.model = model; dmg.serial = serial; dmg.condition = condition;
         dmg.warranty = warranty; dmg.qty = qty; dmg.bqty = bqtyVal;
+        dmg.uom = firstValid.querySelector('[data-f="uom"]') ? firstValid.querySelector('[data-f="uom"]').value : '';
         dmg.reason = remarks; dmg.remarks = remarks; dmg.note = note; dmg.status = status;
         closeModal(); showToast('Damage updated'); renderPage();
       } else {
@@ -4508,7 +4533,7 @@ function openDamageModal(dmgId, readOnly) {
           id: Date.now(), ref: ref, date: date, branch: branch,
           product: product, category: category, brand: brand, model: model,
           serial: serial, condition: condition, warranty: warranty,
-          bqty: bqtyVal, qty: qty, reason: remarks, remarks: remarks, note: note, status: status
+          bqty: bqtyVal, qty: qty, uom: firstValid.querySelector('[data-f="uom"]') ? firstValid.querySelector('[data-f="uom"]').value : '', reason: remarks, remarks: remarks, note: note, status: status
         });
         closeModal(); showToast('Damage added'); renderPage();
       }
@@ -4528,6 +4553,10 @@ function damageTableRowHTML(catOpts, brandOpts, warOpts, prdArr) {
   h += '<td class="pur-td"><select data-f="warranty" disabled style="background:#f5f7f5;color:var(--muted);cursor:not-allowed;">' + warOpts + '</select></td>';
   h += '<td class="pur-td"><input type="number" data-f="bqty" value="0" style="text-align:center;background:#f5f7f5;color:var(--muted);" readonly></td>';
   h += '<td class="pur-td"><input type="number" data-f="qty" value="0" style="text-align:center;" oninput="purCalcRowTotal(this)"></td>';
+  // UoM column — dropdown of units of measure (Pieces, Box, Dozen, etc.)
+  var uomOpts = '<option value="">Select</option>';
+  for (var ui = 0; ui < DB.uoms.length; ui++) uomOpts += '<option>' + DB.uoms[ui].name + '</option>';
+  h += '<td class="pur-td"><select data-f="uom" style="min-width:90px;">' + uomOpts + '</select></td>';
   h += '<td class="pur-td"><input data-f="remarks" placeholder="Damage reason"></td>';
   h += '<td class="pur-td" style="text-align:center;"><button type="button" class="btn-del-pur-row btn-del-pur"><i class="fas fa-trash-alt"></i></button></td>';
   h += '</tr>';
@@ -5066,7 +5095,7 @@ function bindPurchaseEvents() {
         html += '<thead><tr>';
         html += '<th class="pur-th" style="width:40px;">#</th><th class="pur-th">Product</th><th class="pur-th">Category</th><th class="pur-th">Brand</th><th class="pur-th">Model</th>';
         html += '<th class="pur-th">Serial Number</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th>';
-        html += '<th class="pur-th">Quantity</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
+        html += '<th class="pur-th">Quantity</th><th class="pur-th">UoM</th><th class="pur-th">Price</th><th class="pur-th">Total</th><th class="pur-th">Remarks</th>';
         html += '</tr></thead><tbody>';
         var grandTotal = 0;
         for (var ri = 0; ri < allRows.length; ri++) {
@@ -5082,6 +5111,7 @@ function bindPurchaseEvents() {
           html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.condition || '-') + '</td>';
           html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.warranty || '-') + '</td>';
           html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (row.qty || 0) + '</td>';
+          html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (row.uom || '-') + '</td>';
           html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(row.unitPrice || 0) + '</td>';
           html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(row.total || 0) + '</td>';
           html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.remarks || '-') + '</td>';
@@ -6086,7 +6116,7 @@ function bindApprovalEvents() {
           html += '</div>';
           html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;">';
           html += '<div style="overflow-x:auto;max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>';
-          html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th><th class="pur-th">Serial</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th>';
+          html += '<th class="pur-th">Product</th><th class="pur-th">Brand</th><th class="pur-th">Model</th><th class="pur-th">Serial</th><th class="pur-th">Condition</th><th class="pur-th">Warranty</th><th class="pur-th" style="text-align:center;">Qty</th><th class="pur-th">UoM</th><th class="pur-th" style="text-align:right;">Price</th><th class="pur-th" style="text-align:right;">Total</th>';
           html += '</tr></thead><tbody>';
           for (var rr = 0; rr < allRows.length; rr++) {
             var row = allRows[rr];
@@ -6098,12 +6128,13 @@ function bindApprovalEvents() {
             html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.condition || '-') + '</td>';
             html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;">' + (row.warranty || '-') + '</td>';
             html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (row.qty || 0) + '</td>';
+            html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:center;">' + (row.uom || '-') + '</td>';
             html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;">' + fmt(row.unitPrice || 0) + '</td>';
             html += '<td class="pur-td" style="padding:9px 10px;font-size:13px;text-align:right;font-weight:600;color:var(--accent);">' + fmt(row.total || 0) + '</td>';
             html += '</tr>';
           }
-          // Grand total row — colspan 6 (Product through Warranty), then Qty, blank, Total
-          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="6" style="padding:10px;text-align:right;border-top:1px solid var(--border);">Grand Total (' + allRows.length + ' items):</td><td style="padding:10px;text-align:center;border-top:1px solid var(--border);border-right:1px solid var(--border);">' + totalQty + '</td><td style="border-top:1px solid var(--border);border-right:1px solid var(--border);"></td><td style="padding:10px;text-align:right;border-top:1px solid var(--border);font-size:14px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td></tr>';
+          // Grand total row — colspan 6 (Product through Warranty), then Qty, UoM blank, Price blank, Total
+          html += '<tr style="background:var(--accent-light);font-weight:700;"><td colspan="6" style="padding:10px;text-align:right;border-top:1px solid var(--border);">Grand Total (' + allRows.length + ' items):</td><td style="padding:10px;text-align:center;border-top:1px solid var(--border);border-right:1px solid var(--border);">' + totalQty + '</td><td style="border-top:1px solid var(--border);border-right:1px solid var(--border);"></td><td style="border-top:1px solid var(--border);border-right:1px solid var(--border);"></td><td style="padding:10px;text-align:right;border-top:1px solid var(--border);font-size:14px;color:var(--accent-dark);">' + fmt(grandTotal) + '</td></tr>';
           html += '</tbody></table></div></div>';
           if (item.attachment && item.attachment.name) {
             html += '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
