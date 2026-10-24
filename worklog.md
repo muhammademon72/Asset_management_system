@@ -759,3 +759,50 @@ Stage Summary:
 - ✅ Existing deleteItem() defense-in-depth is unchanged (still covers single-row data-del-del buttons, legacy path).
 - ✅ Commit 1418bfb pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 22
+Agent: main
+Task: User requested: "Module Privileges er Module er Main Menu er niche Submenu Add koro" — add submenu rows under each main module in the Module Privileges matrix, so permissions can be granted per submenu.
+
+Work Log:
+- Wrote /home/z/my-project/scripts/add_submenu_privileges.py to update the PRIVILEGE_MODULES array. Each module now has a `children` array listing all submenu page IDs (matching the NAV children). 9 of 11 modules have submenu rows; Dashboard stays flat.
+- Updated the matrix render loop in openRoleModal() to render:
+    • Parent module row (existing style: padding 10px 14px, 13px font, accent icon)
+    • Indented submenu rows beneath (padding 7px 14px 7px 32px, 12px font, muted color, › marker)
+- Updated can() to resolve submenu perms first, then fall back to parent module perms. This means:
+    • Role with only `branch: ['view']` still allows viewing branch-list (parent fallback)
+    • Role with only `branch-list: ['view','add']` but not 'branch' still allows view/add on Branch List (submenu direct)
+- Updated renderNav() to filter submenu items via can(ch.id, 'view') — previously sub-items were always shown if the parent module was visible.
+- Updated renderPage permission gate to use can(currentPage, 'view') directly — a user with no perms on a specific submenu now sees Access Denied even if they have parent module access.
+- Updated enforceActionPermissions() to use currentPage directly so submenu perms are checked for button hiding (Add/Edit/Delete/Export/Import/Print).
+- Updated deleteItem() defense-in-depth to use page directly (with submenu fallback inside can()). Better toast label lookup via NAV traversal.
+- Updated delivery chalan delete handler to use currentPage directly with the same fallback logic.
+- The save handler in openRoleModal() was already generic — it reads `data-module` from each checkbox, and submenu checkboxes use the submenu id as their data-module, so submenu perms are automatically persisted in role.permissions object.
+- The summarizePermissions() function was already generic — it counts any non-empty key in role.permissions, so submenu perms appear in the role summary automatically.
+- Re-extracted inline script (504,714 chars) → node --check passed (SYNTAX_OK).
+- Committed as af4da08.
+- Pushed to GitHub: 1418bfb..af4da08 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Module Privileges matrix now shows submenu rows beneath each parent module.
+- ✅ Each submenu has its own set of permission checkboxes (View/Add/Edit/Delete/Export/Import/Print).
+- ✅ Permission resolution: submenu-specific perms checked first, parent module perms used as fallback.
+- ✅ Navigation, page access, and per-button visibility all respect submenu perms.
+- ✅ Commit af4da08 pushed to GitHub.
+- ✅ JS syntax verified clean.
+
+Submenu count by module (matches NAV children):
+  • Branch: 1 submenu (Branch List)
+  • Employee: 3 (Employee List, Designation List, Department)
+  • Product: 6 (Categories, Brand, UoM, Product List, Condition, Warranty)
+  • Purchase: 3 (Purchase List, Inventory Stock, Supplier List)
+  • Inventory: 4 (Delivery List, Adjustment List, Damage List, Internal Transfer List)
+  • Cash Book: 2 (Cash In, Cash Out)
+  • Approval: 4 (Purchase/Delivery/Adjustment/Damage approval)
+  • Report: 6 (Purchase/Delivery/Adjustment/Damage/Cash In/Cash Out reports)
+  • Sell: 2 (Sell Proposal, Invoice)
+  • Settings: 4 (Company Profile, User List, Role List, Backup/Restore)
+  • Dashboard: 0 (flat, no submenus)
+  Total: 35 submenu rows + 11 parent rows = 46 rows in the matrix.
