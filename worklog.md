@@ -1621,3 +1621,31 @@ Stage Summary:
 - ✅ Attachment size limit reduced to 1.5MB.
 - ✅ Commit c3081b6 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 40
+Agent: main
+Task: User reported "Red massage show kore" — when clicking Edit on a Confirm status purchase, a red error toast appears saying "Editing locked". The red message was alarming users.
+
+Work Log:
+- Located the locked edit handler at line 5066-5078.
+- The toast was using type='error' (red) with a long message:
+    "Editing locked — this purchase is 'Confirm'. Only Draft purchases can be edited. Approve Request already sent."
+- This is expected behavior (per Task 25: only Draft purchases can be edited), NOT an error. The red color was misleading.
+
+Fix applied:
+- Changed showToast type from 'error' (red) to 'info' (blue).
+- Shortened the message to:
+    "This purchase is 'Confirm' — only Draft purchases can be edited."
+- Added a comment explaining why 'info' is used instead of 'error'.
+
+Verification:
+- Re-extracted inline script (555,857 chars) → node --check passed (SYNTAX_OK).
+- Committed as 569f65a.
+- Pushed to GitHub: c3081b6..569f65a main -> main ✅.
+
+Stage Summary:
+- ✅ Locked-edit toast changed from red (error) to blue (info).
+- ✅ Message shortened and made less alarming.
+- ✅ Commit 569f65a pushed to GitHub.
+- ✅ JS syntax verified clean.
