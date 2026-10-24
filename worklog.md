@@ -1095,3 +1095,52 @@ Stage Summary:
 - ✅ Print version uses the same per-row logic.
 - ✅ Commit eb5a8dc pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 29
+Agent: main
+Task: User reported "Purchase Approval — one Invoice number one row create hobe" — Purchase Approval should show one row per invoice (not one row per purchase record). Previously if an invoice had multiple serials (different rows in DB.purchases), the Approval page showed each as a separate row.
+
+Work Log:
+- Located renderApprovalList() at line 5710.
+- Diagnosed: for type==='purchase', the function iterated over DB.purchases (one row per record), so multi-serial invoices showed multiple rows.
+- Modified renderApprovalList() to GROUP purchase records by invoice:
+    • Build invoiceGroups dictionary keyed by invoice number, preserving first-seen order.
+    • For each invoice group, aggregate: date, supplier, branch, items (array), total (sum), ids (array), status (most-advanced — Approved > Rejected > Confirm/Submitted/Pending > Draft).
+    • Render one row per invoice group.
+    • Items column shows count + total (e.g. '3 items (৳1,50,000)') when there are multiple items, or just the product name when there's only one.
+    • Column header changed from 'Product' to 'Items' to reflect the new semantics.
+    • Action buttons (Approve, Reject, Edit, Delete, View) carry a new data-invoice attribute so the click handler knows to operate on all rows with that invoice.
+  Other types (delivery, adjustment, damage) are unchanged.
+- Updated bindApprovalEvents():
+    • Approve handler: if data-invoice is present and type==='purchase', loop over ALL DB.purchases rows with that invoice and set status='Approved'. Toast: 'Invoice INV-X approved (N items)'.
+    • Reject handler: same — set status='Rejected' for all matching rows.
+    • Delete handler: if data-invoice is present, asks confirmation then removes ALL purchase rows with that invoice.
+    • View handler: was already correct (already grouped by invoice).
+    • Edit handler: unchanged (uses the first id of the group; the Purchase List Edit modal loads all rows under that invoice anyway).
+
+Verified with headless Chrome:
+- Created test data:
+    INV-MULTI-001: 3 purchase rows (serials LT-001, LT-002, LT-003), each qty=1, status='Confirm'
+    INV-SINGLE-001: 1 purchase row (serial LT-004), qty=1, status='Confirm'
+- Before fix: 4 rows shown in Purchase Approval.
+- After fix: 2 rows shown:
+    Row 1: INV-MULTI-001 | 2026-10-23 | Test Supplier | "3 items (৳1,50,000)" | ৳1,50,000 | Head Office | Confirm
+    Row 2: INV-SINGLE-001 | 2026-10-23 | Test Supplier | Laptop | ৳50,000 | Head Office | Confirm
+- Clicked Approve button on INV-MULTI-001 row:
+    All 3 purchase rows' status changed to 'Approved' in one click.
+    INV-SINGLE-001 row stayed in 'Confirm' status (single-item invoice unaffected).
+- Cleanup: removed all test data. DB back to empty.
+- Re-extracted inline script (532,472 chars) → node --check passed (SYNTAX_OK).
+- Committed as d799507.
+- Pushed to GitHub: eb5a8dc..d799507 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Purchase Approval now shows one row per invoice (not one row per purchase record).
+- ✅ Items column displays the count + total amount for multi-item invoices.
+- ✅ Approve/Reject/Delete operations apply to ALL rows under the same invoice in a single action.
+- ✅ Single-item invoices display the product name in the Items column.
+- ✅ Verified end-to-end with test data.
+- ✅ Commit d799507 pushed to GitHub.
+- ✅ JS syntax verified clean.
