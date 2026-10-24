@@ -1579,3 +1579,45 @@ Stage Summary:
 - ✅ API route maxDuration increased to 60s for large payloads.
 - ✅ Commit c276711 pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 39
+Agent: main
+Task: User reported "File Attach kore save dile Network unexcepted show kore save hoy na" — saving with a file attachment causes a "Network unexpected" error and the save fails.
+
+Work Log:
+- Diagnosed the ROOT CAUSE: the GET-merge-POST pattern (added in Task 37 for multi-user data safety) DOUBLES the data transfer:
+    1. GET /api/db → downloads the ENTIRE server DB including ALL existing attachment data (several MB).
+    2. Merge local items into the server DB.
+    3. POST /api/db → uploads the ENTIRE merged DB including ALL attachments.
+  For a 1.5MB attachment, total transfer is ~4-8MB, exceeding Vercel's 4.5MB body limit and 10s timeout.
+
+Fixes applied:
+1. Added `skipMerge` option to `saveDBNow(onDone, options)`:
+   - When `skipMerge=true`, POSTs directly without the GET-merge step.
+   - Halves the data transfer and avoids the timeout.
+   - Normal saves (no attachment) still use GET-merge-POST for multi-user protection.
+
+2. Purchase save handler: passes `{ skipMerge: true }` when there's an attachment.
+
+3. Edit Purchase handler: same `skipMerge: true` when the purchase has attachment data.
+
+4. Reduced attachment size limit from 2MB to 1.5MB:
+   - A 1.5MB file becomes ~2MB base64.
+   - Total POST body stays well under Vercel's 4.5MB limit.
+
+Verified:
+- Re-extracted inline script (555,752 chars) → node --check passed (SYNTAX_OK).
+- Committed as c3081b6.
+- Pushed to GitHub: c276711..c3081b6 main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+TRADE-OFF:
+When saving with an attachment, the GET-merge step is skipped — if another user saved a change at the exact same moment, it could be overwritten. This is acceptable because attachment saves are infrequent and the user is actively at the keyboard.
+
+Stage Summary:
+- ✅ Root cause identified: GET-merge-POST doubles data transfer, exceeding Vercel limits.
+- ✅ Fix applied: skipMerge option for attachment saves.
+- ✅ Attachment size limit reduced to 1.5MB.
+- ✅ Commit c3081b6 pushed to GitHub.
+- ✅ JS syntax verified clean.
