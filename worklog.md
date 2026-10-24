@@ -1860,3 +1860,44 @@ Stage Summary:
 - ✅ Approve/Reject saves immediately — changes persist right away.
 - ✅ Commit c20177d pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 46
+Agent: main
+Task: User reported "Purchase List — delete korar pore abar auto chole ashe" — after deleting a purchase, it comes back automatically.
+
+Work Log:
+- Diagnosed the ROOT CAUSE: the saveDBNow() GET-merge-POST pattern (Task 37) is the culprit:
+    1. User clicks Delete → DB.purchases has the purchase REMOVED locally.
+    2. saveDBNow() runs → GETs the server DB (which STILL HAS the purchase).
+    3. mergeDBWithServer() unions local items into server items by id.
+    4. Since the deleted purchase is NOT in local, but IS in server, the merge keeps the server's copy → deleted purchase comes back!
+    5. POST writes the merged DB (with the purchase restored) to the server.
+    6. User refreshes → GETs the merged DB → purchase is back.
+
+- Fix: use skipMerge: true for ALL delete operations. When deleting, POST the local DB directly WITHOUT the GET-merge step. This way, the deleted item is NOT re-added from the server.
+
+Updated 5 delete handlers to use saveDBNow(null, { skipMerge: true }):
+  1. Purchase List delete (data-del-pur handler)
+  2. Purchase Approval delete (invoice-level)
+  3. Delivery chalan delete (data-del-chalan handler)
+  4. confirmDelete() — generic deleteItem helper, used by many modules
+  5. revertDelivery() — removes a delivery from the DB
+
+TRADE-OFF:
+skipMerge disables multi-user protection for that specific save. If another user saved a change at the exact same moment, it could be overwritten. This is acceptable for deletes because:
+  - The user explicitly confirmed the delete.
+  - The delete window is short (1-2 seconds).
+  - Re-adding a deleted item is worse than a rare multi-user conflict.
+
+Verified:
+- Re-extracted inline script (563,358 chars) → node --check passed (SYNTAX_OK).
+- Committed as 12d94ca.
+- Pushed to GitHub: c20177d..12d94ca main -> main ✅.
+
+Stage Summary:
+- ✅ Root cause identified: GET-merge-POST re-adds deleted items from server.
+- ✅ Fix applied: skipMerge: true for all delete operations.
+- ✅ 5 delete handlers updated.
+- ✅ Commit 12d94ca pushed to GitHub.
+- ✅ JS syntax verified clean.
