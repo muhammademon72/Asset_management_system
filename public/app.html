@@ -1801,66 +1801,138 @@ function findColIndex(headers, possibleNames) {
 }
 
 function renderInventoryStock() {
-  // Compute stock per product
-  // stock = purchased - delivered - damaged + (adjustments increase - decrease)
-  // Hides products with zero stock
+  // Inventory Stock — one row per APPROVED purchase record (so each serial
+  // number gets its own row, even when multiple serials share the same invoice).
+  //
+  // Stock logic per row:
+  //   - Stock = qty of that purchase row - (deliveries + damages) that match
+  //     the same product (we can't track deliveries per-serial, so we allocate
+  //     deliveries/damages to the oldest purchase rows first — FIFO).
+  //   - Adjustments increase/decrease stock per product (allocated FIFO too).
+  //
+  // Hidden rows: any purchase row with stock = 0 (fully delivered/damaged).
   var rows = '';
   var totalPurchased = 0, totalDelivered = 0, totalDamaged = 0, totalAdjusted = 0, totalStock = 0;
   var visibleCount = 0;
   var hiddenCount = 0;
-  for (var i = 0; i < DB.products.length; i++) {
-    var p = DB.products[i];
-    var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
-    // Latest purchase record (to pull model/serial/condition/warranty)
-    var latestPur = null;
-    for (var j = 0; j < DB.purchases.length; j++) {
-      if (DB.purchases[j].product === p.name) {
-        // Only count APPROVED purchases in Inventory Stock.
-        // Draft purchases stay only in Purchase List.
-        // Submitted purchases go to Purchase Approval (not yet counted as stock).
-        if (DB.purchases[j].status !== 'Approved') continue;
-        purchased += (DB.purchases[j].qty || 0);
-        if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
+
+  // Step 1: Build a per-product list of APPROVED purchases (oldest first),
+  //         carrying the serial/model/brand/etc. for each row.
+  var perProduct = {};  // productName -> array of purchase rows (sorted by date asc)
+  for (var j = 0; j < DB.purchases.length; j++) {
+    var pur = DB.purchases[j];
+    if (pur.status !== 'Approved') continue;
+    if (!perProduct[pur.product]) perProduct[pur.product] = [];
+    perProduct[pur.product].push(pur);
+  }
+  // Sort each product's purchases by date ascending (FIFO allocation)
+  for (var pn in perProduct) {
+    perProduct[pn].sort(function(a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da < db) return -1;
+      if (da > db) return 1;
+      return 0;
+    });
+  }
+
+  // Step 2: For each product, allocate deliveries + damages + adjustments to
+  //         the FIFO purchase rows. Each row's stock = qty - allocatedDelivered
+  //         - allocatedDamaged + allocatedAdjusted.
+  var renderRows = [];  // accumulate { product, invoice, brand, ..., stock }
+  for (var productName in perProduct) {
+    var purchaseRows = perProduct[productName];
+    // Aggregate totals per product (for the top stat cards)
+    var purQty = 0;
+    for (var pi = 0; pi < purchaseRows.length; pi++) purQty += (purchaseRows[pi].qty || 0);
+
+    var delQty = 0;
+    for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
+      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+    }
+    var dmgQty = 0;
+    for (var dmi = 0; dmi < DB.damages.length; dmi++) {
+      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+    }
+    var adjQtyNet = 0;
+    for (var ai = 0; ai < DB.adjustments.length; ai++) {
+      if (DB.adjustments[ai].product === productName) {
+        var aq = DB.adjustments[ai].qty || 0;
+        adjQtyNet += (DB.adjustments[ai].type === 'Increase') ? aq : -aq;
       }
     }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
-    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
-    for (var j = 0; j < DB.adjustments.length; j++) {
-      if (DB.adjustments[j].product === p.name) {
-        var adjQty = DB.adjustments[j].qty || 0;
-        adjusted += (DB.adjustments[j].type === 'Increase') ? adjQty : -adjQty;
+    totalPurchased += purQty;
+    totalDelivered += delQty;
+    totalDamaged += dmgQty;
+    totalAdjusted += adjQtyNet;
+
+    // FIFO allocation across purchase rows
+    var delRemaining = delQty;
+    var dmgRemaining = dmgQty;
+    var adjRemaining = adjQtyNet;
+    for (var ri = 0; ri < purchaseRows.length; ri++) {
+      var pr = purchaseRows[ri];
+      var rowQty = pr.qty || 0;
+      // Allocate deliveries (FIFO)
+      var allocDel = Math.min(rowQty, delRemaining);
+      delRemaining -= allocDel;
+      // Allocate damages (FIFO)
+      var allocDmg = Math.min(rowQty - allocDel, dmgRemaining);
+      dmgRemaining -= allocDmg;
+      // Allocate adjustments (FIFO — only positive adjustments add stock
+      // to oldest rows; negative ones reduce stock from oldest first).
+      var allocAdj = 0;
+      if (adjRemaining > 0) {
+        allocAdj = Math.min(rowQty - allocDel - allocDmg, adjRemaining);
+        adjRemaining -= allocAdj;
+      } else if (adjRemaining < 0) {
+        // Negative adjustment — reduce stock from this row
+        var take = Math.min(rowQty - allocDel - allocDmg, -adjRemaining);
+        allocAdj = -take;
+        adjRemaining += take;  // moves toward 0
       }
+      var rowStock = rowQty - allocDel - allocDmg + allocAdj;
+      if (rowStock < 0) rowStock = 0;
+      renderRows.push({
+        date: pr.date,
+        invoice: pr.invoice,
+        product: productName,
+        category: pr.category || '',
+        brand: pr.brand || '-',
+        model: pr.model || '-',
+        serial: pr.serial || '-',
+        condition: pr.condition || '-',
+        warranty: pr.warranty || '-',
+        remarks: pr.remarks || '-',
+        qty: rowQty,
+        stock: rowStock
+      });
+      totalStock += rowStock;
     }
-    var stock = purchased - delivered - damaged + adjusted;
-    if (stock < 0) stock = 0;
-    // Skip products with zero stock — hide from the list
-    if (stock === 0) { hiddenCount++; continue; }
-    var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
-    totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
+  }
+
+  // Step 3: Render the rows (skip rows with stock = 0)
+  for (var k = 0; k < renderRows.length; k++) {
+    var r = renderRows[k];
+    if (r.stock === 0) { hiddenCount++; continue; }
     visibleCount++;
-    // Pull product-level attributes (fall back to latest purchase record)
-    // Brand, like Model/Serial/Condition/Warranty, is sourced from the latest
-    // purchase — products typically have an empty 'brand' field but each purchase
-    // captures the actual brand of the item that was bought.
-    var brand = (latestPur && latestPur.brand) || p.brand || '-';
-    var model = (latestPur && latestPur.model) || '-';
-    var serial = (latestPur && latestPur.serial) || '-';
-    var condition = (latestPur && latestPur.condition) || '-';
-    var warranty = (latestPur && latestPur.warranty) || '-';
-    var remarks = (latestPur && latestPur.remarks) || '-';
-    var invoice = (latestPur && latestPur.invoice) || '-';
+    // Find the product-level category (fallback)
+    var prod = null;
+    for (var pi3 = 0; pi3 < DB.products.length; pi3++) {
+      if (DB.products[pi3].name === r.product) { prod = DB.products[pi3]; break; }
+    }
+    var cat = r.category || (prod && prod.category) || '-';
     rows += '<tr>';
     rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + visibleCount + '</td>';
-    rows += '<td style="font-weight:600;color:var(--info);">' + invoice + '</td>';
-    rows += '<td style="font-weight:600;">' + p.name + '</td>';
-    rows += '<td>' + (p.category || (latestPur && latestPur.category) || '-') + '</td>';
-    rows += '<td>' + brand + '</td>';
-    rows += '<td>' + model + '</td>';
-    rows += '<td>' + serial + '</td>';
-    rows += '<td>' + condition + '</td>';
-    rows += '<td>' + warranty + '</td>';
-    rows += '<td style="text-align:center;font-weight:700;color:var(--accent-dark);font-size:14px;">' + stock + '</td>';
-    rows += '<td>' + remarks + '</td>';
+    rows += '<td style="font-weight:600;color:var(--info);">' + (r.invoice || '-') + '</td>';
+    rows += '<td style="font-weight:600;">' + r.product + '</td>';
+    rows += '<td>' + cat + '</td>';
+    rows += '<td>' + r.brand + '</td>';
+    rows += '<td>' + r.model + '</td>';
+    rows += '<td>' + r.serial + '</td>';
+    rows += '<td>' + r.condition + '</td>';
+    rows += '<td>' + r.warranty + '</td>';
+    rows += '<td style="text-align:center;font-weight:700;color:var(--accent-dark);font-size:14px;">' + r.stock + '</td>';
+    rows += '<td>' + r.remarks + '</td>';
     rows += '</tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -1869,14 +1941,14 @@ function renderInventoryStock() {
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-secondary" id="btn-print-inventory-stock" title="Print Inventory Stock"><i class="fas fa-print"></i> Print</button>';
   html += '</div></div>';
-  // Info banner — shows how many zero-stock products are hidden
+  // Info banner — shows how many zero-stock purchase rows are hidden
   if (hiddenCount > 0) {
     html += '<div style="background:var(--accent-light);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--accent-dark);">';
     html += '<i class="fas fa-info-circle" style="color:var(--accent);"></i>';
-    html += '<span><strong>' + visibleCount + '</strong> products with stock shown &nbsp;·&nbsp; <strong>' + hiddenCount + '</strong> out-of-stock product' + (hiddenCount === 1 ? '' : 's') + ' hidden</span>';
+    html += '<span><strong>' + visibleCount + '</strong> in-stock item' + (visibleCount === 1 ? '' : 's') + ' shown &nbsp;·&nbsp; <strong>' + hiddenCount + '</strong> fully-delivered row' + (hiddenCount === 1 ? '' : 's') + ' hidden</span>';
     html += '</div>';
   }
-  // Table — show empty state message if no products with stock
+  // Table — show empty state message if no rows with stock
   html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto;">';
   html += '<table class="data-table" id="main-table"><thead><tr>';
   html += '<th style="text-align:center;width:50px;">SN</th><th>Invoice</th><th>Product</th><th>Category</th><th>Brand</th>';
@@ -1884,7 +1956,7 @@ function renderInventoryStock() {
   html += '<th style="text-align:center;">Current Stock</th><th>Remarks</th>';
   html += '</tr></thead><tbody>';
   if (rows === '') {
-    html += '<tr><td colspan="11" style="text-align:center;padding:40px 20px;color:var(--muted);"><i class="fas fa-boxes" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i><div style="font-size:14px;font-weight:600;margin-bottom:4px;">No products in stock</div><div style="font-size:12px;">All products currently have zero stock. Add purchases or reduce deliveries/damages to see stock here.</div></td></tr>';
+    html += '<tr><td colspan="11" style="text-align:center;padding:40px 20px;color:var(--muted);"><i class="fas fa-boxes" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i><div style="font-size:14px;font-weight:600;margin-bottom:4px;">No items in stock</div><div style="font-size:12px;">All purchase rows currently have zero stock. Add purchases or reduce deliveries/damages to see stock here.</div></td></tr>';
   } else {
     html += rows;
   }
@@ -1901,47 +1973,92 @@ function printInventoryStock() {
   var co = DB.company || {};
   var rows = '';
   var totalPurchased = 0, totalDelivered = 0, totalDamaged = 0, totalAdjusted = 0, totalStock = 0;
-  for (var i = 0; i < DB.products.length; i++) {
-    var p = DB.products[i];
-    var purchased = 0, delivered = 0, damaged = 0, adjusted = 0;
-    var latestPur = null;
-    for (var j = 0; j < DB.purchases.length; j++) {
-      if (DB.purchases[j].product === p.name) {
-        purchased += (DB.purchases[j].qty || 0);
-        if (!latestPur || (DB.purchases[j].date || '') > (latestPur.date || '')) latestPur = DB.purchases[j];
+  var visibleCount = 0;
+
+  // Same per-row logic as renderInventoryStock() — iterate over APPROVED
+  // purchase records so each serial gets its own row.
+  var perProduct = {};
+  for (var j = 0; j < DB.purchases.length; j++) {
+    var pur = DB.purchases[j];
+    if (pur.status !== 'Approved') continue;
+    if (!perProduct[pur.product]) perProduct[pur.product] = [];
+    perProduct[pur.product].push(pur);
+  }
+  for (var pn in perProduct) {
+    perProduct[pn].sort(function(a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da < db) return -1;
+      if (da > db) return 1;
+      return 0;
+    });
+  }
+
+  for (var productName in perProduct) {
+    var purchaseRows = perProduct[productName];
+    var purQty = 0;
+    for (var pi = 0; pi < purchaseRows.length; pi++) purQty += (purchaseRows[pi].qty || 0);
+    var delQty = 0;
+    for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
+      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+    }
+    var dmgQty = 0;
+    for (var dmi = 0; dmi < DB.damages.length; dmi++) {
+      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+    }
+    var adjQtyNet = 0;
+    for (var ai = 0; ai < DB.adjustments.length; ai++) {
+      if (DB.adjustments[ai].product === productName) {
+        var aq = DB.adjustments[ai].qty || 0;
+        adjQtyNet += (DB.adjustments[ai].type === 'Increase') ? aq : -aq;
       }
     }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) delivered += (DB.deliveries[j].qty || 0); }
-    for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) damaged += (DB.damages[j].qty || 0); }
-    for (var j = 0; j < DB.adjustments.length; j++) {
-      if (DB.adjustments[j].product === p.name) {
-        var adjQty = DB.adjustments[j].qty || 0;
-        adjusted += (DB.adjustments[j].type === 'Increase') ? adjQty : -adjQty;
+    totalPurchased += purQty;
+    totalDelivered += delQty;
+    totalDamaged += dmgQty;
+    totalAdjusted += adjQtyNet;
+
+    var delRemaining = delQty;
+    var dmgRemaining = dmgQty;
+    var adjRemaining = adjQtyNet;
+    for (var ri = 0; ri < purchaseRows.length; ri++) {
+      var pr = purchaseRows[ri];
+      var rowQty = pr.qty || 0;
+      var allocDel = Math.min(rowQty, delRemaining); delRemaining -= allocDel;
+      var allocDmg = Math.min(rowQty - allocDel, dmgRemaining); dmgRemaining -= allocDmg;
+      var allocAdj = 0;
+      if (adjRemaining > 0) {
+        allocAdj = Math.min(rowQty - allocDel - allocDmg, adjRemaining);
+        adjRemaining -= allocAdj;
+      } else if (adjRemaining < 0) {
+        var take = Math.min(rowQty - allocDel - allocDmg, -adjRemaining);
+        allocAdj = -take;
+        adjRemaining += take;
       }
+      var rowStock = rowQty - allocDel - allocDmg + allocAdj;
+      if (rowStock < 0) rowStock = 0;
+      if (rowStock === 0) continue;  // hide zero-stock rows in print too
+      visibleCount++;
+      // Find the product-level category (fallback)
+      var prod = null;
+      for (var pi3 = 0; pi3 < DB.products.length; pi3++) {
+        if (DB.products[pi3].name === productName) { prod = DB.products[pi3]; break; }
+      }
+      var cat = pr.category || (prod && prod.category) || '-';
+      rows += '<tr>';
+      rows += '<td style="text-align:center;">' + visibleCount + '</td>';
+      rows += '<td style="font-weight:600;">' + (pr.invoice || '-') + '</td>';
+      rows += '<td style="font-weight:600;">' + productName + '</td>';
+      rows += '<td>' + cat + '</td>';
+      rows += '<td>' + (pr.brand || '-') + '</td>';
+      rows += '<td>' + (pr.model || '-') + '</td>';
+      rows += '<td>' + (pr.serial || '-') + '</td>';
+      rows += '<td>' + (pr.condition || '-') + '</td>';
+      rows += '<td>' + (pr.warranty || '-') + '</td>';
+      rows += '<td style="text-align:center;font-weight:700;">' + rowStock + '</td>';
+      rows += '<td>' + (pr.remarks || '-') + '</td>';
+      rows += '</tr>';
+      totalStock += rowStock;
     }
-    var stock = purchased - delivered - damaged + adjusted;
-    if (stock < 0) stock = 0;
-    var stockStatus = stock === 0 ? 'Out of Stock' : (stock <= 5 ? 'Low Stock' : 'In Stock');
-    totalPurchased += purchased; totalDelivered += delivered; totalDamaged += damaged; totalAdjusted += adjusted; totalStock += stock;
-    var model = (latestPur && latestPur.model) || '-';
-    var serial = (latestPur && latestPur.serial) || '-';
-    var condition = (latestPur && latestPur.condition) || '-';
-    var warranty = (latestPur && latestPur.warranty) || '-';
-    var remarks = (latestPur && latestPur.remarks) || '-';
-    var invoice = (latestPur && latestPur.invoice) || '-';
-    rows += '<tr>';
-    rows += '<td style="text-align:center;">' + (i + 1) + '</td>';
-    rows += '<td style="font-weight:600;">' + invoice + '</td>';
-    rows += '<td style="font-weight:600;">' + p.name + '</td>';
-    rows += '<td>' + (p.category || '-') + '</td>';
-    rows += '<td>' + (p.brand || '-') + '</td>';
-    rows += '<td>' + model + '</td>';
-    rows += '<td>' + serial + '</td>';
-    rows += '<td>' + condition + '</td>';
-    rows += '<td>' + warranty + '</td>';
-    rows += '<td style="text-align:center;font-weight:700;">' + stock + '</td>';
-    rows += '<td>' + remarks + '</td>';
-    rows += '</tr>';
   }
   var now = new Date();
   var stamp = now.toLocaleString();
