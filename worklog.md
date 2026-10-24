@@ -714,3 +714,48 @@ Stage Summary:
 - ✅ Empty boxes (Verified By, Received By, Received Signature, Reported By, Released By) now have their sign-line at the bottom too, matching the boxes with names.
 - ✅ Commit 5f3e64b pushed to GitHub.
 - ✅ JS syntax verified clean.
+
+---
+Task ID: 21
+Agent: main
+Task: User reported Module Privileges → Inventory → Delivery List delete permission is not enforced.
+
+Work Log:
+- Surveyed the permission enforcement code:
+    pageToModule('delivery-list') → 'inventory' (correct)
+    PRIVILEGE_MODULES has { id: 'inventory', label: 'Inventory', icon: 'fa-warehouse' } — matches the NAV module id.
+    can('inventory', 'delete') correctly checks perms.inventory array.
+- Inspected the Delivery List page (renderDeliveryList at line 2006) and found the bug:
+    The delete button uses data-del-chalan attribute (deletes by chalan number, not id).
+    BUT enforceActionPermissions() at line 6501 only selected [data-del-del] for delivery delete buttons.
+    → The chalan delete buttons were NEVER hidden, regardless of role permissions.
+- Also inspected the chalan delete click handler (lines 2121-2149) and found a second bug:
+    It uses its own custom confirmation modal + direct DB mutation, bypassing the shared deleteItem() function.
+    → The defense-in-depth permission check inside deleteItem() was also bypassed.
+    → Even if the user clicked the visible delete button, the deletion went through.
+
+Fixes applied:
+1. Added [data-del-chalan] to the delete-button selector list in enforceActionPermissions():
+   Now document.querySelectorAll('[data-del-..., [data-del-chalan]') covers the chalan delete buttons.
+2. Added an inline permission check at the start of the chalan delete click handler:
+     var delModule = pageToModule(currentPage);
+     if (delModule && !can(delModule, 'delete')) {
+       showToast('Access denied — you do not have delete permission for ' + delModule, 'error');
+       return;
+     }
+   This mirrors the defense-in-depth pattern in deleteItem() and blocks the action even if the
+   button somehow stays visible (cached HTML, console-triggered, etc.).
+
+Verification:
+- Re-extracted inline script (498,979 chars) → node --check passed (SYNTAX_OK).
+- Committed as 1418bfb.
+- Pushed to GitHub: 5f3e64b..1418bfb main -> main ✅.
+- Vercel will auto-deploy from main within ~1-2 minutes.
+
+Stage Summary:
+- ✅ Inventory → Delivery List delete permission is now properly enforced at 2 layers:
+    LAYER 1: Button visibility (enforceActionPermissions hides [data-del-chalan] when !can('inventory','delete'))
+    LAYER 2: Defense-in-depth (click handler returns early with toast when !can(module,'delete'))
+- ✅ Existing deleteItem() defense-in-depth is unchanged (still covers single-row data-del-del buttons, legacy path).
+- ✅ Commit 1418bfb pushed to GitHub.
+- ✅ JS syntax verified clean.
