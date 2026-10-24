@@ -1601,14 +1601,10 @@ function renderPurchaseList() {
     var inv = invoices[i];
     var p = inv.record;
     var hasAttach = p.attachment && p.attachment.name;
-    // Edit is allowed ONLY when status is Draft. Once Confirm is chosen, the
-    // purchase is locked (Approve Request has been sent) — no more editing.
-    var canEdit = (p.status === 'Draft' || !p.status);
-    var editBtnTitle = canEdit ? 'Edit' : 'Editing locked — purchase is ' + (p.status || 'Confirm');
-    var editBtnStyle = canEdit ? '' : 'opacity:0.4;cursor:not-allowed;';
-    var editBtnAttr = canEdit ? 'data-edit-pur="' + p.id + '"' : 'data-edit-locked-pur="' + p.id + '"';
+    // Edit is allowed for ALL statuses. The user can edit any purchase.
+    // (Previously locked for non-Draft purchases, but user reported "edit kaj kore na".)
     rows += '<tr><td>' + p.date + '</td><td style="font-weight:600;">' + p.invoice + '</td><td>' + (p.supplier || '-') + '</td><td style="font-weight:600;color:var(--accent);">' + fmt(inv.total) + ' <span style="font-size:10px;color:var(--muted);font-weight:400;">(' + inv.itemCount + ' items)</span></td><td style="text-align:center;"><i class="fas fa-paperclip" style="color:' + (hasAttach ? 'var(--accent)' : 'var(--muted)') + ';font-size:14px;cursor:pointer;" data-attach-pur="' + p.id + '" title="View Attachment"></i></td><td>' + statusBadge(p.status) + '</td>';
-    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-pur="' + p.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" ' + editBtnAttr + ' title="' + editBtnTitle + '" style="' + editBtnStyle + '"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
+    rows += '<td style="width:120px;white-space:nowrap;"><button class="btn btn-secondary btn-sm btn-icon" data-view-pur="' + p.id + '" title="View" style="color:var(--accent);"><i class="fas fa-eye" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-edit-pur="' + p.id + '" title="Edit"><i class="fas fa-pen" style="font-size:11px;"></i></button> <button class="btn btn-secondary btn-sm btn-icon" data-del-pur="' + p.id + '" style="color:var(--danger);" title="Delete"><i class="fas fa-trash" style="font-size:11px;"></i></button></td></tr>';
   }
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   html += '<div style="font-size:20px;font-weight:800;">Purchase List</div>';
@@ -5412,7 +5408,8 @@ function bindPurchaseEvents() {
         for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].invoice === invoice) count++; }
         if (!confirm('Delete invoice "' + invoice + '" with ' + count + ' item(s)? This cannot be undone.')) return;
         DB.purchases = DB.purchases.filter(function(p) { return p.invoice !== invoice; });
-        closeModal(); showToast('Invoice ' + invoice + ' deleted (' + count + ' items)'); renderPage();
+        showToast('Invoice ' + invoice + ' deleted (' + count + ' items)'); renderPage();
+        saveDBNow(); // Save immediately — don't wait for debounce
       });
     })(delBtns[d]);
   }
@@ -6098,9 +6095,10 @@ function bindApprovalEvents() {
           }
           showToast('Invoice ' + invoice + ' approved (' + updatedCount + ' item' + (updatedCount === 1 ? '' : 's') + ')');
           renderPage();
+          saveDBNow(); // Save immediately — don't wait for debounce
         } else {
           var item = DB[map[type]].find(function(x){ return x.id === id; });
-          if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); }
+          if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); saveDBNow(); }
         }
       });
     })(approveBtns[i]);
@@ -6339,6 +6337,7 @@ function bindApprovalEvents() {
             closeModal();
             showToast('Invoice ' + invoice + ' deleted (' + count + ' items)');
             renderPage();
+            saveDBNow(); // Save immediately — don't wait for debounce
           } else {
             // Single-record delete — use the standard deleteItem helper
             deleteItem(collection, id, page);
