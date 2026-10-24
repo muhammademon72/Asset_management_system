@@ -322,8 +322,18 @@ function renderNav() {
   const c = document.getElementById('nav-container');
   let html = '';
   NAV.forEach(item => {
-    // Permission check: hide top-level menu if user can't view this module
-    if (!can(item.id, 'view')) return;
+    // Permission check: show the parent menu if the user can view this module
+    // OR if any of its submenus is viewable (e.g. user has 'delivery-list:view'
+    // but not 'inventory:view' — we still want the parent menu visible so the
+    // submenu items are reachable).
+    var hasParentView = can(item.id, 'view');
+    var hasChildView = false;
+    if (item.children) {
+      for (var k = 0; k < item.children.length; k++) {
+        if (can(item.children[k].id, 'view')) { hasChildView = true; break; }
+      }
+    }
+    if (!hasParentView && !hasChildView) return;
     const hasChildren = item.children && item.children.length;
     const isOpen = openMenus[item.id];
     const isActive = !hasChildren && currentPage === item.id;
@@ -334,7 +344,10 @@ function renderNav() {
     if (hasChildren) html += '<i class="fas fa-chevron-right menu-arrow ' + (isOpen ? 'open' : '') + '"></i>';
     html += '</div>';
     if (hasChildren) {
-      html += '<div class="submenu ' + (isOpen ? 'open' : '') + '">';
+      // Auto-expand the menu if any of its submenus is viewable but the parent
+      // module itself is not (otherwise the user couldn't reach the submenus).
+      if (!hasParentView && hasChildView) openMenus[item.id] = true;
+      html += '<div class="submenu ' + (isOpen || (!hasParentView && hasChildView) ? 'open' : '') + '">';
       item.children.forEach(function(ch) {
         // Sub-items are filtered by their OWN submenu permission first,
         // falling back to the parent module's permission via can().
@@ -7790,11 +7803,22 @@ function attemptLogin() {
   // Re-render nav so permission filtering takes effect for this user
   renderNav();
   // If the user doesn't have view permission for the dashboard, redirect them
-  // to the first module they CAN view
+  // to the first module (or submenu) they CAN view.
   if (!can('dashboard', 'view')) {
     var firstAllowed = null;
-    for (var i = 0; i < NAV.length; i++) {
+    // Check parent modules first
+    outer: for (var i = 0; i < NAV.length; i++) {
       if (can(NAV[i].id, 'view')) { firstAllowed = NAV[i].id; break; }
+      // If parent itself is not viewable, check children — a user might have
+      // perms on a submenu without perms on the parent (e.g. only 'delivery-list')
+      if (NAV[i].children) {
+        for (var j = 0; j < NAV[i].children.length; j++) {
+          if (can(NAV[i].children[j].id, 'view')) {
+            firstAllowed = NAV[i].children[j].id;
+            break outer;
+          }
+        }
+      }
     }
     if (firstAllowed) {
       navigate(firstAllowed);
@@ -7935,11 +7959,30 @@ loadDB(function() {
     // Render the sidebar nav so the menu is visible immediately
     renderNav();
     if (sessionRestored) {
+      // If user can't view dashboard, redirect to first allowed page/submenu
+      if (!can(currentPage, 'view')) {
+        var firstAllowedBoot = null;
+        outer_boot: for (var i = 0; i < NAV.length; i++) {
+          if (can(NAV[i].id, 'view')) { firstAllowedBoot = NAV[i].id; break; }
+          if (NAV[i].children) {
+            for (var j = 0; j < NAV[i].children.length; j++) {
+              if (can(NAV[i].children[j].id, 'view')) {
+                firstAllowedBoot = NAV[i].children[j].id;
+                break outer_boot;
+              }
+            }
+          }
+        }
+        if (firstAllowedBoot) {
+          currentPage = firstAllowedBoot;
+        }
+      }
       updateTopBarUser();
       renderPage();
       hideBootSplash();
     } else {
-      renderPage();
+      // Not logged in — don't renderPage() since the user has no perms and
+      // would see "Access Denied". Just show the login overlay.
       renderLoginPage();
       hideBootSplash();
     }
