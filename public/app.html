@@ -375,13 +375,21 @@ function navigate(page) {
     }
   });
   renderNav();
-  // Refresh data from server before rendering — this ensures the user sees
-  // the latest data (e.g., deliveries approved by another user are reflected
-  // in Inventory Stock). Without this, the local DB is stale and approved
-  // deliveries don't reduce the stock shown.
-  loadDB(function() {
-    renderPage();
-  });
+  // Render immediately using local DB — this is FAST (no network round-trip).
+  // The local DB is kept in sync by saveDBNow() calls after each action.
+  renderPage();
+  // Then refresh from server in the BACKGROUND (non-blocking) — this picks
+  // up changes from other users without slowing down navigation.
+  // Only refresh if the page was last loaded more than 30 seconds ago.
+  if (!DB_LAST_REFRESH_AT || (Date.now() - DB_LAST_REFRESH_AT > 30000)) {
+    DB_LAST_REFRESH_AT = Date.now();
+    loadDB(function() {
+      // Only re-render if we're still on the same page (user might have navigated away)
+      if (currentPage === page) {
+        renderPage();
+      }
+    });
+  }
 }
 
 // Toggle sidebar state — desktop uses "collapsed", mobile uses "mobile-open"
@@ -8166,6 +8174,7 @@ var DB_SAVE_TIMER = null;
 var DB_LAST_SAVED_AT = null;     // ISO timestamp of last successful server save
 var DB_LOCAL_DIRTY = false;      // true if there are unsaved local changes
 var DB_BOOT_DONE = false;        // false until the first server fetch completes
+var DB_LAST_REFRESH_AT = 0;      // timestamp (epoch ms) of last navigate() background refresh
 
 // Build the JSON-serializable snapshot of DB
 function buildDBSnapshot() {
