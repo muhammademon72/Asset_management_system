@@ -518,33 +518,53 @@ function readFileAsDataURL(file) {
 // Vercel's 4.5MB body limit.
 //
 // Returns: { id, name, type, size, apiStored: true }
-async function uploadAttachmentToServer(file) {
-  var dataUrl = await readFileAsDataURL(file);
-  var attachId = 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-  var attachInfo = {
-    id: attachId,
-    name: file.name,
-    type: file.type || 'File',
-    size: (file.size / 1024).toFixed(1) + ' KB',
-    apiStored: true  // flag: data is in the attachments table, not in the DB JSON
-  };
-  // Upload to /api/attachment
-  var res = await fetch('/api/attachment', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: attachId,
-      name: attachInfo.name,
-      type: attachInfo.type,
-      size: attachInfo.size,
-      data: dataUrl
-    })
+function uploadAttachmentToServer(file) {
+  return new Promise(function(resolve, reject) {
+    if (!file) { reject(new Error('No file provided')); return; }
+    if (file.size > 5 * 1024 * 1024) {
+      reject(new Error('File too large (max 5 MB)'));
+      return;
+    }
+    // Step 1: Read file as data URL (base64)
+    var reader = new FileReader();
+    reader.onload = function() {
+      var dataUrl = reader.result;
+      var attachId = 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+      var attachInfo = {
+        id: attachId,
+        name: file.name,
+        type: file.type || 'File',
+        size: (file.size / 1024).toFixed(1) + ' KB',
+        apiStored: true
+      };
+      // Step 2: Upload to /api/attachment
+      fetch('/api/attachment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: attachId,
+          name: attachInfo.name,
+          type: attachInfo.type,
+          size: attachInfo.size,
+          data: dataUrl
+        })
+      }).then(function(res) {
+        return res.json();
+      }).then(function(result) {
+        if (result && result.ok) {
+          resolve(attachInfo);
+        } else {
+          reject(new Error(result && result.error ? result.error : 'Upload failed'));
+        }
+      }).catch(function(err) {
+        reject(new Error('Network error: ' + (err.message || 'unknown')));
+      });
+    };
+    reader.onerror = function() {
+      reject(new Error('Could not read file'));
+    };
+    reader.readAsDataURL(file);
   });
-  var result = await res.json();
-  if (!result.ok) {
-    throw new Error('Failed to upload attachment: ' + (result.error || 'unknown'));
-  }
-  return attachInfo;
 }
 
 // Download an attachment from the server's `attachments` table by ID.
