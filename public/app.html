@@ -1876,7 +1876,7 @@ function renderInventoryStock() {
       if (DB.deliveries[di2].product !== productName || DB.deliveries[di2].status !== 'Approved') continue;
       var delSerial = DB.deliveries[di2].serial || '';
       if (delSerial) {
-        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + (DB.deliveries[di2].qty || 0);
+        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + Math.max(DB.deliveries[di2].qty || 0, 1);
       } else {
         fifoDelQty += (DB.deliveries[di2].qty || 0);
       }
@@ -1910,7 +1910,7 @@ function renderInventoryStock() {
       
       // Check if this specific serial was delivered (serial-level matching)
       var allocDel = 0;
-      if (prSerial && deliveredSerials[prSerial]) {
+      if (prSerial && (prSerial in deliveredSerials)) {
         allocDel = Math.min(rowQty, deliveredSerials[prSerial]);
         deliveredSerials[prSerial] -= allocDel;
       } else {
@@ -2046,7 +2046,7 @@ function printInventoryStock() {
       if (DB.deliveries[di2].product !== productName || DB.deliveries[di2].status !== 'Approved') continue;
       var delSerial = DB.deliveries[di2].serial || '';
       if (delSerial) {
-        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + (DB.deliveries[di2].qty || 0);
+        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + Math.max(DB.deliveries[di2].qty || 0, 1);
       } else {
         fifoDelQty += (DB.deliveries[di2].qty || 0);
       }
@@ -2080,7 +2080,7 @@ function printInventoryStock() {
 
       // Check if this specific serial was delivered (serial-level matching)
       var allocDel = 0;
-      if (prSerial && deliveredSerials[prSerial]) {
+      if (prSerial && (prSerial in deliveredSerials)) {
         allocDel = Math.min(rowQty, deliveredSerials[prSerial]);
         deliveredSerials[prSerial] -= allocDel;
       } else {
@@ -2910,7 +2910,7 @@ function openDeliveryAddModal() {
       if (DB.deliveries[di2].product !== productName || DB.deliveries[di2].status !== 'Approved') continue;
       var delSerial = DB.deliveries[di2].serial || '';
       if (delSerial) {
-        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + (DB.deliveries[di2].qty || 0);
+        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + Math.max(DB.deliveries[di2].qty || 0, 1);
       } else {
         fifoDelQty += (DB.deliveries[di2].qty || 0);
       }
@@ -2944,7 +2944,7 @@ function openDeliveryAddModal() {
 
       // Check if this specific serial was delivered (serial-level matching)
       var allocDel = 0;
-      if (prSerial && deliveredSerials[prSerial]) {
+      if (prSerial && (prSerial in deliveredSerials)) {
         allocDel = Math.min(rowQty, deliveredSerials[prSerial]);
         deliveredSerials[prSerial] -= allocDel;
       } else {
@@ -3341,7 +3341,7 @@ function buildInventoryStockProductArray() {
       if (DB.deliveries[di2].product !== productName || DB.deliveries[di2].status !== 'Approved') continue;
       var delSerial = DB.deliveries[di2].serial || '';
       if (delSerial) {
-        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + (DB.deliveries[di2].qty || 0);
+        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + Math.max(DB.deliveries[di2].qty || 0, 1);
       } else {
         fifoDelQty += (DB.deliveries[di2].qty || 0);
       }
@@ -3377,7 +3377,7 @@ function buildInventoryStockProductArray() {
       
       // Check if this specific serial was delivered (serial-level matching)
       var allocDel = 0;
-      if (prSerial && deliveredSerials[prSerial]) {
+      if (prSerial && (prSerial in deliveredSerials)) {
         // This serial has a matching delivery — allocate it
         allocDel = Math.min(rowQty, deliveredSerials[prSerial]);
         deliveredSerials[prSerial] -= allocDel;
