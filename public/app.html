@@ -375,7 +375,13 @@ function navigate(page) {
     }
   });
   renderNav();
-  renderPage();
+  // Refresh data from server before rendering — this ensures the user sees
+  // the latest data (e.g., deliveries approved by another user are reflected
+  // in Inventory Stock). Without this, the local DB is stale and approved
+  // deliveries don't reduce the stock shown.
+  loadDB(function() {
+    renderPage();
+  });
 }
 
 // Toggle sidebar state — desktop uses "collapsed", mobile uses "mobile-open"
