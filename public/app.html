@@ -5556,44 +5556,28 @@ function bindPurchaseEvents() {
 
           // Check if a NEW attachment file was selected in the edit modal
           var attachInput = document.querySelector('[data-top="attach"]');
-          var newAttachInfo = null;
           if (attachInput && attachInput.files && attachInput.files.length > 0) {
             var newFile = attachInput.files[0];
             if (newFile.size > 5 * 1024 * 1024) {
               showToast('Attachment too large (max 5 MB).', 'error');
               return;
             }
-            // Upload the new attachment to the server BEFORE saving the purchase.
-            // We need to do this synchronously so we can store the attachment ID
-            // in the purchase record.
-            showToast('Uploading new attachment...', 'info');
-            // Use a synchronous flag to pause execution until upload completes
-            var uploadDone = false;
-            var uploadSuccess = false;
-            uploadAttachmentToServer(newFile).then(function(info) {
-              newAttachInfo = info;
-              uploadDone = true;
-              uploadSuccess = true;
+            // Upload attachment FIRST, then save the purchase.
+            // Can't use busy-wait — it freezes the browser and prevents
+            // FileReader/fetch from completing.
+            showToast('Uploading attachment...', 'info');
+            uploadAttachmentToServer(newFile).then(function(newAttachInfo) {
+              doSavePurchaseRows(newAttachInfo);
             }).catch(function(err) {
-              showToast('Could not upload attachment: ' + err.message, 'error');
-              uploadDone = true;
+              showToast('Could not upload attachment: ' + err.message + ' — saving without attachment.', 'error');
+              doSavePurchaseRows(pur.attachment);
             });
-            // Wait for upload to complete (with a timeout)
-            var waitStart = Date.now();
-            while (!uploadDone && (Date.now() - waitStart < 30000)) {
-              // This is a busy-wait — not ideal, but necessary since we're
-              // inside a synchronous click handler and can't use async/await.
-            }
-            if (!uploadSuccess) {
-              showToast('Attachment upload failed — saving without attachment.', 'error');
-            }
+          } else {
+            // No new file — use the existing attachment
+            doSavePurchaseRows(pur.attachment);
           }
 
-          // Determine the attachment to use:
-          // - If a new file was uploaded, use the new attachment info
-          // - Otherwise, keep the original attachment
-          var attachToUse = newAttachInfo || pur.attachment;
-
+          function doSavePurchaseRows(attachToUse) {
           // Read all rows from the table and create new purchase records (re-using `rows` from above)
           for (var ri = 0; ri < rows.length; ri++) {
             var r = rows[ri];
@@ -5617,17 +5601,9 @@ function bindPurchaseEvents() {
             });
           }
           closeModal(); renderPage();
-          // Save the DB to the server.
-          // If a new attachment was uploaded, it's already in the attachments table.
-          // The DB JSON now stores only the attachment metadata (id, name, type, size, apiStored).
-          if (newAttachInfo) {
-            showToast('Purchase updated with new attachment');
-          } else if (pur.attachment && pur.attachment.data) {
-            showToast('Saving purchase with attachment...', 'info');
-          } else {
-            showToast('Purchase updated');
-          }
+          showToast('Purchase updated');
           saveDBNow(null, { skipMerge: true });
+          }
         });
       });
     })(editBtns[e]);
