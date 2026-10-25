@@ -501,7 +501,7 @@ function syncDDMMYYYYDisplay(id) {
 
 // ==================== FILE ATTACHMENT HELPERS ====================
 // Read a File object and return a Promise that resolves to a data-URL
-// (base64-encoded). Used to store attachment contents inside the DB blob.
+// (base64-encoded). Used to store attachment contents.
 function readFileAsDataURL(file) {
   return new Promise(function(resolve, reject) {
     if (!file) { resolve(null); return; }
@@ -510,6 +510,80 @@ function readFileAsDataURL(file) {
     reader.onerror = function() { reject(new Error('Could not read file')); };
     reader.readAsDataURL(file);
   });
+}
+
+// ==================== ATTACHMENT API (separate from main DB) ====================
+// Upload an attachment to the server's separate `attachments` table.
+// This keeps the main DB payload small (no base64 blobs) and avoids
+// Vercel's 4.5MB body limit.
+//
+// Returns: { id, name, type, size, apiStored: true }
+async function uploadAttachmentToServer(file) {
+  var dataUrl = await readFileAsDataURL(file);
+  var attachId = 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+  var attachInfo = {
+    id: attachId,
+    name: file.name,
+    type: file.type || 'File',
+    size: (file.size / 1024).toFixed(1) + ' KB',
+    apiStored: true  // flag: data is in the attachments table, not in the DB JSON
+  };
+  // Upload to /api/attachment
+  var res = await fetch('/api/attachment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: attachId,
+      name: attachInfo.name,
+      type: attachInfo.type,
+      size: attachInfo.size,
+      data: dataUrl
+    })
+  });
+  var result = await res.json();
+  if (!result.ok) {
+    throw new Error('Failed to upload attachment: ' + (result.error || 'unknown'));
+  }
+  return attachInfo;
+}
+
+// Download an attachment from the server's `attachments` table by ID.
+// Returns the full attachment object with `data` field (base64 data URL).
+async function downloadAttachmentFromServer(attachId) {
+  var res = await fetch('/api/attachment?id=' + encodeURIComponent(attachId));
+  var result = await res.json();
+  if (!result.ok || !result.attachment) {
+    throw new Error('Attachment not found: ' + attachId);
+  }
+  return result.attachment;  // { id, name, type, size, data }
+}
+
+// Load attachment from server on demand, then preview it in a new tab.
+async function loadAndPreviewAttachment(attachInfo) {
+  if (!attachInfo || !attachInfo.id) { showToast('No attachment ID', 'error'); return; }
+  showToast('Loading attachment...', 'info');
+  try {
+    var full = await downloadAttachmentFromServer(attachInfo.id);
+    full.name = full.name || attachInfo.name;
+    full.type = full.type || attachInfo.type;
+    previewAttachment(full);
+  } catch(e) {
+    showToast('Could not load attachment: ' + e.message, 'error');
+  }
+}
+
+// Load attachment from server on demand, then trigger a download.
+async function loadAndDownloadAttachment(attachInfo) {
+  if (!attachInfo || !attachInfo.id) { showToast('No attachment ID', 'error'); return; }
+  showToast('Loading attachment...', 'info');
+  try {
+    var full = await downloadAttachmentFromServer(attachInfo.id);
+    full.name = full.name || attachInfo.name;
+    full.type = full.type || attachInfo.type;
+    downloadAttachment(full);
+  } catch(e) {
+    showToast('Could not load attachment: ' + e.message, 'error');
+  }
 }
 
 // Validate that a selected file is within the allowed size limit.
@@ -3105,8 +3179,8 @@ function openDeliveryAddModal() {
   // Note
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">';
   html += purFieldRow('Note', '<textarea rows="2" class="form-input" id="f-del-note" style="border:none;box-shadow:none;background:transparent;resize:vertical;" placeholder="Enter note..."></textarea>');
-  html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="del-attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 1048576)">');
-  html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 1 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
+  html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="del-attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 5242880)">');
+  html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 5 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
   html += '</div>';
 
   // Bottom bar
@@ -5015,8 +5089,8 @@ function bindPurchaseEvents() {
     html += purFieldRow('Date', buildDDMMYYYYDateInput('f-pur-date', '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'date' }));
     html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" placeholder="Enter Invoice No">');
     html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, '', 'Select Supplier', 'Search supplier...'));
-    html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 1048576)">');
-    html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 1 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
+    html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 5242880)">');
+    html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 5 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
     html += '</div>';
 
     // Table section
@@ -5121,22 +5195,20 @@ function bindPurchaseEvents() {
       var attachInfo = null;
       if (attachInput && attachInput.files && attachInput.files.length > 0) {
         var f = attachInput.files[0];
-        // Limit to 1 MB to stay within Vercel's 4.5MB serverless body limit.
-        // Base64 encoding adds ~33% overhead, so a 1MB file becomes ~1.3MB base64.
-        // Combined with the rest of the DB JSON, total POST body stays under 4.5MB.
-        if (f.size > 1 * 1024 * 1024) {
-          showToast('Attachment too large (max 1 MB). Use a smaller file or compress it.', 'error');
+        // Limit to 5 MB — attachments are now stored in a SEPARATE table
+        // (/api/attachment), not in the main DB JSON. So the 4.5MB Vercel
+        // body limit applies to EACH attachment individually, not the whole DB.
+        if (f.size > 5 * 1024 * 1024) {
+          showToast('Attachment too large (max 5 MB).', 'error');
           return;
         }
-        // Show "saving..." feedback so the user knows we're reading the file
-        showToast('Reading attachment...', 'info');
-        readFileAsDataURL(f).then(function(dataUrl) {
-          attachInfo = { name: f.name, type: f.type || 'File', size: (f.size / 1024).toFixed(1) + ' KB', data: dataUrl };
+        showToast('Uploading attachment...', 'info');
+        uploadAttachmentToServer(f).then(function(info) {
+          attachInfo = info;
           savePurchaseRows();
         }).catch(function(err) {
-          showToast('Could not read attachment: ' + err.message, 'error');
-          // Still save the purchase without the attachment
-          savePurchaseRows();
+          showToast('Could not upload attachment: ' + err.message, 'error');
+          savePurchaseRows();  // Still save the purchase without attachment
         });
       } else {
         savePurchaseRows();
@@ -5350,8 +5422,8 @@ function bindPurchaseEvents() {
         html += purFieldRow('Date', buildDDMMYYYYDateInput('f-pur-date', pur.date || '', 'DD-MM-YYYY', { style: 'border:none;box-shadow:none;background:transparent;', dataTop: 'date' }));
         html += purFieldRow('Invoice No', '<input class="form-input" style="border:none;box-shadow:none;background:transparent;" data-top="invoice" value="' + (pur.invoice || '') + '">');
         html += purFieldRow('Supplier', purSearchableHTML('supplier', 'data-top="supplier"', supArr, pur.supplier || '', 'Select Supplier', 'Search supplier...'));
-        html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 1048576)">');
-        html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 1 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
+        html += purFieldRow('Attachment', '<input type="file" class="form-input" style="border:none;box-shadow:none;background:transparent;padding:6px 14px;" data-top="attach" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="validateAttachmentSize(this, 5242880)">');
+        html += '<div style="font-size:11px;color:var(--muted);padding:0 14px 6px;">Max file size: 5 MB. Allowed: images, PDF, Word, Excel, TXT.</div>';
         html += '</div>';
 
         // Product table
@@ -5562,20 +5634,25 @@ function bindPurchaseEvents() {
           html += '<div style="width:48px;height:48px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas ' + iconClass + '" style="color:var(--accent);font-size:20px;"></i></div>';
           html += '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;word-break:break-all;">' + attach.name + '</div><div style="font-size:12px;color:var(--muted);">' + (attach.type || 'File') + ' &middot; ' + (attach.size || '') + '</div></div>';
           html += '</div>';
-          // Inline thumbnail for images
+          // Inline thumbnail for images (only if data is already in memory)
           if (isImage && attach.data) {
             html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;text-align:center;background:#f6f8f6;"><img src="' + attach.data + '" style="max-width:100%;max-height:300px;object-fit:contain;display:block;margin:0 auto;"></div>';
           }
-          // Action buttons — Preview + Download (only if file content is stored)
+          // Action buttons
           html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
-          if (attach.data) {
-            // Store attach globally and reference it by index, to avoid escaping issues
+          if (attach.apiStored && attach.id) {
+            // NEW: attachment is stored in the separate /api/attachment table.
+            // Fetch it on demand when the user clicks View/Download.
+            window._currentAttachView = attach;
+            html += '<button class="btn btn-primary" onclick="loadAndPreviewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
+            html += '<button class="btn btn-secondary" onclick="loadAndDownloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
+          } else if (attach.data) {
+            // OLD: attachment data is in the DB JSON (inline base64).
             window._currentAttachView = attach;
             html += '<button class="btn btn-primary" onclick="previewAttachment(window._currentAttachView)"><i class="fas fa-eye"></i> View</button>';
             html += '<button class="btn btn-secondary" onclick="downloadAttachment(window._currentAttachView)"><i class="fas fa-download"></i> Download</button>';
           } else {
-            // Older purchase — metadata only. Offer a "Re-upload File" button so the user
-            // can recover the missing content right from this view modal.
+            // Older purchase — metadata only. Offer a "Re-upload File" button.
             window._reuploadContext = { type: 'purchase', invoice: pur.invoice, attachName: attach.name, attachType: attach.type, attachSize: attach.size };
             html += '<div style="font-size:12px;color:var(--warning);padding:10px 12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.30);border-radius:8px;margin-bottom:8px;">';
             html += '<i class="fas fa-exclamation-triangle"></i> <strong>File content is missing.</strong> This purchase was saved before the attachment fix. Re-upload the file to enable View + Download.';
@@ -8399,7 +8476,7 @@ function saveDBNow(onDone, options) {
           var errMsg = (res && res.error) ? res.error : 'unknown error';
           // If it's a body-size error, show a helpful message
           if (errMsg.indexOf('too large') !== -1 || errMsg.indexOf('413') !== -1 || errMsg.indexOf('Entity Too Large') !== -1) {
-            errMsg = 'File too large for server. Use a smaller file (max 1 MB).';
+            errMsg = 'File too large for server. Use a smaller file (max 5 MB).';
           }
           showSaveStatusIndicator('error', errMsg);
           showToast('Save failed: ' + errMsg, 'error');
@@ -8412,7 +8489,7 @@ function saveDBNow(onDone, options) {
         // If it's a JSON parse error from a non-JSON response (e.g., Vercel 413),
         // show a more helpful message
         if (errMsg.indexOf('Unexpected token') !== -1 || errMsg.indexOf('is not valid JSON') !== -1) {
-          errMsg = 'Server rejected the request (file may be too large). Use a smaller file (max 1 MB).';
+          errMsg = 'Server rejected the request (file may be too large). Use a smaller file (max 5 MB).';
         }
         showSaveStatusIndicator('error', errMsg);
         showToast('Save failed: ' + errMsg, 'error');
@@ -8452,7 +8529,7 @@ function saveDBNow(onDone, options) {
           DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
           var errMsg2 = (res && res.error) ? res.error : 'unknown error';
           if (errMsg2.indexOf('too large') !== -1 || errMsg2.indexOf('413') !== -1 || errMsg2.indexOf('Entity Too Large') !== -1) {
-            errMsg2 = 'File too large for server. Use a smaller file (max 1 MB).';
+            errMsg2 = 'File too large for server. Use a smaller file (max 5 MB).';
           }
           showSaveStatusIndicator('error', errMsg2);
           showToast('Save failed: ' + errMsg2, 'error');
@@ -8464,7 +8541,7 @@ function saveDBNow(onDone, options) {
         DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
         var errMsg3 = err && err.message ? err.message : 'network error';
         if (errMsg3.indexOf('Unexpected token') !== -1 || errMsg3.indexOf('is not valid JSON') !== -1) {
-          errMsg3 = 'Server rejected the request (file may be too large). Use a smaller file (max 1 MB).';
+          errMsg3 = 'Server rejected the request (file may be too large). Use a smaller file (max 5 MB).';
         }
         showSaveStatusIndicator('error', errMsg3);
         showToast('Save failed: ' + errMsg3, 'error');
