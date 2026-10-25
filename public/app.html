@@ -5534,6 +5534,46 @@ function bindPurchaseEvents() {
           var oldInvoice = pur.invoice;
           DB.purchases = DB.purchases.filter(function(p) { return p.invoice !== oldInvoice; });
 
+          // Check if a NEW attachment file was selected in the edit modal
+          var attachInput = document.querySelector('[data-top="attach"]');
+          var newAttachInfo = null;
+          if (attachInput && attachInput.files && attachInput.files.length > 0) {
+            var newFile = attachInput.files[0];
+            if (newFile.size > 5 * 1024 * 1024) {
+              showToast('Attachment too large (max 5 MB).', 'error');
+              return;
+            }
+            // Upload the new attachment to the server BEFORE saving the purchase.
+            // We need to do this synchronously so we can store the attachment ID
+            // in the purchase record.
+            showToast('Uploading new attachment...', 'info');
+            // Use a synchronous flag to pause execution until upload completes
+            var uploadDone = false;
+            var uploadSuccess = false;
+            uploadAttachmentToServer(newFile).then(function(info) {
+              newAttachInfo = info;
+              uploadDone = true;
+              uploadSuccess = true;
+            }).catch(function(err) {
+              showToast('Could not upload attachment: ' + err.message, 'error');
+              uploadDone = true;
+            });
+            // Wait for upload to complete (with a timeout)
+            var waitStart = Date.now();
+            while (!uploadDone && (Date.now() - waitStart < 30000)) {
+              // This is a busy-wait — not ideal, but necessary since we're
+              // inside a synchronous click handler and can't use async/await.
+            }
+            if (!uploadSuccess) {
+              showToast('Attachment upload failed — saving without attachment.', 'error');
+            }
+          }
+
+          // Determine the attachment to use:
+          // - If a new file was uploaded, use the new attachment info
+          // - Otherwise, keep the original attachment
+          var attachToUse = newAttachInfo || pur.attachment;
+
           // Read all rows from the table and create new purchase records (re-using `rows` from above)
           for (var ri = 0; ri < rows.length; ri++) {
             var r = rows[ri];
@@ -5552,30 +5592,22 @@ function bindPurchaseEvents() {
               uom: r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '',
               qty: qty, unitPrice: price, total: qty * price,
               status: status, branch: 'Head Office',
-              attachment: pur.attachment, note: note,
+              attachment: attachToUse, note: note,
               remarks: r.querySelector('[data-f="remarks"]').value
             });
           }
           closeModal(); renderPage();
-          // If the purchase has an attachment, save IMMEDIATELY (no debounce)
-          // and wait for server response before showing success/failure.
-          // Use skipMerge: true to avoid the GET-merge-POST doubling the data
-          // transfer, which causes "Network unexpected" errors on large attachments.
-          if (pur.attachment && pur.attachment.data) {
+          // Save the DB to the server.
+          // If a new attachment was uploaded, it's already in the attachments table.
+          // The DB JSON now stores only the attachment metadata (id, name, type, size, apiStored).
+          if (newAttachInfo) {
+            showToast('Purchase updated with new attachment');
+          } else if (pur.attachment && pur.attachment.data) {
             showToast('Saving purchase with attachment...', 'info');
-            saveDBNow(function(res) {
-              if (res && res.ok) {
-                showToast('Purchase updated (with attachment)');
-              } else {
-                showToast('Purchase updated locally but server save failed. Please try again.', 'error');
-              }
-            }, { skipMerge: true });
           } else {
             showToast('Purchase updated');
-            // Use skipMerge: true — the GET-merge step would RE-ADD any rows
-            // that were deleted from the edit modal (since the server still has them).
-            saveDBNow(null, { skipMerge: true });
           }
+          saveDBNow(null, { skipMerge: true });
         });
       });
     })(editBtns[e]);
