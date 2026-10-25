@@ -1871,11 +1871,11 @@ function renderInventoryStock() {
 
     var delQty = 0;
     for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
-      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+      if (DB.deliveries[di2].product === productName && DB.deliveries[di2].status === 'Approved') delQty += (DB.deliveries[di2].qty || 0);
     }
     var dmgQty = 0;
     for (var dmi = 0; dmi < DB.damages.length; dmi++) {
-      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+      if (DB.damages[dmi].product === productName && DB.damages[dmi].status === 'Approved') dmgQty += (DB.damages[dmi].qty || 0);
     }
     var adjQtyNet = 0;
     for (var ai = 0; ai < DB.adjustments.length; ai++) {
@@ -2023,11 +2023,11 @@ function printInventoryStock() {
     for (var pi = 0; pi < purchaseRows.length; pi++) purQty += (purchaseRows[pi].qty || 0);
     var delQty = 0;
     for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
-      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+      if (DB.deliveries[di2].product === productName && DB.deliveries[di2].status === 'Approved') delQty += (DB.deliveries[di2].qty || 0);
     }
     var dmgQty = 0;
     for (var dmi = 0; dmi < DB.damages.length; dmi++) {
-      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+      if (DB.damages[dmi].product === productName && DB.damages[dmi].status === 'Approved') dmgQty += (DB.damages[dmi].qty || 0);
     }
     var adjQtyNet = 0;
     for (var ai = 0; ai < DB.adjustments.length; ai++) {
@@ -2865,11 +2865,11 @@ function openDeliveryAddModal() {
     // Aggregate totals per product
     var delQty = 0;
     for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
-      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+      if (DB.deliveries[di2].product === productName && DB.deliveries[di2].status === 'Approved') delQty += (DB.deliveries[di2].qty || 0);
     }
     var dmgQty = 0;
     for (var dmi = 0; dmi < DB.damages.length; dmi++) {
-      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+      if (DB.damages[dmi].product === productName && DB.damages[dmi].status === 'Approved') dmgQty += (DB.damages[dmi].qty || 0);
     }
     var adjQtyNet = 0;
     for (var ai = 0; ai < DB.adjustments.length; ai++) {
@@ -3273,11 +3273,11 @@ function buildInventoryStockProductArray() {
     var purchaseRows = perProduct[productName];
     var delQty = 0;
     for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
-      if (DB.deliveries[di2].product === productName) delQty += (DB.deliveries[di2].qty || 0);
+      if (DB.deliveries[di2].product === productName && DB.deliveries[di2].status === 'Approved') delQty += (DB.deliveries[di2].qty || 0);
     }
     var dmgQty = 0;
     for (var dmi = 0; dmi < DB.damages.length; dmi++) {
-      if (DB.damages[dmi].product === productName) dmgQty += (DB.damages[dmi].qty || 0);
+      if (DB.damages[dmi].product === productName && DB.damages[dmi].status === 'Approved') dmgQty += (DB.damages[dmi].qty || 0);
     }
     var adjQtyNet = 0;
     for (var ai = 0; ai < DB.adjustments.length; ai++) {
@@ -3803,7 +3803,7 @@ function openQuotationModal(quoteId, readOnly) {
     // Compute current stock
     var pur = 0, del = 0, dmg = 0, adj2 = 0;
     for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].status === 'Approved' && DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name && DB.deliveries[j].status === 'Approved') del += (DB.deliveries[j].qty || 0); }
     for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
     for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
     var stock = pur - del - dmg + adj2; if (stock < 0) stock = 0;
@@ -4130,7 +4130,7 @@ function openInvoiceModal(invId, readOnly) {
     var p = DB.products[k];
     var pur = 0, del = 0, dmg = 0, adj2 = 0;
     for (var j = 0; j < DB.purchases.length; j++) { if (DB.purchases[j].status === 'Approved' && DB.purchases[j].product === p.name) pur += (DB.purchases[j].qty || 0); }
-    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name) del += (DB.deliveries[j].qty || 0); }
+    for (var j = 0; j < DB.deliveries.length; j++) { if (DB.deliveries[j].product === p.name && DB.deliveries[j].status === 'Approved') del += (DB.deliveries[j].qty || 0); }
     for (var j = 0; j < DB.damages.length; j++) { if (DB.damages[j].product === p.name) dmg += (DB.damages[j].qty || 0); }
     for (var j = 0; j < DB.adjustments.length; j++) { if (DB.adjustments[j].product === p.name) { adj2 += (DB.adjustments[j].type === 'Increase') ? (DB.adjustments[j].qty||0) : -(DB.adjustments[j].qty||0); } }
     var stock = pur - del - dmg + adj2; if (stock < 0) stock = 0;
