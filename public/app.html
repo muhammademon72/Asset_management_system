@@ -693,14 +693,11 @@ function reuploadAttachment(type) {
     return;
   }
   var ctx = window._reuploadContext || {};
-  showToast('Reading new file...', 'info');
-  readFileAsDataURL(f).then(function(dataUrl) {
-    var newAttach = {
-      name: f.name,
-      type: f.type || 'File',
-      size: (f.size / 1024).toFixed(1) + ' KB',
-      data: dataUrl
-    };
+  showToast('Uploading attachment...', 'info');
+  // Use the new uploadAttachmentToServer() — stores file in the separate
+  // attachments table, not in the main DB JSON. This avoids the trimLargePayload
+  // stripping the data again.
+  uploadAttachmentToServer(f).then(function(newAttach) {
     var updated = 0;
     if (type === 'purchase') {
       // Update all rows with the same invoice
@@ -735,10 +732,13 @@ function reuploadAttachment(type) {
       }
     }
     closeModal();
-    showToast('Attachment updated on ' + updated + ' row(s) — re-open the paperclip to View/Download');
+    showToast('Attachment uploaded on ' + updated + ' row(s) — re-open the paperclip to View/Download');
     renderPage();
+    // Save the DB (with the new attachment metadata) to the server.
+    // The actual file data is already in the attachments table.
+    saveDBNow(null, { skipMerge: true });
   }).catch(function(err) {
-    showToast('Could not read file: ' + err.message, 'error');
+    showToast('Could not upload attachment: ' + err.message, 'error');
   });
 }
 
