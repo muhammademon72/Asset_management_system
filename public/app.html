@@ -1457,7 +1457,7 @@ function bindProductEvents() {
       var name = document.getElementById('f-prod-name').value.trim();
       if (!name) { showToast('Product name required', 'error'); return; }
       DB.products.push({ id: Date.now(), name: name, category: document.getElementById('f-prod-cat').value, brand: '', uom: document.getElementById('f-prod-uom').value, price: 0, status: document.getElementById('f-prod-status').value });
-      closeModal(); showToast('Product added'); renderPage();
+      closeModal(); showToast('Product added'); renderPage(); saveDBNow(null, { skipMerge: true });
     });
   });
   var editBtns = document.querySelectorAll('[data-edit-prod]');
@@ -1481,7 +1481,7 @@ function bindProductEvents() {
           var name = document.getElementById('f-prod-name').value.trim();
           if (!name) { showToast('Product name required', 'error'); return; }
           p.name = name; p.category = document.getElementById('f-prod-cat').value; p.uom = document.getElementById('f-prod-uom').value; p.status = document.getElementById('f-prod-status').value;
-          closeModal(); showToast('Product updated'); renderPage();
+          closeModal(); showToast('Product updated'); renderPage(); saveDBNow(null, { skipMerge: true });
         });
       });
     })(editBtns[ei]);
@@ -1664,10 +1664,10 @@ function openSupplierModal(supId) {
       sup.email = document.getElementById('f-sup-email').value.trim();
       sup.address = document.getElementById('f-sup-address').value.trim();
       sup.status = document.getElementById('f-sup-status').value;
-      closeModal(); showToast('Supplier updated'); renderPage();
+      closeModal(); showToast('Supplier updated'); renderPage(); saveDBNow(null, { skipMerge: true });
     } else {
       DB.suppliers.push({ id: Date.now(), name: name, contact: document.getElementById('f-sup-contact').value.trim(), email: document.getElementById('f-sup-email').value.trim(), address: document.getElementById('f-sup-address').value.trim(), status: document.getElementById('f-sup-status').value });
-      closeModal(); showToast('Supplier added'); renderPage();
+      closeModal(); showToast('Supplier added'); renderPage(); saveDBNow(null, { skipMerge: true });
     }
   });
 }
@@ -2797,7 +2797,7 @@ function openDeliveryModal(delId, readOnly) {
         });
       }
       DB.deliveries = otherRows;
-      closeModal(); showToast('Delivery updated'); renderPage();
+      closeModal(); showToast('Delivery updated'); renderPage(); saveDBNow(null, { skipMerge: true });
     });
   }
 }
@@ -3180,6 +3180,7 @@ function openDeliveryAddModal() {
       });
     }
     closeModal(); showToast('Delivery saved successfully'); renderPage();
+    saveDBNow(null, { skipMerge: true }); // Save immediately — don't wait for debounce
     }
     });
 }
@@ -3540,7 +3541,7 @@ function openAdjustmentModal(adjId, readOnly) {
         adj.warranty = warranty; adj.qty = absQty; adj.type = type;
         adj.bqty = bqtyVal; adj.uom = firstValid.querySelector('[data-f="uom"]') ? firstValid.querySelector('[data-f="uom"]').value : '';
         adj.reason = remarks; adj.remarks = remarks; adj.note = note; adj.status = status;
-        closeModal(); showToast('Adjustment updated'); renderPage();
+        closeModal(); showToast('Adjustment updated'); renderPage(); saveDBNow(null, { skipMerge: true });
       } else {
         DB.adjustments.push({
           id: Date.now(), ref: ref, date: date, branch: branch,
@@ -3548,7 +3549,7 @@ function openAdjustmentModal(adjId, readOnly) {
           serial: serial, condition: condition, warranty: warranty,
           bqty: bqtyVal, qty: absQty, uom: document.querySelector('[data-f="uom"]') ? document.querySelector('[data-f="uom"]').value : '', type: type, reason: remarks, remarks: remarks, note: note, status: status
         });
-        closeModal(); showToast('Adjustment added'); renderPage();
+        closeModal(); showToast('Adjustment added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   }
@@ -3984,10 +3985,10 @@ function openQuotationModal(quoteId, readOnly) {
       if (q) {
         q.date = date; q.quoteNo = quoteNo; q.customer = customer; q.subject = subject; q.note = note; q.status = status;
         q.items = items; q.total = grandTotal;
-        closeModal(); showToast('Sell Proposal updated'); renderPage();
+        closeModal(); showToast('Sell Proposal updated'); renderPage(); saveDBNow(null, { skipMerge: true });
       } else {
         DB.quotations.push({ id: Date.now(), date: date, quoteNo: quoteNo, customer: customer, subject: subject, note: note, status: status, items: items, total: grandTotal });
-        closeModal(); showToast('Sell Proposal added'); renderPage();
+        closeModal(); showToast('Sell Proposal added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   }
@@ -4287,10 +4288,10 @@ function openInvoiceModal(invId, readOnly) {
       if (inv) {
         inv.date = date; inv.invoiceNo = invoiceNo; inv.customer = customer; inv.note = note; inv.status = status;
         inv.items = items; inv.total = grandTotal;
-        closeModal(); showToast('Invoice updated'); renderPage();
+        closeModal(); showToast('Invoice updated'); renderPage(); saveDBNow(null, { skipMerge: true });
       } else {
         DB.invoices.push({ id: Date.now(), date: date, invoiceNo: invoiceNo, customer: customer, note: note, status: status, items: items, total: grandTotal });
-        closeModal(); showToast('Invoice added'); renderPage();
+        closeModal(); showToast('Invoice added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   }
@@ -4550,7 +4551,7 @@ function openDamageModal(dmgId, readOnly) {
         dmg.warranty = warranty; dmg.qty = qty; dmg.bqty = bqtyVal;
         dmg.uom = firstValid.querySelector('[data-f="uom"]') ? firstValid.querySelector('[data-f="uom"]').value : '';
         dmg.reason = remarks; dmg.remarks = remarks; dmg.note = note; dmg.status = status;
-        closeModal(); showToast('Damage updated'); renderPage();
+        closeModal(); showToast('Damage updated'); renderPage(); saveDBNow(null, { skipMerge: true });
       } else {
         DB.damages.push({
           id: Date.now(), ref: ref, date: date, branch: branch,
@@ -4558,7 +4559,7 @@ function openDamageModal(dmgId, readOnly) {
           serial: serial, condition: condition, warranty: warranty,
           bqty: bqtyVal, qty: qty, uom: firstValid.querySelector('[data-f="uom"]') ? firstValid.querySelector('[data-f="uom"]').value : '', reason: remarks, remarks: remarks, note: note, status: status
         });
-        closeModal(); showToast('Damage added'); renderPage();
+        closeModal(); showToast('Damage added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   }
@@ -4772,10 +4773,10 @@ function openTransferModal(trfId, readOnly) {
       if (trf) {
         trf.ref = ref; trf.date = date; trf.product = product; trf.qty = qty;
         trf.fromBranch = fromBranch; trf.toBranch = toBranch; trf.status = status;
-        closeModal(); showToast('Transfer updated'); renderPage();
+        closeModal(); showToast('Transfer updated'); renderPage(); saveDBNow(null, { skipMerge: true });
       } else {
         DB.transfers.push({ id: Date.now(), ref: ref, date: date, product: product, qty: qty, fromBranch: fromBranch, toBranch: toBranch, status: status });
-        closeModal(); showToast('Transfer added'); renderPage();
+        closeModal(); showToast('Transfer added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   }
@@ -5798,7 +5799,7 @@ function bindCashInEvents() {
           status: document.getElementById('f-ci-status').value,
           attachment: attachInfo
         });
-        closeModal(); showToast('Cash In added'); renderPage();
+        closeModal(); showToast('Cash In added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   });
@@ -5908,7 +5909,7 @@ function bindCashOutEvents() {
           status: document.getElementById('f-co-status').value,
           attachment: attachInfo
         });
-        closeModal(); showToast('Cash Out added'); renderPage();
+        closeModal(); showToast('Cash Out added'); renderPage(); saveDBNow(null, { skipMerge: true });
       }
     });
   });
