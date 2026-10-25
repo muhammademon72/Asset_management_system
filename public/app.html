@@ -6214,10 +6214,12 @@ function bindApprovalEvents() {
           }
           showToast('Invoice ' + invoice + ' approved (' + updatedCount + ' item' + (updatedCount === 1 ? '' : 's') + ')');
           renderPage();
-          saveDBNow(); // Save immediately — don't wait for debounce
+          // Use skipMerge: true — the GET-merge step would overwrite our 'Approved'
+          // status with the server's old 'Confirm' status on refresh.
+          saveDBNow(null, { skipMerge: true });
         } else {
           var item = DB[map[type]].find(function(x){ return x.id === id; });
-          if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); saveDBNow(); }
+          if (item) { item.status = 'Approved'; showToast('Approved successfully'); renderPage(); saveDBNow(null, { skipMerge: true }); }
         }
       });
     })(approveBtns[i]);
@@ -6246,9 +6248,10 @@ function bindApprovalEvents() {
           }
           showToast('Invoice ' + invoice + ' rejected (' + updatedCount + ' item' + (updatedCount === 1 ? '' : 's') + ')', 'error');
           renderPage();
+          saveDBNow(null, { skipMerge: true });
         } else {
           var item = DB[map[type]].find(function(x){ return x.id === id; });
-          if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); }
+          if (item) { item.status = 'Rejected'; showToast('Rejected', 'error'); renderPage(); saveDBNow(null, { skipMerge: true }); }
         }
       });
     })(rejectBtns[j]);
