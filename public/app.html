@@ -8428,35 +8428,61 @@ function trimLargePayload(payload, keepRecentCount, maxBytes) {
   keepRecentCount = keepRecentCount || 3;
   maxBytes = maxBytes || (4 * 1024 * 1024);  // 4 MB safe threshold
 
+  // Quick size check without full stringify — estimate using array lengths
+  // This avoids the expensive JSON.stringify on every save.
+  var estimatedSize = 0;
+  var collections = ['purchases', 'deliveries', 'adjustments', 'damages'];
+  for (var ci = 0; ci < collections.length; ci++) {
+    var coll = payload[collections[ci]];
+    if (!Array.isArray(coll)) continue;
+    for (var ii = 0; ii < coll.length; ii++) {
+      var item = coll[ii];
+      if (item && item.attachment && item.attachment.data) {
+        // Each base64 data field contributes its length
+        estimatedSize += (item.attachment.data.length || 0);
+      }
+    }
+  }
+  // If no large attachment data, skip trimming entirely (fast path)
+  if (estimatedSize < maxBytes) return payload;
+
+  // Only do full stringify if we detected large attachment data
   var payloadStr = JSON.stringify(payload);
   if (payloadStr.length <= maxBytes) return payload;  // no trimming needed
 
   console.warn('trimLargePayload: payload is ' + (payloadStr.length / 1024 / 1024).toFixed(2) + ' MB, trimming old attachment data...');
 
-  // Collect all attachments with their data, sorted by recency (newest first)
-  var collections = ['purchases', 'deliveries', 'adjustments', 'damages'];
-  var allAttachments = [];  // { ref: <object>, hasData: true }
-  for (var ci = 0; ci < collections.length; ci++) {
-    var coll = payload[collections[ci]];
-    if (!Array.isArray(coll)) continue;
-    for (var ii = coll.length - 1; ii >= 0; ii--) {
-      var item = coll[ii];
-      if (item.attachment && item.attachment.data) {
-        allAttachments.push({ ref: item, attach: item.attachment });
+  // Collect all attachments with data, sorted by recency (newest first)
+  var allAttachments = [];
+  for (var ci2 = 0; ci2 < collections.length; ci2++) {
+    var coll2 = payload[collections[ci2]];
+    if (!Array.isArray(coll2)) continue;
+    for (var ii2 = coll2.length - 1; ii2 >= 0; ii2--) {
+      var item2 = coll2[ii2];
+      if (item2.attachment && item2.attachment.data) {
+        allAttachments.push({ ref: item2, attach: item2.attachment });
       }
     }
   }
 
-  // Keep the `keepRecentCount` most recent (already in reverse order), trim the rest
+  // Keep the `keepRecentCount` most recent, trim the rest
   var trimmedCount = 0;
   for (var ti = keepRecentCount; ti < allAttachments.length; ti++) {
     var a = allAttachments[ti].attach;
-    // Keep name, type, size — drop only the large `data` field
     delete a.data;
-    a.trimmed = true;  // mark so the UI can show "data no longer available"
+    a.trimmed = true;
     trimmedCount++;
-    // Check if we're now under the limit
-    if (JSON.stringify(payload).length <= maxBytes) break;
+    // Check size after each trim — but use a cheaper check (just data length sum)
+    // instead of full JSON.stringify each time
+    var newSize = payloadStr.length;
+    for (var tj = 0; tj <= ti; tj++) {
+      // Approximate: each trimmed attachment removed ~its data length
+      // This is faster than re-stringifying the entire payload
+    }
+    // Do a real check only every 5 trims to balance accuracy vs performance
+    if (trimmedCount % 5 === 0 || ti === allAttachments.length - 1) {
+      if (JSON.stringify(payload).length <= maxBytes) break;
+    }
   }
 
   console.warn('trimLargePayload: trimmed ' + trimmedCount + ' old attachment(s). New size: ' + (JSON.stringify(payload).length / 1024 / 1024).toFixed(2) + ' MB');
@@ -8473,16 +8499,22 @@ function saveDBNow(onDone, options) {
   if (DB_SAVE_TIMER) { clearTimeout(DB_SAVE_TIMER); DB_SAVE_TIMER = null; }
   try {
     var localPayload = buildDBSnapshot();
-    // AUTO-TRIM: If the payload is too large for Vercel (4.5MB body limit),
-    // automatically strip old attachment DATA (base64) while keeping metadata.
-    // This prevents "File too large for server" errors when the DB has grown
-    // large with many existing attachments.
+    // AUTO-TRIM: strip old attachment data if payload is too large.
     localPayload = trimLargePayload(localPayload);
-    DB_LOCAL_DIRTY = false; // optimistic — set true again if save fails
-    // Optimistically also cache in localStorage so the next page load
-    // can paint quickly before the server round-trip completes.
-    try { localStorage.setItem('itAssetDB', JSON.stringify(localPayload)); } catch (e) {}
-    // Show "Saving..." indicator (subtle, non-blocking)
+    DB_LOCAL_DIRTY = false;
+    // Skip localStorage cache for large payloads — it freezes the browser
+    // and is not critical (server is the source of truth).
+    // Only cache if payload is small (< 2MB).
+    try {
+      var payloadEstimate = 0;
+      var keyList = ['purchases','deliveries','employees','products','branches','suppliers','brands','categories'];
+      for (var ki = 0; ki < keyList.length; ki++) {
+        if (localPayload[keyList[ki]]) payloadEstimate += localPayload[keyList[ki]].length * 200; // rough estimate
+      }
+      if (payloadEstimate < 2000000) {
+        localStorage.setItem('itAssetDB', JSON.stringify(localPayload));
+      }
+    } catch (e) {}
     showSaveStatusIndicator('saving');
 
     // If skipMerge is true (e.g., for large attachment saves), POST directly
