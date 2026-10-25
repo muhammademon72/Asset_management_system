@@ -1859,9 +1859,9 @@ function renderInventoryStock() {
     });
   }
 
-  // Step 2: For each product, allocate deliveries + damages + adjustments to
-  //         the FIFO purchase rows. Each row's stock = qty - allocatedDelivered
-  //         - allocatedDamaged + allocatedAdjusted.
+  // Step 2: For each product, allocate deliveries + damages + adjustments.
+  // SERIAL-LEVEL MATCHING: If a delivery has a serial number, match it to the
+  // purchase row with the same serial. Otherwise fall back to FIFO.
   var renderRows = [];  // accumulate { product, invoice, brand, ..., stock }
   for (var productName in perProduct) {
     var purchaseRows = perProduct[productName];
@@ -1869,10 +1869,21 @@ function renderInventoryStock() {
     var purQty = 0;
     for (var pi = 0; pi < purchaseRows.length; pi++) purQty += (purchaseRows[pi].qty || 0);
 
-    var delQty = 0;
+    // Build a set of delivered serials (Approved deliveries only)
+    var deliveredSerials = {};
+    var fifoDelQty = 0;
     for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
-      if (DB.deliveries[di2].product === productName && DB.deliveries[di2].status === 'Approved') delQty += (DB.deliveries[di2].qty || 0);
+      if (DB.deliveries[di2].product !== productName || DB.deliveries[di2].status !== 'Approved') continue;
+      var delSerial = DB.deliveries[di2].serial || '';
+      if (delSerial) {
+        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + (DB.deliveries[di2].qty || 0);
+      } else {
+        fifoDelQty += (DB.deliveries[di2].qty || 0);
+      }
     }
+    var delQty = fifoDelQty;
+    for (var ds in deliveredSerials) delQty += deliveredSerials[ds];
+    
     var dmgQty = 0;
     for (var dmi = 0; dmi < DB.damages.length; dmi++) {
       if (DB.damages[dmi].product === productName && DB.damages[dmi].status === 'Approved') dmgQty += (DB.damages[dmi].qty || 0);
@@ -1889,30 +1900,36 @@ function renderInventoryStock() {
     totalDamaged += dmgQty;
     totalAdjusted += adjQtyNet;
 
-    // FIFO allocation across purchase rows
-    var delRemaining = delQty;
+    var fifoDelRemaining = fifoDelQty;
     var dmgRemaining = dmgQty;
     var adjRemaining = adjQtyNet;
     for (var ri = 0; ri < purchaseRows.length; ri++) {
       var pr = purchaseRows[ri];
       var rowQty = pr.qty || 0;
-      // Allocate deliveries (FIFO)
-      var allocDel = Math.min(rowQty, delRemaining);
-      delRemaining -= allocDel;
+      var prSerial = pr.serial || '';
+      
+      // Check if this specific serial was delivered (serial-level matching)
+      var allocDel = 0;
+      if (prSerial && deliveredSerials[prSerial]) {
+        allocDel = Math.min(rowQty, deliveredSerials[prSerial]);
+        deliveredSerials[prSerial] -= allocDel;
+      } else {
+        // No serial match — use FIFO for deliveries without serial numbers
+        allocDel = Math.min(rowQty, fifoDelRemaining);
+        fifoDelRemaining -= allocDel;
+      }
       // Allocate damages (FIFO)
       var allocDmg = Math.min(rowQty - allocDel, dmgRemaining);
       dmgRemaining -= allocDmg;
-      // Allocate adjustments (FIFO — only positive adjustments add stock
-      // to oldest rows; negative ones reduce stock from oldest first).
+      // Allocate adjustments (FIFO)
       var allocAdj = 0;
       if (adjRemaining > 0) {
         allocAdj = Math.min(rowQty - allocDel - allocDmg, adjRemaining);
         adjRemaining -= allocAdj;
       } else if (adjRemaining < 0) {
-        // Negative adjustment — reduce stock from this row
         var take = Math.min(rowQty - allocDel - allocDmg, -adjRemaining);
         allocAdj = -take;
-        adjRemaining += take;  // moves toward 0
+        adjRemaining += take;
       }
       var rowStock = rowQty - allocDel - allocDmg + allocAdj;
       if (rowStock < 0) rowStock = 0;
@@ -3268,17 +3285,32 @@ function buildInventoryStockProductArray() {
     });
   }
 
-  // Step 2: For each product, allocate deliveries/damages/adjustments FIFO.
+  // Step 2: For each product, allocate deliveries/damages/adjustments.
+  // SERIAL-LEVEL MATCHING: If a delivery has a serial number, we match it
+  // to the purchase row with the same serial (instead of FIFO). If the
+  // delivery has no serial, we fall back to FIFO (oldest purchases first).
   for (var productName in perProduct) {
     var purchaseRows = perProduct[productName];
-    var delQty = 0;
+    
+    // Build a set of delivered serials (Approved deliveries only)
+    var deliveredSerials = {};
+    var fifoDelQty = 0;  // deliveries without serial → FIFO
     for (var di2 = 0; di2 < DB.deliveries.length; di2++) {
-      if (DB.deliveries[di2].product === productName && DB.deliveries[di2].status === 'Approved') delQty += (DB.deliveries[di2].qty || 0);
+      if (DB.deliveries[di2].product !== productName || DB.deliveries[di2].status !== 'Approved') continue;
+      var delSerial = DB.deliveries[di2].serial || '';
+      if (delSerial) {
+        deliveredSerials[delSerial] = (deliveredSerials[delSerial] || 0) + (DB.deliveries[di2].qty || 0);
+      } else {
+        fifoDelQty += (DB.deliveries[di2].qty || 0);
+      }
     }
+    
+    // Count damages (Approved only)
     var dmgQty = 0;
     for (var dmi = 0; dmi < DB.damages.length; dmi++) {
       if (DB.damages[dmi].product === productName && DB.damages[dmi].status === 'Approved') dmgQty += (DB.damages[dmi].qty || 0);
     }
+    // Count adjustments
     var adjQtyNet = 0;
     for (var ai = 0; ai < DB.adjustments.length; ai++) {
       if (DB.adjustments[ai].product === productName) {
@@ -3286,7 +3318,8 @@ function buildInventoryStockProductArray() {
         adjQtyNet += (DB.adjustments[ai].type === 'Increase') ? aq : -aq;
       }
     }
-    var delRemaining = delQty;
+    
+    var fifoDelRemaining = fifoDelQty;
     var dmgRemaining = dmgQty;
     var adjRemaining = adjQtyNet;
 
@@ -3298,7 +3331,20 @@ function buildInventoryStockProductArray() {
     for (var ri = 0; ri < purchaseRows.length; ri++) {
       var pr = purchaseRows[ri];
       var rowQty = pr.qty || 0;
-      var allocDel = Math.min(rowQty, delRemaining); delRemaining -= allocDel;
+      var prSerial = pr.serial || '';
+      
+      // Check if this specific serial was delivered (serial-level matching)
+      var allocDel = 0;
+      if (prSerial && deliveredSerials[prSerial]) {
+        // This serial has a matching delivery — allocate it
+        allocDel = Math.min(rowQty, deliveredSerials[prSerial]);
+        deliveredSerials[prSerial] -= allocDel;
+      } else {
+        // No serial match — use FIFO for deliveries without serial numbers
+        allocDel = Math.min(rowQty, fifoDelRemaining);
+        fifoDelRemaining -= allocDel;
+      }
+      
       var allocDmg = Math.min(rowQty - allocDel, dmgRemaining); dmgRemaining -= allocDmg;
       var allocAdj = 0;
       if (adjRemaining > 0) {
@@ -3313,7 +3359,7 @@ function buildInventoryStockProductArray() {
       if (rowStock < 0) rowStock = 0;
       if (rowStock === 0) continue;  // skip fully-delivered rows
 
-      var serial = pr.serial || '';
+      var serial = prSerial;
       prdArr.push({
         value: productName + (serial ? '||' + serial : ''),
         productName: productName,
