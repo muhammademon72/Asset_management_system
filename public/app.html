@@ -1154,6 +1154,7 @@ function openBranchModal(editId) {
       showToast('Branch added successfully');
     }
     closeModal(); renderPage();
+    saveDBNow(null, { skipMerge: true });
   });
 }
 
@@ -1314,6 +1315,7 @@ function openEmployeeModal(editId) {
     if (e) { Object.assign(e, data); showToast('Employee updated'); }
     else { data.id = Date.now(); DB.employees.push(data); showToast('Employee added'); }
     closeModal(); renderPage();
+    saveDBNow(null, { skipMerge: true });
   });
 }
 
@@ -1379,6 +1381,7 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
         DB[collection].push(obj);
       }
       closeModal(); showToast('Added successfully'); renderPage();
+      saveDBNow(null, { skipMerge: true });
     });
   });
   var editBtns = document.querySelectorAll('[data-edit-simple]');
@@ -1411,6 +1414,7 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
           if (typeof DB[collection][0] === 'string') { DB[collection][idx] = { id: Date.now(), name: name, status: status }; }
           else { DB[collection][idx].name = name; DB[collection][idx].status = status; if (fieldKey === 'description') DB[collection][idx].description = extra ? extra.value.trim() : ''; if (fieldKey === 'category') DB[collection][idx].category = extra ? extra.value : ''; }
           closeModal(); showToast('Updated successfully'); renderPage();
+          saveDBNow(null, { skipMerge: true });
         });
       });
     })(editBtns[ei], parseInt(editBtns[ei].getAttribute('data-edit-simple')));
@@ -1421,6 +1425,7 @@ function bindSimpleListEvents(collection, addPlaceholder, fieldKey) {
       btn.addEventListener('click', function() {
         DB[collection].splice(idx, 1);
         showToast('Removed'); renderPage();
+        saveDBNow(null, { skipMerge: true });
       });
     })(delBtns[i], parseInt(delBtns[i].getAttribute('data-del-simple')));
   }
@@ -7223,6 +7228,7 @@ function bindCompanyEvents() {
     DB.company.email = document.getElementById('f-cemail').value;
     DB.company.website = document.getElementById('f-cweb').value;
     showToast('Company profile updated');
+    saveDBNow(null, { skipMerge: true });
   });
 }
 
@@ -7272,6 +7278,7 @@ function bindUserEvents() {
       }
       DB.users.push({ id: Date.now(), name: name, username: uname, email: document.getElementById('f-user-email').value.trim(), password: pass, role: document.getElementById('f-user-role').value, status: 'Active' });
       closeModal(); showToast('User created'); renderPage();
+      saveDBNow(null, { skipMerge: true });
     });
   });
   // Edit buttons
@@ -7313,6 +7320,7 @@ function bindUserEvents() {
           u.role = document.getElementById('f-user-role').value;
           u.status = document.getElementById('f-user-status').value;
           closeModal(); showToast('User updated'); renderPage();
+          saveDBNow(null, { skipMerge: true });
         });
       });
     })(editBtns[ei]);
@@ -7796,6 +7804,7 @@ function openRoleModal(editId) {
     }
     closeModal();
     renderPage();
+    saveDBNow(null, { skipMerge: true });
   });
 }
 
