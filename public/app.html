@@ -3315,6 +3315,14 @@ function openDeliveryAddModal() {
       if (p && p.value) { hasItem = true; break; }
     }
     if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+    // Mandatory row fields: UoM
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var prod = r.querySelector('[data-f="product"]').value;
+      if (!prod) continue;
+      var uom = r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '';
+      if (!uom) { showToast('UoM is required for product: ' + prod, 'error'); return; }
+    }
     // Read attachment (file content stored as base64)
     var attachInput = document.querySelector('[data-top="del-attach"]');
     var attachInfo = null;
