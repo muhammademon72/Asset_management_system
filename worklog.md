@@ -1940,3 +1940,19 @@ Stage Summary:
 - ✅ Local dev server verified — connects to Turso (33 purchases).
 - ✅ Delete fix (skipMerge: true) is correct and will work now.
 - ✅ Commit 5028d8a pushed to GitHub.
+
+---
+Task ID: 48
+Agent: main (Z.ai)
+Task: Add New Delivery — UoM mandatory koro
+
+Work Log:
+- Located Add New Delivery save handler (btn-save-del, ~line 3300) in public/app.html
+- Confirmed Edit Delivery already had UoM mandatory validation (commit 0af3687)
+- Added identical row-level UoM validation to Add New Delivery: after hasItem check, before attachment read — if product selected but UoM empty, toast 'UoM is required for product: <name>' and abort save
+- node --check on extracted inline JS: passed
+- Committed 65fc0bd and pushed to GitHub main (auto-deploys to Vercel)
+
+Stage Summary:
+- Add New Delivery now enforces UoM per product row, matching Edit Delivery validation
+- Delivery record still saves uom field as before (already implemented)
