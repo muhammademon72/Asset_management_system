@@ -1956,3 +1956,20 @@ Work Log:
 Stage Summary:
 - Add New Delivery now enforces UoM per product row, matching Edit Delivery validation
 - Delivery record still saves uom field as before (already implemented)
+
+---
+Task ID: 49
+Agent: main (Z.ai)
+Task: Edit Delivery — Product minus hobe Inventory Stock theke
+
+Work Log:
+- Traced full chain: openDeliveryModal (edit mode) → btn-save-del handler → buildInventoryStockProductArray
+- ROOT CAUSE: Edit modal status select only had Draft/Confirm options. A delivery Approved via Delivery Approval, when edited and saved, silently reverted to Draft (browser picks first option since 'Approved' missing) → stock calc (counts only Approved/Confirm) stopped subtracting it → product reappeared in Inventory Stock
+- Fix 1: Status select now includes the delivery's current status (e.g. Approved) as a preselected option alongside Draft/Confirm
+- Fix 2: Edit save handler now strips '||serial' suffix from product value via stripProductSerialSuffix() (defensive, matching Add handler)
+- Verified stock calc itself is correct: recalculates deliveredSerials from current DB.deliveries each render (Approved + Confirm, serial-level matching + FIFO fallback)
+- node --check passed; committed 663e2d8 and pushed to GitHub main
+
+Stage Summary:
+- Editing an Approved/Confirm delivery no longer resets its status, so its products remain subtracted from Inventory Stock
+- Changing product/qty/serial in Edit Delivery now correctly re-allocates stock on next render
