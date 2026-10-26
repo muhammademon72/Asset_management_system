@@ -2920,6 +2920,14 @@ function openDeliveryModal(delId, readOnly) {
         if (p && p.value) { hasItem = true; break; }
       }
       if (!hasItem) { showToast('Add at least one product', 'error'); return; }
+      // Mandatory row fields: UoM, Quantity
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var prod = r.querySelector('[data-f="product"]').value;
+        if (!prod) continue;
+        var uom = r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '';
+        if (!uom) { showToast('UoM is required for product: ' + prod, 'error'); return; }
+      }
       // Remove all existing rows with this chalan, then rebuild
       var otherRows = [];
       for (var j = 0; j < DB.deliveries.length; j++) {
@@ -2946,6 +2954,7 @@ function openDeliveryModal(delId, readOnly) {
           warranty: r.querySelector('[data-f="warranty"]').value,
           bqty: parseFloat(r.querySelector('[data-f="bqty"]').value) || 0,
           qty: parseFloat(r.querySelector('[data-f="qty"]').value) || 0,
+          uom: r.querySelector('[data-f="uom"]') ? r.querySelector('[data-f="uom"]').value : '',
           remarks: r.querySelector('[data-f="remarks"]').value
         });
       }
