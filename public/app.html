@@ -2792,7 +2792,16 @@ function openDeliveryModal(delId, readOnly) {
   if (readOnly) {
     html += statusBadge(del.status || 'Pending');
   } else {
-    html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;"><option value="Draft"' + (del.status === 'Draft' ? ' selected' : '') + '>Draft</option><option value="Confirm"' + (del.status === 'Confirm' ? ' selected' : '') + '>Confirm</option></select>';
+    // Status select MUST include the delivery's current status — otherwise an
+    // Approved delivery would silently revert to Draft on edit and its products
+    // would reappear in Inventory Stock (stock calc only counts Approved/Confirm).
+    var stOpts = '';
+    if (del.status && del.status !== 'Draft' && del.status !== 'Confirm') {
+      stOpts += '<option value="' + del.status + '" selected>' + del.status + '</option>';
+    }
+    stOpts += '<option value="Draft"' + (del.status === 'Draft' ? ' selected' : '') + '>Draft</option>';
+    stOpts += '<option value="Confirm"' + (del.status === 'Confirm' ? ' selected' : '') + '>Confirm</option>';
+    html += '<select class="form-input" id="f-del-status" style="width:160px;border-radius:8px;">' + stOpts + '</select>';
   }
   html += '</div>';
   html += '<div style="flex:1;"></div>';
@@ -2936,7 +2945,7 @@ function openDeliveryModal(delId, readOnly) {
       // Rebuild with updated multi-product data
       for (var i2 = 0; i2 < rows.length; i2++) {
         var r = rows[i2];
-        var product = r.querySelector('[data-f="product"]').value;
+        var product = stripProductSerialSuffix(r.querySelector('[data-f="product"]').value);
         if (!product) continue;
         var oldRow = (i2 < chalanRows.length) ? chalanRows[i2] : null;
         otherRows.push({
