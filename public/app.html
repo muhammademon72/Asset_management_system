@@ -8021,6 +8021,7 @@ function importFullBackup(evt) {
         }
         if (imported.company && typeof imported.company === 'object') DB.company = imported.company;
         closeModal(); showToast('Restored ' + restoredCount + ' records (' + mode + ' mode)'); renderPage();
+        saveDBNow(null, { skipMerge: true });
       });
     } catch (err) {
       showToast('Invalid JSON: ' + err.message, 'error');
