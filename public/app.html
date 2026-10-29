@@ -6998,6 +6998,144 @@ function printDeliveryReport() {
   }, 800);
 }
 
+// ============================================================================
+// Download Delivery Report as a PDF file (one-click, no print dialog).
+// Uses the browser's built-in print-to-PDF via a hidden iframe:
+//   1. Build the same HTML as printDeliveryReport()
+//   2. Inject into a hidden iframe
+//   3. Call iframe.contentWindow.print() — user picks "Save as PDF" in dialog
+//
+// Why iframe + window.print() instead of jsPDF/html2pdf:
+//   - No external library needed (no extra bundle size / no Vercel bandwidth)
+//   - Pixel-perfect: uses the browser's own PDF renderer (Chromium's print engine)
+//   - Honors @page CSS rules, page breaks, headers — same as the Print window
+//   - Works on every modern browser (Chrome, Edge, Firefox, Safari)
+// ============================================================================
+function downloadDeliveryReportPDF() {
+  var co = DB.company || {};
+  // Read the active filter values for the report header (same as print)
+  var bh = document.querySelector('[data-sr="filter-branch"] input[type="hidden"]');
+  var eh = document.querySelector('[data-sr="filter-emp"] input[type="hidden"]');
+  var dh = document.querySelector('[data-sr="filter-dept"] input[type="hidden"]');
+  var branchFilter = bh ? (bh.value || 'All Branches') : 'All Branches';
+  var empFilter = eh ? (eh.value || 'All Employees') : 'All Employees';
+  var deptFilter = dh ? (dh.value || 'All Departments') : 'All Departments';
+
+  var table = document.getElementById('main-table');
+  if (!table) { showToast('No table found', 'error'); return; }
+  var allRows = table.querySelectorAll('tbody tr');
+  var visibleCount = 0;
+  var rowsHTML = '';
+  for (var i = 0; i < allRows.length; i++) {
+    var r = allRows[i];
+    if (r.style.display === 'none') continue;
+    if (r.style.background && r.style.background.indexOf('accent') !== -1) continue;
+    visibleCount++;
+    var cells = r.querySelectorAll('td');
+    var tds = '';
+    for (var c = 0; c < cells.length - 1; c++) {
+      tds += '<td>' + (cells[c] ? cells[c].innerHTML : '') + '</td>';
+    }
+    rowsHTML += '<tr>' + tds + '</tr>';
+  }
+  var stamp = new Date().toLocaleString();
+
+  // Build the same HTML structure as printDeliveryReport()
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Delivery Report</title><style>';
+  html += '@page { margin: 12mm; }';
+  html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 18px; font-size: 11px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 12px; margin-bottom: 14px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #1a2e1a; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += '.filters { margin-bottom: 12px; padding: 8px 12px; background: #f5f9f5; border: 1px solid #d4ddd4; border-radius: 8px; font-size: 11px; color: #6b7c6b; }';
+  html += '.filters strong { color: #1a5c30; font-weight: 700; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 6px; }';
+  html += 'thead th { background: #2d8a4e; color: #fff; padding: 7px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; text-align: left; border: 1px solid #2d8a4e; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }';
+  html += 'tbody td { padding: 6px; font-size: 10px; border: 1px solid #d4ddd4; vertical-align: top; }';
+  html += 'tbody tr:nth-child(even) td { background: #f5f9f5; }';
+  html += '.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; } .badge-green { background: #dcfce7; color: #166534; } .badge-amber { background: #fef3c7; color: #92400e; } .badge-red { background: #fee2e2; color: #991b1b; } .badge-gray { background: #e5e7eb; color: #374151; } .badge-blue { background: #dbeafe; color: #1e40af; }';
+  html += '.foot { margin-top: 18px; display: flex; justify-content: space-between; font-size: 11px; color: #6b7c6b; padding-top: 8px; border-top: 1px solid #d4ddd4; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; min-height: 80px; } .sign-line { border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '</style></head><body>';
+
+  // Header
+  html += '<div class="head"><div><div class="co-name">' + (co.name || 'Company Name') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email;
+  html += '</div></div><div><div class="doc-title">Delivery Report</div><div class="doc-meta">Generated: ' + stamp + '</div><div class="doc-meta">Total Records: ' + visibleCount + '</div></div></div>';
+
+  // Active filters
+  html += '<div class="filters">Filters applied: &nbsp; <strong>Branch:</strong> ' + branchFilter + ' &nbsp;|&nbsp; <strong>Employee:</strong> ' + empFilter + ' &nbsp;|&nbsp; <strong>Department:</strong> ' + deptFilter + '</div>';
+
+  // Table
+  html += '<table><thead><tr>';
+  var headers = ['#', 'Date', 'Branch', 'Employee Name', 'Employee ID', 'Department', 'Product', 'Brand', 'Model', 'Serial', 'Condition', 'Warranty', 'Price', 'Qty', 'Remarks', 'Status'];
+  for (var h = 0; h < headers.length; h++) html += '<th>' + headers[h] + '</th>';
+  html += '</tr></thead><tbody>' + rowsHTML + '</tbody></table>';
+
+  // Footer
+  html += '<div class="foot"><span>This is a system-generated Delivery Report from the Assets Management System.</span><span>Page 1</span></div>';
+
+  // Signature lines
+  html += '<div class="sign">';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div>';
+  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div>';
+  html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
+  html += '</div>';
+
+  html += '</body></html>';
+
+  // Show feedback toast
+  showToast('Generating PDF... choose "Save as PDF" as destination', 'info');
+
+  // Use a hidden iframe so we don't navigate away from the report page.
+  // We then trigger print() on the iframe — most browsers' print dialog
+  // includes a "Save as PDF" destination, which produces a downloadable PDF
+  // with the same layout as the Print button (no extra libraries needed).
+  var existingFrame = document.getElementById('pdf-print-frame');
+  if (existingFrame) existingFrame.remove();
+
+  var frame = document.createElement('iframe');
+  frame.id = 'pdf-print-frame';
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  document.body.appendChild(frame);
+
+  var doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  // Wait for the iframe's content to render, then trigger print.
+  // Most browsers will offer "Save as PDF" as the default destination.
+  frame.onload = function() {
+    setTimeout(function() {
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      } catch(e) {
+        console.warn('PDF iframe print failed:', e);
+        showToast('Could not auto-open PDF dialog. Try the Print button instead.', 'error');
+      }
+    }, 350);
+  };
+  // Some browsers don't fire onload for same-document iframes; schedule a
+  // fallback print call too.
+  setTimeout(function() {
+    try {
+      if (frame.contentWindow) {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      }
+    } catch(e) { /* already shown toast on success path */ }
+  }, 1200);
+}
+
 function clearDeliveryFilters() {
   // Reset searchable dropdowns
   var bw = document.querySelector('[data-sr="filter-branch"]');
@@ -7182,6 +7320,7 @@ function renderReport(type) {
   html += '<div style="display:flex;gap:10px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search records..." oninput="filterTable(this.value)"></div>';
   if (type === 'delivery') {
+    html += '<button class="btn btn-secondary" id="btn-pdf-delivery-report" title="Download PDF" style="border-radius:8px;"><i class="fas fa-file-pdf"></i></button>';
     html += '<button class="btn btn-secondary" id="btn-print-delivery-report" title="Print Delivery Report" style="border-radius:8px;"><i class="fas fa-print"></i></button>';
   }
   html += '</div>';
@@ -8451,6 +8590,13 @@ function renderPage() {
             revertDelivery(id);
           });
         })(revertBtns[rb]);
+      }
+      // Bind PDF Download button — generates a downloadable PDF via hidden iframe + print dialog
+      var pdfReportBtn = document.getElementById('btn-pdf-delivery-report');
+      if (pdfReportBtn) {
+        pdfReportBtn.addEventListener('click', function() {
+          downloadDeliveryReportPDF();
+        });
       }
       // Bind Print button — opens a print-friendly window with the current filtered view
       var printReportBtn = document.getElementById('btn-print-delivery-report');
