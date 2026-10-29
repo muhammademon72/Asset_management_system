@@ -4888,6 +4888,197 @@ function printDamageList() {
   win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
 }
 
+// ============================================================================
+// DAMAGE STOCK — aggregated view of all damaged items grouped by product.
+// One row per product/serial that has at least one Approved damage record.
+// Columns: SN | Product | Category | Brand | Model | Serial | Total Qty |
+//          Last Damaged Date | Total Records | Reasons
+// ============================================================================
+function renderDamageStock() {
+  // Step 1: Build aggregated rows from DB.damages (Approved status only).
+  // Pending/Confirm damages are NOT counted — they're still in the approval flow.
+  var agg = {};  // key: productName + '||' + (serial||'') → aggregate row
+  var order = [];  // preserve insertion order
+  var totalDamagedQty = 0;
+  var totalProducts = 0;
+  var totalRecords = 0;
+
+  for (var i = 0; i < DB.damages.length; i++) {
+    var d = DB.damages[i];
+    // Count both Approved AND Confirm damages (Confirm = approved by stock impact logic)
+    if (d.status !== 'Approved' && d.status !== 'Confirm') continue;
+    var prod = d.product || '-';
+    var ser = d.serial || '';
+    var key = prod + '||' + ser;
+    if (!agg[key]) {
+      agg[key] = {
+        product: prod,
+        category: d.category || '',
+        brand: d.brand || '',
+        model: d.model || '',
+        serial: ser,
+        totalQty: 0,
+        recordCount: 0,
+        lastDate: '',
+        reasons: []
+      };
+      order.push(key);
+      totalProducts++;
+    }
+    var row = agg[key];
+    row.totalQty += (d.qty || 0);
+    row.recordCount++;
+    totalRecords++;
+    totalDamagedQty += (d.qty || 0);
+    // Track latest damage date
+    var dd = d.date || '';
+    if (dd && dd > row.lastDate) row.lastDate = dd;
+    // Collect reasons (deduplicated, max 3 shown)
+    if (d.reason && row.reasons.indexOf(d.reason) === -1 && row.reasons.length < 3) {
+      row.reasons.push(d.reason);
+    }
+  }
+
+  // Step 2: Build table rows
+  var rows = '';
+  var sn = 0;
+  for (var k = 0; k < order.length; k++) {
+    var a = agg[order[k]];
+    sn++;
+    // Look up product master for missing fields (fallback)
+    var prodMaster = null;
+    for (var pi = 0; pi < DB.products.length; pi++) {
+      if (DB.products[pi].name === a.product) { prodMaster = DB.products[pi]; break; }
+    }
+    var cat = a.category || (prodMaster && prodMaster.category) || '-';
+    var brand = a.brand || (prodMaster && prodMaster.brand) || '-';
+    var reasonsTxt = a.reasons.length ? a.reasons.join('; ') : '-';
+    rows += '<tr>';
+    rows += '<td style="text-align:center;font-weight:600;color:var(--muted);">' + sn + '</td>';
+    rows += '<td style="font-weight:600;">' + a.product + '</td>';
+    rows += '<td>' + cat + '</td>';
+    rows += '<td>' + brand + '</td>';
+    rows += '<td>' + (a.model || '-') + '</td>';
+    rows += '<td>' + (a.serial || '-') + '</td>';
+    rows += '<td style="text-align:center;font-weight:700;color:var(--danger);font-size:14px;">' + a.totalQty + '</td>';
+    rows += '<td>' + (a.lastDate || '-') + '</td>';
+    rows += '<td style="text-align:center;">' + a.recordCount + '</td>';
+    rows += '<td style="font-size:11px;">' + reasonsTxt + '</td>';
+    rows += '</tr>';
+  }
+
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+  html += '<div style="font-size:20px;font-weight:800;">Damage Stock</div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;">';
+  html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search..." oninput="filterTable(this.value)"></div>';
+  html += '<button class="btn btn-secondary" id="btn-print-damage-stock" title="Print Damage Stock"><i class="fas fa-print"></i> Print</button>';
+  html += '</div></div>';
+
+  // Summary stat cards
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;">';
+  html += '<div class="stat-card" style="padding:16px 18px;border-left:4px solid var(--danger);">';
+  html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Total Damaged Qty</div>';
+  html += '<div style="font-size:24px;font-weight:800;color:var(--danger);margin-top:4px;">' + totalDamagedQty + '</div>';
+  html += '</div>';
+  html += '<div class="stat-card" style="padding:16px 18px;border-left:4px solid var(--accent);">';
+  html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Products Damaged</div>';
+  html += '<div style="font-size:24px;font-weight:800;color:var(--accent);margin-top:4px;">' + totalProducts + '</div>';
+  html += '</div>';
+  html += '<div class="stat-card" style="padding:16px 18px;border-left:4px solid var(--info);">';
+  html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Total Damage Records</div>';
+  html += '<div style="font-size:24px;font-weight:800;color:var(--info);margin-top:4px;">' + totalRecords + '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Table
+  html += '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto;">';
+  html += '<table class="data-table" id="main-table"><thead><tr>';
+  html += '<th style="text-align:center;width:50px;">SN</th>';
+  html += '<th>Product</th>';
+  html += '<th>Category</th>';
+  html += '<th>Brand</th>';
+  html += '<th>Model</th>';
+  html += '<th>Serial</th>';
+  html += '<th style="text-align:center;">Total Damaged Qty</th>';
+  html += '<th>Last Damaged Date</th>';
+  html += '<th style="text-align:center;">Records</th>';
+  html += '<th>Reasons</th>';
+  html += '</tr></thead><tbody>';
+  if (rows === '') {
+    html += '<tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--muted);"><i class="fas fa-triangle-exclamation" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i><div style="font-size:14px;font-weight:600;margin-bottom:4px;">No damaged items</div><div style="font-size:12px;">Approved/Confirm damage records will appear here once added from Damage List.</div></td></tr>';
+  } else {
+    html += rows;
+  }
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+function bindDamageStockEvents() {
+  var printBtn = document.getElementById('btn-print-damage-stock');
+  if (printBtn) printBtn.addEventListener('click', printDamageStock);
+}
+
+// Print Damage Stock — same aggregated data as renderDamageStock(), but in
+// a printable layout matching the Damage List print style.
+function printDamageStock() {
+  var co = DB.company || {};
+
+  // Rebuild the same aggregation as renderDamageStock()
+  var agg = {};
+  var order = [];
+  var totalDamagedQty = 0;
+  for (var i = 0; i < DB.damages.length; i++) {
+    var d = DB.damages[i];
+    if (d.status !== 'Approved' && d.status !== 'Confirm') continue;
+    var key = (d.product || '-') + '||' + (d.serial || '');
+    if (!agg[key]) {
+      agg[key] = { product: d.product || '-', category: d.category || '', brand: d.brand || '', model: d.model || '', serial: d.serial || '', totalQty: 0, recordCount: 0, lastDate: '', reasons: [] };
+      order.push(key);
+    }
+    var row = agg[key];
+    row.totalQty += (d.qty || 0);
+    row.recordCount++;
+    totalDamagedQty += (d.qty || 0);
+    var dd = d.date || '';
+    if (dd && dd > row.lastDate) row.lastDate = dd;
+    if (d.reason && row.reasons.indexOf(d.reason) === -1 && row.reasons.length < 3) row.reasons.push(d.reason);
+  }
+
+  var rows = '';
+  var sn = 0;
+  for (var k = 0; k < order.length; k++) {
+    var a = agg[order[k]];
+    sn++;
+    rows += '<tr><td style="text-align:center;">' + sn + '</td><td style="font-weight:600;">' + a.product + '</td><td>' + (a.category || '-') + '</td><td>' + (a.brand || '-') + '</td><td>' + (a.model || '-') + '</td><td>' + (a.serial || '-') + '</td><td style="text-align:center;font-weight:700;color:#dc2626;">' + a.totalQty + '</td><td>' + (a.lastDate || '-') + '</td><td style="text-align:center;">' + a.recordCount + '</td><td style="font-size:11px;">' + (a.reasons.length ? a.reasons.join('; ') : '-') + '</td></tr>';
+  }
+
+  var stamp = new Date().toLocaleString();
+  var win = window.open('', '_blank', 'width=1100,height=800');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Damage Stock — Print</title><style>';
+  html += '@page { margin: 14mm; } body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 20px; font-size: 12px; }';
+  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #dc2626; padding-bottom: 14px; margin-bottom: 16px; }';
+  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
+  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #dc2626; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
+  html += 'table { width: 100%; border-collapse: collapse; margin-top: 8px; } thead th { background: #dc2626; color: #fff; padding: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border: 1px solid #dc2626; }';
+  html += 'tbody td { padding: 7px 8px; font-size: 12px; border: 1px solid #d4ddd4; } tbody tr:nth-child(even) td { background: #fef2f2; }';
+  html += '.summary { display: flex; gap: 24px; margin: 12px 0 18px; } .sum-box { padding: 10px 16px; border: 1px solid #d4ddd4; border-radius: 6px; background: #fef9f9; } .sum-num { font-size: 18px; font-weight: 800; color: #dc2626; } .sum-lbl { font-size: 10px; color: #6b7c6b; text-transform: uppercase; letter-spacing: 0.5px; }';
+  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; min-height: 80px; } .sign-line { border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
+  html += '@media print { .no-print { display: none; } }</style></head><body>';
+  html += '<div class="head"><div><div class="co-name">' + (co.name || '') + '</div><div class="co-meta">';
+  if (co.address) html += co.address + '<br>';
+  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
+  if (co.email) html += 'Email: ' + co.email + '<br>';
+  if (co.website) html += 'Web: ' + co.website;
+  html += '</div></div><div><div class="doc-title">Damage Stock</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Products: ' + order.length + '</div><div class="doc-meta">Total Damaged Qty: ' + totalDamagedQty + '</div></div></div>';
+  html += '<div class="summary"><div class="sum-box"><div class="sum-num">' + order.length + '</div><div class="sum-lbl">Products Damaged</div></div><div class="sum-box"><div class="sum-num">' + totalDamagedQty + '</div><div class="sum-lbl">Total Damaged Qty</div></div></div>';
+  html += '<table><thead><tr><th style="text-align:center;">#</th><th>Product</th><th>Category</th><th>Brand</th><th>Model</th><th>Serial</th><th style="text-align:center;">Total Qty</th><th>Last Date</th><th style="text-align:center;">Records</th><th>Reasons</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  html += '<div class="sign"><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div><div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div><div class="sign-box"><div class="sign-line">Verified By</div></div></div>';
+  html += '<div style="text-align:center;margin-top:18px;"><button class="no-print" onclick="window.print()" style="background:#dc2626;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button> <button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button></div>';
+  html += '</body></html>';
+  win.document.open(); win.document.write(html); win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+}
+
 function renderTransferList() {
   var rows = '';
   for (var i = 0; i < DB.transfers.length; i++) {
@@ -7448,6 +7639,7 @@ var PRIVILEGE_MODULES = [
     { id: 'delivery-list',         label: 'Delivery List' },
     { id: 'adjustment-list',       label: 'Adjustment List' },
     { id: 'damage-list',          label: 'Damage List' },
+    { id: 'damage-stock',          label: 'Damage Stock' },
     { id: 'transfer-list',         label: 'Internal Transfer List' }
   ]},
   { id: 'cashbook',   label: 'Cash Book',         icon: 'fa-money-bill-wave', children: [
@@ -8173,6 +8365,7 @@ function renderPage() {
     'delivery-list': renderDeliveryList,
     'adjustment-list': renderAdjustmentList,
     'damage-list': renderDamageList,
+    'damage-stock': renderDamageStock,
     'transfer-list': renderTransferList,
     'cash-in': renderCashIn,
     'cash-out': renderCashOut,
@@ -8219,6 +8412,7 @@ function renderPage() {
     'delivery-list': bindDeliveryEvents,
     'adjustment-list': bindAdjustmentEvents,
     'damage-list': bindDamageEvents,
+    'damage-stock': bindDamageStockEvents,
     'transfer-list': bindTransferEvents,
     'cash-in': bindCashInEvents,
     'cash-out': bindCashOutEvents,
