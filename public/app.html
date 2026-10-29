@@ -6881,167 +6881,91 @@ function filterDeliveryReport() {
 
 // Print the currently-filtered Delivery Report (only visible rows are printed).
 // Honors the Branch / Employee Name / Department filters the user has applied.
-function printDeliveryReport() {
-  var co = DB.company || {};
-  // Read the active filter values for the report header
-  var bh = document.querySelector('[data-sr="filter-branch"] input[type="hidden"]');
-  var eh = document.querySelector('[data-sr="filter-emp"] input[type="hidden"]');
-  var dh = document.querySelector('[data-sr="filter-dept"] input[type="hidden"]');
-  var branchFilter = bh ? (bh.value || 'All Branches') : 'All Branches';
-  var empFilter = eh ? (eh.value || 'All Employees') : 'All Employees';
-  var deptFilter = dh ? (dh.value || 'All Departments') : 'All Departments';
-
-  var table = document.getElementById('main-table');
-  if (!table) { showToast('No table found', 'error'); return; }
-  var allRows = table.querySelectorAll('tbody tr');
-  var visibleCount = 0;
-  var rowsHTML = '';
-  for (var i = 0; i < allRows.length; i++) {
-    var r = allRows[i];
-    // Skip rows hidden by the filter
-    if (r.style.display === 'none') continue;
-    // Skip the grand total row (recompute below)
-    if (r.style.background && r.style.background.indexOf('accent') !== -1) continue;
-    visibleCount++;
-    var cells = r.querySelectorAll('td');
-    // Delivery Report columns: #, Date, Branch, Employee Name, Employee ID,
-    // Department, Product, Brand, Model, Serial, Condition, Warranty, Price,
-    // Qty, Remarks, Status, Actions
-    // For print, drop the Actions column (last cell).
-    var tds = '';
-    for (var c = 0; c < cells.length - 1; c++) {
-      tds += '<td>' + (cells[c] ? cells[c].innerHTML : '') + '</td>';
-    }
-    rowsHTML += '<tr>' + tds + '</tr>';
-  }
-  var stamp = new Date().toLocaleString();
-
-  var win = window.open('', '_blank', 'width=1200,height=800');
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Delivery Report — Print</title><style>';
-  html += '@page { margin: 12mm; }';
-  html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 18px; font-size: 11px; }';
-  html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 12px; margin-bottom: 14px; }';
-  html += '.co-name { font-size: 20px; font-weight: 800; color: #1a5c30; } .co-meta { font-size: 11px; color: #6b7c6b; margin-top: 4px; line-height: 1.5; }';
-  html += '.doc-title { font-size: 18px; font-weight: 700; text-align: right; color: #1a2e1a; } .doc-meta { font-size: 11px; color: #6b7c6b; text-align: right; margin-top: 4px; }';
-  html += '.filters { margin-bottom: 12px; padding: 8px 12px; background: #f5f9f5; border: 1px solid #d4ddd4; border-radius: 8px; font-size: 11px; color: #6b7c6b; }';
-  html += '.filters strong { color: #1a5c30; font-weight: 700; }';
-  html += 'table { width: 100%; border-collapse: collapse; margin-top: 6px; }';
-  html += 'thead th { background: #2d8a4e; color: #fff; padding: 7px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; text-align: left; border: 1px solid #2d8a4e; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }';
-  html += 'tbody td { padding: 6px; font-size: 10px; border: 1px solid #d4ddd4; vertical-align: top; }';
-  html += 'tbody tr:nth-child(even) td { background: #f5f9f5; }';
-  html += '.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; } .badge-green { background: #dcfce7; color: #166534; } .badge-amber { background: #fef3c7; color: #92400e; } .badge-red { background: #fee2e2; color: #991b1b; } .badge-gray { background: #e5e7eb; color: #374151; } .badge-blue { background: #dbeafe; color: #1e40af; }';
-  html += '.foot { margin-top: 18px; display: flex; justify-content: space-between; font-size: 11px; color: #6b7c6b; padding-top: 8px; border-top: 1px solid #d4ddd4; }';
-  html += '.sign { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; } .sign-box { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; min-height: 80px; } .sign-line { border-top: 1px solid #6b7c6b; padding-top: 6px; font-size: 11px; color: #6b7c6b; }';
-  html += '@media print { .no-print { display: none; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }';
-  html += '</style></head><body>';
-
-  // Header
-  html += '<div class="head"><div><div class="co-name">' + (co.name || 'Company Name') + '</div><div class="co-meta">';
-  if (co.address) html += co.address + '<br>';
-  if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
-  if (co.email) html += 'Email: ' + co.email;
-  html += '</div></div><div><div class="doc-title">Delivery Report</div><div class="doc-meta">Printed: ' + stamp + '</div><div class="doc-meta">Total Records: ' + visibleCount + '</div></div></div>';
-
-  // Active filters
-  html += '<div class="filters">Filters applied: &nbsp; <strong>Branch:</strong> ' + branchFilter + ' &nbsp;|&nbsp; <strong>Employee:</strong> ' + empFilter + ' &nbsp;|&nbsp; <strong>Department:</strong> ' + deptFilter + '</div>';
-
-  // Table — replicate Delivery Report column structure (omit the Actions column)
-  html += '<table><thead><tr>';
-  var headers = ['#', 'Date', 'Branch', 'Employee Name', 'Employee ID', 'Department', 'Product', 'Brand', 'Model', 'Serial', 'Condition', 'Warranty', 'Price', 'Qty', 'Remarks', 'Status'];
-  for (var h = 0; h < headers.length; h++) html += '<th>' + headers[h] + '</th>';
-  html += '</tr></thead><tbody>' + rowsHTML + '</tbody></table>';
-
-  // Footer
-  html += '<div class="foot"><span>This is a system-generated Delivery Report from the Assets Management System.</span><span>Page 1</span></div>';
-
-  // Signature lines (matches the pattern from other print docs)
-  html += '<div class="sign">';
-  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Prepared By</div></div>';
-  html += '<div class="sign-box"><div style="font-size:12px;font-weight:600;color:#1a2e1a;margin-bottom:4px;text-align:center;">' + ((currentUser && currentUser.name) ? currentUser.name : '') + '</div><div class="sign-line">Approved By</div></div>';
-  html += '<div class="sign-box"><div class="sign-line">Received By</div></div>';
-  html += '</div>';
-
-  // Print buttons
-  html += '<div style="text-align:center;margin-top:18px;">';
-  html += '<button class="no-print" onclick="window.print()" style="background:#2d8a4e;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>';
-  html += '<button class="no-print" onclick="window.close()" style="background:#6b7c6b;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-left:8px;">Close</button>';
-  html += '</div>';
-
-  html += '</body></html>';
-  // Defensive: check that the popup actually opened (popup blockers may
-  // prevent it). If not, fall back to printing via a hidden iframe.
-  if (!win) {
-    showToast('Popup blocked. Please allow popups for this site to print.', 'error');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  // Set onload BEFORE document.close() so the event fires correctly. Some
-  // browsers fire onload synchronously after document.close(); if we set
-  // onload AFTER document.close(), the event has already fired and the
-  // handler never runs → print dialog never opens.
-  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
-  // Fallback: also schedule a delayed print call in case onload doesn't fire
-  // (e.g. popup opened but onload skipped). This is a no-op if onload already
-  // triggered the print.
-  setTimeout(function() {
-    try {
-      if (win && !win.closed) {
-        win.focus();
-        // Only call print if the document is fully written
-        win.print();
-      }
-    } catch(e) {
-      console.warn('Fallback print failed (this is OK if onload already printed):', e);
-    }
-  }, 800);
-}
-
 // ============================================================================
-// Download Delivery Report as a PDF file (one-click, no print dialog).
-// Uses the browser's built-in print-to-PDF via a hidden iframe:
-//   1. Build the same HTML as printDeliveryReport()
-//   2. Inject into a hidden iframe
-//   3. Call iframe.contentWindow.print() — user picks "Save as PDF" in dialog
+// GENERIC REPORT BUILDERS — used by both Print and PDF download flows.
+// One function builds the printable HTML for any of the 6 report types.
+// Saves duplication: each report's HTML is built ONCE here, then used by:
+//   - printReport(type) → opens print window (existing behavior)
+//   - downloadReportPDF(type) → renders in hidden iframe + opens print dialog
+//                              (browser's "Save as PDF" destination)
 //
-// Why iframe + window.print() instead of jsPDF/html2pdf:
-//   - No external library needed (no extra bundle size / no Vercel bandwidth)
-//   - Pixel-perfect: uses the browser's own PDF renderer (Chromium's print engine)
-//   - Honors @page CSS rules, page breaks, headers — same as the Print window
-//   - Works on every modern browser (Chrome, Edge, Firefox, Safari)
+// Layout: company header + filters summary (if any) + table with the report's
+//         columns + footer + signature lines (Prepared / Approved / Received By)
+//
+// Column specs per type match the on-screen table exactly (so the PDF/print
+// output is identical to what the user sees on screen).
 // ============================================================================
-function downloadDeliveryReportPDF() {
+function buildReportHTML(type) {
   var co = DB.company || {};
-  // Read the active filter values for the report header (same as print)
-  var bh = document.querySelector('[data-sr="filter-branch"] input[type="hidden"]');
-  var eh = document.querySelector('[data-sr="filter-emp"] input[type="hidden"]');
-  var dh = document.querySelector('[data-sr="filter-dept"] input[type="hidden"]');
-  var branchFilter = bh ? (bh.value || 'All Branches') : 'All Branches';
-  var empFilter = eh ? (eh.value || 'All Employees') : 'All Employees';
-  var deptFilter = dh ? (dh.value || 'All Departments') : 'All Departments';
-
-  var table = document.getElementById('main-table');
-  if (!table) { showToast('No table found', 'error'); return; }
-  var allRows = table.querySelectorAll('tbody tr');
-  var visibleCount = 0;
-  var rowsHTML = '';
-  for (var i = 0; i < allRows.length; i++) {
-    var r = allRows[i];
-    if (r.style.display === 'none') continue;
-    if (r.style.background && r.style.background.indexOf('accent') !== -1) continue;
-    visibleCount++;
-    var cells = r.querySelectorAll('td');
-    var tds = '';
-    for (var c = 0; c < cells.length - 1; c++) {
-      tds += '<td>' + (cells[c] ? cells[c].innerHTML : '') + '</td>';
-    }
-    rowsHTML += '<tr>' + tds + '</tr>';
-  }
+  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages, cashIn: DB.cashIn, cashOut: DB.cashOut };
+  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
+  var data = map[type] || [];
   var stamp = new Date().toLocaleString();
+  var fmt = (typeof fmtMoney === 'function') ? fmtMoney : function(n){return (n||0).toLocaleString();};
 
-  // Build the same HTML structure as printDeliveryReport()
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Delivery Report</title><style>';
+  // ----- Build the active filters summary (depends on type) -----
+  var filtersSummary = '';
+  if (type === 'delivery') {
+    var bh = document.querySelector('[data-sr="filter-branch"] input[type="hidden"]');
+    var eh = document.querySelector('[data-sr="filter-emp"] input[type="hidden"]');
+    var dh = document.querySelector('[data-sr="filter-dept"] input[type="hidden"]');
+    var branchFilter = bh ? (bh.value || 'All Branches') : 'All Branches';
+    var empFilter = eh ? (eh.value || 'All Employees') : 'All Employees';
+    var deptFilter = dh ? (dh.value || 'All Departments') : 'All Departments';
+    filtersSummary = '<strong>Branch:</strong> ' + branchFilter + ' &nbsp;|&nbsp; <strong>Employee:</strong> ' + empFilter + ' &nbsp;|&nbsp; <strong>Department:</strong> ' + deptFilter;
+  } else if (type === 'purchase') {
+    var sh = document.querySelector('[data-sr="filter-supplier"] input[type="hidden"]');
+    var ih = document.querySelector('[data-sr="filter-invoice"] input[type="hidden"]');
+    var supFilter = sh ? (sh.value || 'All Suppliers') : 'All Suppliers';
+    var invFilter = ih ? (ih.value || 'All Invoices') : 'All Invoices';
+    var df = document.getElementById('filter-date-from');
+    var dt = document.getElementById('filter-date-to');
+    var dateFilter = '';
+    if ((df && df.value) || (dt && dt.value)) {
+      dateFilter = ' &nbsp;|&nbsp; <strong>Date:</strong> ' + ((df && df.value) || '...') + ' to ' + ((dt && dt.value) || '...');
+    }
+    filtersSummary = '<strong>Supplier:</strong> ' + supFilter + ' &nbsp;|&nbsp; <strong>Invoice:</strong> ' + invFilter + dateFilter;
+  } else {
+    filtersSummary = 'No filters applied';
+  }
+
+  // ----- Build table rows + headers based on type -----
+  var headers = [];
+  var rowsHTML = '';
+  var visibleCount = 0;
+
+  // We pull the visible (filtered) rows straight from the rendered table so
+  // the PDF matches what's on screen exactly — including any search filter.
+  var table = document.getElementById('main-table');
+  if (table) {
+    var allRows = table.querySelectorAll('tbody tr');
+    // Read headers from the rendered thead
+    var thCells = table.querySelectorAll('thead th');
+    for (var h = 0; h < thCells.length; h++) {
+      // Skip the last "Actions" column when generating PDF/print
+      if (h === thCells.length - 1 && thCells[h].textContent.trim() === 'Actions') continue;
+      headers.push(thCells[h].textContent.trim());
+    }
+    for (var i = 0; i < allRows.length; i++) {
+      var r = allRows[i];
+      if (r.style.display === 'none') continue;
+      // Skip the grand total row (it has accent background); we recompute it below
+      if (r.style.background && r.style.background.indexOf('accent') !== -1) continue;
+      var cells = r.querySelectorAll('td');
+      var tds = '';
+      for (var c = 0; c < cells.length; c++) {
+        // Skip the last Actions column when generating PDF/print
+        if (c === cells.length - 1 && headers[c] === undefined) continue;
+        if (c >= headers.length) continue;
+        tds += '<td>' + (cells[c] ? cells[c].innerHTML : '') + '</td>';
+      }
+      rowsHTML += '<tr>' + tds + '</tr>';
+      visibleCount++;
+    }
+  }
+
+  // ----- Assemble the final HTML document -----
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + labels[type] + ' Report</title><style>';
   html += '@page { margin: 12mm; }';
   html += 'body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1a2e1a; margin: 0; padding: 18px; font-size: 11px; }';
   html += '.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2d8a4e; padding-bottom: 12px; margin-bottom: 14px; }';
@@ -7063,19 +6987,18 @@ function downloadDeliveryReportPDF() {
   if (co.address) html += co.address + '<br>';
   if (co.phone) html += 'Phone: ' + co.phone + ' &nbsp; ';
   if (co.email) html += 'Email: ' + co.email;
-  html += '</div></div><div><div class="doc-title">Delivery Report</div><div class="doc-meta">Generated: ' + stamp + '</div><div class="doc-meta">Total Records: ' + visibleCount + '</div></div></div>';
+  html += '</div></div><div><div class="doc-title">' + labels[type] + ' Report</div><div class="doc-meta">Generated: ' + stamp + '</div><div class="doc-meta">Total Records: ' + visibleCount + '</div></div></div>';
 
-  // Active filters
-  html += '<div class="filters">Filters applied: &nbsp; <strong>Branch:</strong> ' + branchFilter + ' &nbsp;|&nbsp; <strong>Employee:</strong> ' + empFilter + ' &nbsp;|&nbsp; <strong>Department:</strong> ' + deptFilter + '</div>';
+  // Filters summary
+  html += '<div class="filters">Filters applied: &nbsp; ' + filtersSummary + '</div>';
 
   // Table
   html += '<table><thead><tr>';
-  var headers = ['#', 'Date', 'Branch', 'Employee Name', 'Employee ID', 'Department', 'Product', 'Brand', 'Model', 'Serial', 'Condition', 'Warranty', 'Price', 'Qty', 'Remarks', 'Status'];
-  for (var h = 0; h < headers.length; h++) html += '<th>' + headers[h] + '</th>';
+  for (var hh = 0; hh < headers.length; hh++) html += '<th>' + headers[hh] + '</th>';
   html += '</tr></thead><tbody>' + rowsHTML + '</tbody></table>';
 
   // Footer
-  html += '<div class="foot"><span>This is a system-generated Delivery Report from the Assets Management System.</span><span>Page 1</span></div>';
+  html += '<div class="foot"><span>This is a system-generated ' + labels[type] + ' Report from the Assets Management System.</span><span>Page 1</span></div>';
 
   // Signature lines
   html += '<div class="sign">';
@@ -7085,25 +7008,41 @@ function downloadDeliveryReportPDF() {
   html += '</div>';
 
   html += '</body></html>';
+  return html;
+}
 
-  // Show feedback toast
+// Print any of the 6 report types in a new window. Replaces the previous
+// printDeliveryReport() function (which is kept as a thin wrapper below so
+// existing call sites continue to work).
+function printReport(type) {
+  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
+  var html = buildReportHTML(type);
+  var win = window.open('', '_blank', 'width=1200,height=800');
+  if (!win) { showToast('Popup blocked. Please allow popups for this site to print.', 'error'); return; }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.onload = function() { setTimeout(function() { win.focus(); win.print(); }, 250); };
+  setTimeout(function() {
+    try { if (win && !win.closed) { win.focus(); win.print(); } } catch(e) { console.warn('Fallback print failed:', e); }
+  }, 800);
+}
+
+// Download any of the 6 report types as a PDF file via hidden iframe + native
+// browser print dialog (user picks "Save as PDF" as the destination).
+function downloadReportPDF(type) {
+  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
+  var html = buildReportHTML(type);
   showToast('Generating PDF... choose "Save as PDF" as destination', 'info');
 
-  // Use a hidden iframe so we don't navigate away from the report page.
-  // We then trigger print() on the iframe — most browsers' print dialog
-  // includes a "Save as PDF" destination, which produces a downloadable PDF
-  // with the same layout as the Print button (no extra libraries needed).
   var existingFrame = document.getElementById('pdf-print-frame');
   if (existingFrame) existingFrame.remove();
 
   var frame = document.createElement('iframe');
   frame.id = 'pdf-print-frame';
   frame.style.position = 'fixed';
-  frame.style.right = '0';
-  frame.style.bottom = '0';
-  frame.style.width = '0';
-  frame.style.height = '0';
-  frame.style.border = '0';
+  frame.style.right = '0'; frame.style.bottom = '0';
+  frame.style.width = '0'; frame.style.height = '0'; frame.style.border = '0';
   document.body.appendChild(frame);
 
   var doc = frame.contentWindow.document;
@@ -7111,30 +7050,21 @@ function downloadDeliveryReportPDF() {
   doc.write(html);
   doc.close();
 
-  // Wait for the iframe's content to render, then trigger print.
-  // Most browsers will offer "Save as PDF" as the default destination.
   frame.onload = function() {
     setTimeout(function() {
-      try {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-      } catch(e) {
-        console.warn('PDF iframe print failed:', e);
-        showToast('Could not auto-open PDF dialog. Try the Print button instead.', 'error');
-      }
+      try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+      catch(e) { console.warn('PDF iframe print failed:', e); showToast('Could not auto-open PDF dialog. Try the Print button instead.', 'error'); }
     }, 350);
   };
-  // Some browsers don't fire onload for same-document iframes; schedule a
-  // fallback print call too.
+  // Fallback in case onload doesn't fire for same-document iframes
   setTimeout(function() {
-    try {
-      if (frame.contentWindow) {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-      }
-    } catch(e) { /* already shown toast on success path */ }
+    try { if (frame.contentWindow) { frame.contentWindow.focus(); frame.contentWindow.print(); } } catch(e) {}
   }, 1200);
 }
+
+// Backward-compatible wrapper for the existing Delivery Report print button
+function printDeliveryReport() { printReport('delivery'); }
+function downloadDeliveryReportPDF() { downloadReportPDF('delivery'); }
 
 function clearDeliveryFilters() {
   // Reset searchable dropdowns
@@ -7316,13 +7246,11 @@ function renderReport(type) {
   html += '<div class="stat-card" style="padding:20px;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
   html += '<div style="font-size:15px;font-weight:700;">Detailed Records</div>';
-  // Group search box + Print button (Print button only on Delivery Report)
+  // Group search box + PDF + Print buttons (PDF and Print available on ALL report types)
   html += '<div style="display:flex;gap:10px;align-items:center;">';
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:240px;" placeholder="Search records..." oninput="filterTable(this.value)"></div>';
-  if (type === 'delivery') {
-    html += '<button class="btn btn-secondary" id="btn-pdf-delivery-report" title="Download PDF" style="border-radius:8px;"><i class="fas fa-file-pdf"></i></button>';
-    html += '<button class="btn btn-secondary" id="btn-print-delivery-report" title="Print Delivery Report" style="border-radius:8px;"><i class="fas fa-print"></i></button>';
-  }
+  html += '<button class="btn btn-secondary" id="btn-pdf-report" title="Download PDF" style="border-radius:8px;"><i class="fas fa-file-pdf"></i></button>';
+  html += '<button class="btn btn-secondary" id="btn-print-report" title="Print Report" style="border-radius:8px;"><i class="fas fa-print"></i></button>';
   html += '</div>';
   html += '</div>';
   html += '<div style="overflow-x:auto;max-height:calc(100vh - 480px);overflow-y:auto;">';
@@ -8571,6 +8499,21 @@ function renderPage() {
   if (currentPage === 'dashboard') initDashboardChart();
   if (currentPage.indexOf('report-') === 0) {
     drawReportPie();
+
+    // Bind generic PDF + Print buttons (available on ALL report types)
+    // The same handlers work for every report type — they read the current page
+    // id (e.g. 'report-purchase') and pass the corresponding type ('purchase')
+    // to downloadReportPDF() / printReport().
+    var reportType = currentPage.replace('report-', '');  // 'purchase', 'delivery', 'adjustment', 'damage', 'cashIn', 'cashOut'
+    var genericPdfBtn = document.getElementById('btn-pdf-report');
+    if (genericPdfBtn) {
+      genericPdfBtn.addEventListener('click', function() { downloadReportPDF(reportType); });
+    }
+    var genericPrintBtn = document.getElementById('btn-print-report');
+    if (genericPrintBtn) {
+      genericPrintBtn.addEventListener('click', function() { printReport(reportType); });
+    }
+
     // Bind searchable dropdown filters for Delivery Report
     if (currentPage === 'report-delivery') {
       injectPurStyles();
@@ -8590,20 +8533,6 @@ function renderPage() {
             revertDelivery(id);
           });
         })(revertBtns[rb]);
-      }
-      // Bind PDF Download button — generates a downloadable PDF via hidden iframe + print dialog
-      var pdfReportBtn = document.getElementById('btn-pdf-delivery-report');
-      if (pdfReportBtn) {
-        pdfReportBtn.addEventListener('click', function() {
-          downloadDeliveryReportPDF();
-        });
-      }
-      // Bind Print button — opens a print-friendly window with the current filtered view
-      var printReportBtn = document.getElementById('btn-print-delivery-report');
-      if (printReportBtn) {
-        printReportBtn.addEventListener('click', function() {
-          printDeliveryReport();
-        });
       }
     }
     // Bind revert buttons for Adjustment Report
