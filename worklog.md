@@ -2054,3 +2054,34 @@ Work Log:
 Stage Summary:
 - Manage Approval submenu labels now say "Purchase Approval", "Delivery Approval", etc.
 - No longer confusingly overlaps with the actual List pages (Purchase List, Delivery List, etc.)
+
+---
+Task ID: 53
+Agent: main (Z.ai)
+Task: Report submenu labels — "X" er pore "Report" add koro
+
+Work Log:
+- User showed screenshot of Manage Report submenu showing old labels:
+  Purchase, Delivery, Adjustment, Damage, Cash In, Cash Out
+- Renamed all 6 labels in const NAV (sidebar):
+    Purchase  → Purchase Report
+    Delivery  → Delivery Report
+    Adjustment → Adjustment Report
+    Damage    → Damage Report
+    Cash In   → Cash In Report
+    Cash Out  → Cash Out Report
+- Also renamed in PRIVILEGE_MODULES (Module Privileges UI for consistency):
+    Report: Purchase  → Purchase Report
+    Report: Delivery  → Delivery Report
+    Report: Adjustment → Adjustment Report
+    Report: Damage     → Damage Report
+    Report: Cash In    → Cash In Report
+    Report: Cash Out   → Cash Out Report
+- Had stash conflict — re-applied edits cleanly
+- node --check passed
+- Committed 6d8da0f and pushed to GitHub main
+- Verified locally with agent-browser: sidebar now shows the new labels ✅
+
+Stage Summary:
+- Manage Report submenu labels now say "Purchase Report", "Delivery Report", etc.
+- Removes ambiguity: 'Purchase' alone could mean either the List page or the Report page
