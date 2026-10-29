@@ -2003,3 +2003,27 @@ Stage Summary:
 - Shows aggregated damaged items grouped by product/serial with totals
 - Print button works with company header + signatures
 - Vercel auto-deploy still works via built-in GitHub integration
+
+---
+Task ID: 51
+Agent: main (Z.ai)
+Task: Damage Stock menu not visible — fix
+
+Work Log:
+- User reported "Damage Stock khuje pai na" (can't find Damage Stock)
+- Used agent-browser to login locally (admin/admin123) and snapshot sidebar
+- Confirmed: Manage Inventory had Delivery List, Adjustment List, Damage List, Internal Transfer List — but NO Damage Stock
+- Root cause: app has TWO arrays:
+  - `const NAV` (line 259) — used by sidebar to render menu items
+  - `PRIVILEGE_MODULES` (line 7615) — used by Module Privileges UI for permission matrix
+  - Task 50 commit only added damage-stock to PRIVILEGE_MODULES but MISSED the active const NAV
+- Fix: added `{ id: 'damage-stock', label: 'Damage Stock' }` to const NAV (line 286, after damage-list)
+- node --check passed; committed 04a16f5 and pushed to GitHub main
+- Verified locally: agent-browser login → sidebar now shows Damage Stock under Manage Inventory between Damage List and Internal Transfer List ✅
+- Verified: navigate('damage-stock') renders the page with title "Damage Stock" and stat cards ✅
+- Screenshot saved: /home/z/my-project/download/damage-stock-page.png
+
+Stage Summary:
+- Damage Stock menu now appears in the sidebar under Manage Inventory
+- Page renders correctly with the 3 stat cards and table
+- User needs to hard refresh (Ctrl+Shift+R) to see the new menu after Vercel unpauses
