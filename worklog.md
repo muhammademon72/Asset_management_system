@@ -2027,3 +2027,30 @@ Stage Summary:
 - Damage Stock menu now appears in the sidebar under Manage Inventory
 - Page renders correctly with the 3 stat cards and table
 - User needs to hard refresh (Ctrl+Shift+R) to see the new menu after Vercel unpauses
+
+---
+Task ID: 52
+Agent: main (Z.ai)
+Task: Approval submenu labels — "List" bad diye "Approval" add koro
+
+Work Log:
+- User showed screenshot of Manage Approval submenu showing old labels:
+  Purchase List, Delivery List, Adjustment List, Damage List
+- Renamed all 4 labels in const NAV (sidebar):
+    Purchase List   → Purchase Approval
+    Delivery List   → Delivery Approval
+    Adjustment List → Adjustment Approval
+    Damage List     → Damage Approval
+- Also renamed in PRIVILEGE_MODULES (Module Privileges UI for consistency):
+    Approval: Purchase   → Purchase Approval
+    Approval: Delivery   → Delivery Approval
+    Approval: Adjustment → Adjustment Approval
+    Approval: Damage     → Damage Approval
+- node --check passed
+- Had to handle git rebase conflict — reset --soft to origin/main then re-applied the edit
+- Committed 8779914 and pushed to GitHub main
+- Verified locally with agent-browser: sidebar now shows the new labels ✅
+
+Stage Summary:
+- Manage Approval submenu labels now say "Purchase Approval", "Delivery Approval", etc.
+- No longer confusingly overlaps with the actual List pages (Purchase List, Delivery List, etc.)
