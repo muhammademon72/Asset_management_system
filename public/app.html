@@ -303,6 +303,7 @@ const NAV = [
     { id: 'report-damage', label: 'Damage Report' },
     { id: 'report-cash-in', label: 'Cash In Report' },
     { id: 'report-cash-out', label: 'Cash Out Report' },
+    { id: 'report-invoice', label: 'Invoice Report' },
   ]},
   { id: 'sell', label: 'Manage Sell', icon: 'fa-handshake', children: [
     { id: 'quotation-list', label: 'Sell Proposal' },
@@ -7171,10 +7172,10 @@ function revertDamage(dmgId) {
 }
 
 function renderReport(type) {
-  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages, cashIn: DB.cashIn, cashOut: DB.cashOut };
-  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out' };
+  var map = { purchase: DB.purchases, delivery: DB.deliveries, adjustment: DB.adjustments, damage: DB.damages, cashIn: DB.cashIn, cashOut: DB.cashOut, invoice: DB.invoices };
+  var labels = { purchase: 'Purchase', delivery: 'Delivery', adjustment: 'Adjustment', damage: 'Damage', cashIn: 'Cash In', cashOut: 'Cash Out', invoice: 'Invoice' };
   var data = map[type] || [];
-  var total = (type === 'purchase') ? data.reduce(function(s,d){return s+(d.total||0);}, 0) : (type === 'cashIn' || type === 'cashOut') ? data.reduce(function(s,d){return s+(d.amount||0);}, 0) : data.reduce(function(s,d){return s+(d.qty||0);}, 0);
+  var total = (type === 'purchase' || type === 'invoice') ? data.reduce(function(s,d){return s+(d.total||0);}, 0) : (type === 'cashIn' || type === 'cashOut') ? data.reduce(function(s,d){return s+(d.amount||0);}, 0) : data.reduce(function(s,d){return s+(d.qty||0);}, 0);
   var approved = data.filter(function(d){return d.status==='Approved';}).length;
   var pending = data.filter(function(d){return d.status==='Pending';}).length;
   var rejected = data.filter(function(d){return d.status==='Rejected';}).length;
@@ -7433,6 +7434,37 @@ function renderReport(type) {
     html += '<td colspan="3" style="text-align:right;padding:10px;font-size:13px;color:var(--accent-dark);">Grand Total (' + data.length + ' entries):</td>';
     html += '<td style="text-align:right;padding:10px;font-size:14px;color:' + (isCashIn ? 'var(--accent-dark)' : 'var(--danger)') + ';">' + fmt(cashGrandTotal) + '</td>';
     html += '<td colspan="2"></td>';
+    html += '</tr>';
+  } else if (type === 'invoice') {
+    // Invoice Report columns:
+    // Date, Invoice No, Customer, Subject, Total Amount, Status
+    html += '<th>#</th>';
+    html += '<th>Date</th>';
+    html += '<th>Invoice No</th>';
+    html += '<th>Customer</th>';
+    html += '<th>Subject</th>';
+    html += '<th style="text-align:right;">Total Amount</th>';
+    html += '<th>Status</th>';
+    html += '</tr></thead><tbody>';
+    var invGrandTotal = 0;
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      invGrandTotal += (d.total || 0);
+      html += '<tr>';
+      html += '<td style="text-align:center;color:var(--muted);font-weight:600;">' + (i+1) + '</td>';
+      html += '<td>' + (d.date || '-') + '</td>';
+      html += '<td style="font-weight:600;color:var(--info);">' + (d.invoiceNo || '-') + '</td>';
+      html += '<td style="font-weight:600;">' + (d.customer || '-') + '</td>';
+      html += '<td>' + (d.subject || '-') + '</td>';
+      html += '<td style="text-align:right;font-weight:700;color:var(--accent);">' + fmt(d.total || 0) + '</td>';
+      html += '<td>' + statusBadge(d.status || 'Draft') + '</td>';
+      html += '</tr>';
+    }
+    // Grand total row
+    html += '<tr style="background:var(--accent-light);font-weight:800;">';
+    html += '<td colspan="5" style="text-align:right;padding:10px;font-size:13px;color:var(--accent-dark);">Grand Total (' + data.length + ' invoices):</td>';
+    html += '<td style="text-align:right;padding:10px;font-size:14px;color:var(--accent-dark);">' + fmt(invGrandTotal) + '</td>';
+    html += '<td></td>';
     html += '</tr>';
   } else {
     html += '</tr></thead><tbody>';
@@ -7726,7 +7758,8 @@ var PRIVILEGE_MODULES = [
     { id: 'report-adjustment',    label: 'Adjustment Report' },
     { id: 'report-damage',        label: 'Damage Report' },
     { id: 'report-cash-in',       label: 'Cash In Report' },
-    { id: 'report-cash-out',      label: 'Cash Out Report' }
+    { id: 'report-cash-out',      label: 'Cash Out Report' },
+    { id: 'report-invoice',       label: 'Invoice Report' }
   ]},
   { id: 'sell',       label: 'Sell',              icon: 'fa-handshake', children: [
     { id: 'quotation-list',       label: 'Sell Proposal' },
@@ -8447,6 +8480,7 @@ function renderPage() {
     'report-damage': function() { return renderReport('damage'); },
     'report-cash-in': function() { return renderReport('cashIn'); },
     'report-cash-out': function() { return renderReport('cashOut'); },
+    'report-invoice': function() { return renderReport('invoice'); },
     'company-profile': renderCompanyProfile,
     'user-list': renderUserList,
     'quotation-list': renderQuotationList,
