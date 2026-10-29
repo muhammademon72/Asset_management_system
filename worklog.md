@@ -2085,3 +2085,35 @@ Work Log:
 Stage Summary:
 - Manage Report submenu labels now say "Purchase Report", "Delivery Report", etc.
 - Removes ambiguity: 'Purchase' alone could mean either the List page or the Report page
+
+---
+Task ID: 54
+Agent: main (Z.ai)
+Task: Delivery Report — Print icon er Left side PDF Download icon add koro
+
+Work Log:
+- Located Delivery Report header in renderReport('delivery') (line 7323)
+- Added new PDF Download button (fa-file-pdf icon, red) LEFT of the existing Print button
+- Button id: btn-pdf-delivery-report
+- Implemented downloadDeliveryReportPDF():
+  * Same HTML structure as printDeliveryReport() — company header, filters summary,
+    table with all 16 columns, signature blocks (Prepared/Approved/Received By)
+  * Renders into a hidden iframe (no page navigation, no popup blocker issue)
+  * Triggers iframe.contentWindow.print() — browser's native "Save as PDF"
+    destination in print dialog
+  * No external libraries (jsPDF/html2pdf) → no extra bundle size, no Vercel bandwidth
+  * Toast: "Generating PDF... choose Save as PDF as destination"
+  * Fallback: schedule print 1.2s later in case iframe onload doesn't fire
+- Bound button in renderPage() — calls downloadDeliveryReportPDF()
+- node --check passed; committed e33dc5a and pushed to GitHub main
+- Verified locally with agent-browser:
+  * PDF btn title: "Download PDF" ✅
+  * Print btn title: "Print Delivery Report" ✅
+  * Both buttons present on Delivery Report page ✅
+
+Stage Summary:
+- Delivery Report now has two icons side-by-side: [PDF Icon] [Print Icon]
+- PDF icon on LEFT (red), Print icon on RIGHT (existing blue)
+- Same report content, two output modes:
+  - Print → opens new window with print dialog
+  - PDF → renders in hidden iframe, opens print dialog (user picks "Save as PDF")
