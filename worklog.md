@@ -2117,3 +2117,42 @@ Stage Summary:
 - Same report content, two output modes:
   - Print → opens new window with print dialog
   - PDF → renders in hidden iframe, opens print dialog (user picks "Save as PDF")
+
+---
+Task ID: 55
+Agent: main (Z.ai)
+Task: Purchase, Adjustment, Damage, Cash In, Cash Out Report e PDF + Print icon add koro (sob 6 ta)
+
+Work Log:
+- User requested: add PDF Download icon to the right of the search box on
+  Purchase Report, Adjustment Report, Damage Report, Cash In Report, Cash Out Report
+- Refactored to a generic report-printing framework so all 6 reports share one code path:
+  * buildReportHTML(type) → reads visible rows + headers from rendered #main-table
+    (so PDF matches on-screen filtered view exactly)
+  * printReport(type) → opens new window + triggers print dialog
+  * downloadReportPDF(type) → renders in hidden iframe + opens print dialog
+    (user picks "Save as PDF" as destination)
+- Removed the old Delivery-only printDeliveryReport() and downloadDeliveryReportPDF()
+  bodies — kept thin wrappers (printDeliveryReport → printReport('delivery')) for
+  backward compatibility
+- Replaced Delivery-only button IDs (btn-pdf-delivery-report / btn-print-delivery-report)
+  with generic IDs (btn-pdf-report / btn-print-report) rendered for every report type
+- Added generic binder in renderPage(): when currentPage starts with 'report-', binds
+  the PDF + Print buttons to downloadReportPDF(reportType) / printReport(reportType)
+- Removed old Delivery-specific button binding block
+- node --check passed; committed 677bddf and pushed to GitHub main
+- Verified locally with agent-browser — all 6 report pages have both buttons:
+  * report-purchase:    PDF=Download PDF | Print=Print Report ✅
+  * report-delivery:    PDF=Download PDF | Print=Print Report ✅
+  * report-adjustment:  PDF=Download PDF | Print=Print Report ✅
+  * report-damage:      PDF=Download PDF | Print=Print Report ✅
+  * report-cash-in:     PDF=Download PDF | Print=Print Report ✅
+  * report-cash-out:    PDF=Download PDF | Print=Print Report ✅
+
+Stage Summary:
+- Every report page (Purchase/Delivery/Adjustment/Damage/Cash In/Cash Out) now shows
+  [📄 PDF] [🖨 Print] icons on the right of the search box
+- PDF icon (red, fa-file-pdf) → opens print dialog, user picks "Save as PDF"
+- Print icon (fa-print) → opens new window with print-friendly layout
+- Same column structure as the on-screen table — PDF/print output matches what user sees
+- Code reduced from 6 separate ~80-line print functions to one 130-line generic builder
