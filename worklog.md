@@ -2156,3 +2156,38 @@ Stage Summary:
 - Print icon (fa-print) → opens new window with print-friendly layout
 - Same column structure as the on-screen table — PDF/print output matches what user sees
 - Code reduced from 6 separate ~80-line print functions to one 130-line generic builder
+
+---
+Task ID: 56
+Agent: main (Z.ai)
+Task: Cash Out Report er niche Invoice Report menu add koro
+
+Work Log:
+- Added Invoice Report submenu under Manage Report (after Cash Out Report):
+    { id: 'report-invoice', label: 'Invoice Report' }
+- Added to BOTH:
+  * const NAV (sidebar, line 306)
+  * PRIVILEGE_MODULES (Module Privileges UI, line 7762)
+- Registered in PAGE_RENDERERS:
+    'report-invoice': function() { return renderReport('invoice'); }
+- Extended renderReport() to handle 'invoice' type:
+  * Added to map: invoice: DB.invoices
+  * Added to labels: invoice: 'Invoice'
+  * Stat card total uses d.total (matches Invoice List page behavior)
+- Added Invoice column block to renderReport():
+  * Columns: # | Date | Invoice No | Customer | Subject | Total Amount | Status
+  * Total Amount formatted with fmt() and accent color (green, like other money columns)
+  * Grand total row at the bottom summing all invoice totals
+  * Status uses statusBadge() (Pending/Approved/Rejected colors)
+- Generic PDF + Print binder automatically wires buttons (already added in Task 55)
+- node --check passed; committed e4f7af6 and pushed to GitHub main
+- Verified locally with agent-browser:
+  * Manage Report sidebar now shows 7 items including Invoice Report ✅
+  * Page title: "Invoice Report" ✅
+  * PDF button: Download PDF ✅
+  * Print button: Print Report ✅
+
+Stage Summary:
+- New Invoice Report menu shows all invoices with grand total
+- Reuses the same generic report framework (PDF + Print work out of the box)
+- Inherits 'report' parent module permissions (Super Admin sees all)
