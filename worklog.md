@@ -2382,3 +2382,49 @@ Stage Summary:
   3. Upload attachment (large) → /api/attachment endpoint → Turso attachments table ✅
   4. Delete entry → both local and server reflect deletion ✅
 - User can confidently use https://assetsys.space-z.ai — every action saves to Turso
+
+---
+Task ID: 61
+Agent: main (Z.ai)
+Task: Turso er পুরনো ডাটা এখানে (local) রিস্টোর করো
+
+Work Log:
+- Created scripts/restore-to-local-db.js to restore backup to local SQLite database
+- Backup source: upload/assets-backup-20261026-075311.json (3.83 MB)
+- Target: db/custom.db (local SQLite, used by `npm run dev`)
+- Steps:
+  1. Loaded backup JSON (21 collections)
+  2. Created app_data table if missing
+  3. Built DB shape — preserved admin/admin123 user + 5 default roles
+  4. INSERT OR REPLACE into app_data with id='main'
+  5. Verified by re-reading from local DB
+
+Verification (local DB now has):
+  - branches: 31 ✅
+  - employees: 136 ✅
+  - departments: 31 ✅
+  - designations: 31 ✅
+  - products: 123 ✅
+  - categories: 26 ✅
+  - brands: 173 ✅
+  - uoms: 4 ✅
+  - conditions: 3 ✅
+  - warranties: 14 ✅
+  - suppliers: 116 ✅
+  - purchases: 129 ✅
+  - deliveries: 99 ✅
+  - users: 3 ✅ (admin/admin123 preserved)
+  - roles: 6 ✅
+  - company: "ASRG IT DEPARTMENT" ✅
+
+Browser verification (agent-browser on http://localhost:3000):
+  - Login admin/admin123 → SUCCESS ✅
+  - DB loaded from local SQLite (not Turso)
+  - All collections visible with correct counts
+  - Purchase List: 25 rows visible (first: A001INV26004851, Reveal Ict, ৳1,700) ✅
+
+Stage Summary:
+- Local environment now has all data from the backup file
+- App can be run offline with `npm run dev` and http://localhost:3000/app.html
+- Data persists in db/custom.db (local SQLite file)
+- No internet connection needed to use the app
