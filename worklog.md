@@ -2223,3 +2223,35 @@ Stage Summary:
 - Any data entered through the website saves to Turso automatically
 - All latest features (Damage Stock, Invoice Report, PDF download) are live
 - User can log in with admin/admin123 and start using the system
+
+---
+Task ID: 58
+Agent: main (Z.ai)
+Task: পুরনো ডাটা assetsys.space-z.ai এ রিস্টোর করো
+
+Work Log:
+- Used backup file: upload/assets-backup-20261026-075311.json (3.9 MB)
+- Created scripts/restore-to-space-z.js that:
+  1. Reads backup JSON (collections: 21)
+  2. Fetches current server DB to preserve admin/admin123 user + roles
+  3. Merges backup users/roles with server's existing admin user
+  4. POSTs the normalized DB shape to https://assetsys.space-z.ai/api/db
+  5. Verifies by re-fetching
+- Restore completed successfully:
+  * HTTP 200 from /api/db POST
+  * Response: {"ok":true,"updatedAt":"2026-10-30 02:48:48"}
+- Verification (via agent-browser login):
+  * branches: 31 ✅
+  * employees: 136 ✅
+  * products: 123 ✅
+  * purchases: 129 ✅
+  * deliveries: 99 ✅
+  * suppliers: 116 ✅
+  * users: 3 (admin/admin123 preserved + 2 from backup) ✅
+  * roles: 6 ✅
+- Screenshot saved: data-restored-space-z.png
+
+Stage Summary:
+- All historical data is now live on https://assetsys.space-z.ai
+- User can log in with admin/admin123 (Super Admin)
+- Backup users also preserved (3 total)
