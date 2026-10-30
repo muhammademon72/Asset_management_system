@@ -2519,3 +2519,49 @@ Stage Summary:
 - Branch List, Employee List, Purchase List etc. all show real data
 - The storage DOES persist (verified with testKey write)
 - Note: storage is the Z.ai function compute's own DB, not the user's Turso cloud DB
+
+---
+Task ID: 64
+Agent: main (Z.ai)
+Task: Purchase List er SN 7 theke 25 Number er Attachment File open hoy na
+
+Work Log:
+- Investigated attachment issue on https://assetsys.space-z.ai
+- Checked all purchases' attachment status:
+  * 7 purchases have attachment WITH data (SN 1, 2, 14, 15, 16, 18, 19) — these work
+  * 83 purchases have attachment METADATA (name, id, apiStored:true) but NO file data
+  * These were originally stored on Vercel's separate /api/attachment table
+    which was NOT included in the backup file
+
+- Root cause confirmed:
+  * Backup file only contains attachment metadata (name, type, size, id)
+  * Actual file content (base64 data) was stored in Vercel's /api/attachment table
+  * When restored to assetsys.space-z.ai, the metadata is there but files aren't
+  * User clicks View → server returns 404 "Attachment not found" → silent failure
+
+- Fix applied in code (commit 379dc70):
+  * Updated loadAndPreviewAttachment() and loadAndDownloadAttachment()
+  * When server returns "Attachment not found", close the current modal
+  * Open the standard Re-upload File modal (reuploadAttachment())
+  * Pre-populate with original file metadata (name, type, size)
+  * User can immediately re-upload the file
+
+- Verified the missing attachment IDs:
+  * SN 7 (invoice A001INV26004691) — file "A001INV26004691.jpg" missing
+  * SN 8-13 (invoice 2022004320) — file missing on SN 3-13 (siblings)
+  * SN 17 (invoice A0011NV21003665) — missing on rows 17, 20-30+
+  * All invoices from SN 7 onwards are affected (in grouped view)
+
+- Z.ai deployment still has OLD code:
+  * Pushed fix to GitHub (commit 379dc70)
+  * But Z.ai doesn't auto-deploy from GitHub (it's a separate deployment)
+  * User needs to either:
+    1. Re-upload files manually via Edit Purchase → Attachment
+    2. Or wait until Vercel unpauses (Nov 1) — files are still in Vercel's
+       /api/attachment table on Turso (different DB)
+
+Stage Summary:
+- Identified root cause: 83 attachments have metadata but no file content
+- Code fix pushed to GitHub (opens Re-upload modal on missing file)
+- Z.ai deployment can't be updated by me — user needs to re-upload manually
+- 7 purchases have working attachments (SN 1, 2, 14, 15, 16, 18, 19)
