@@ -590,7 +590,29 @@ async function loadAndPreviewAttachment(attachInfo) {
     full.type = full.type || attachInfo.type;
     previewAttachment(full);
   } catch(e) {
-    showToast('Could not load attachment: ' + e.message, 'error');
+    // Attachment file is missing from the server (this happens when the file
+    // was originally uploaded to a different deployment's /api/attachment table
+    // — e.g., Vercel's separate attachment table that wasn't included in the
+    // backup). Show a clear, actionable error with a Re-upload option.
+    closeModal();
+    setTimeout(function() {
+      // Use the existing reuploadAttachment() flow if it's available in the
+      // current context — it requires window._reuploadContext to be set.
+      // We populate it here from the attachInfo metadata.
+      window._reuploadContext = {
+        type: 'purchase',
+        invoice: (attachInfo.invoice || ''),
+        attachName: attachInfo.name,
+        attachType: attachInfo.type,
+        attachSize: attachInfo.size
+      };
+      // Open the standard re-upload modal
+      if (typeof reuploadAttachment === 'function') {
+        reuploadAttachment('purchase');
+      } else {
+        showToast('Attachment file not found on server. Please re-upload the file from the Edit screen.', 'error');
+      }
+    }, 100);
   }
 }
 
@@ -604,7 +626,22 @@ async function loadAndDownloadAttachment(attachInfo) {
     full.type = full.type || attachInfo.type;
     downloadAttachment(full);
   } catch(e) {
-    showToast('Could not load attachment: ' + e.message, 'error');
+    // Same handling as loadAndPreviewAttachment — show actionable error
+    closeModal();
+    setTimeout(function() {
+      window._reuploadContext = {
+        type: 'purchase',
+        invoice: (attachInfo.invoice || ''),
+        attachName: attachInfo.name,
+        attachType: attachInfo.type,
+        attachSize: attachInfo.size
+      };
+      if (typeof reuploadAttachment === 'function') {
+        reuploadAttachment('purchase');
+      } else {
+        showToast('Attachment file not found on server. Please re-upload the file from the Edit screen.', 'error');
+      }
+    }, 100);
   }
 }
 
