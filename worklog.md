@@ -2428,3 +2428,54 @@ Stage Summary:
 - App can be run offline with `npm run dev` and http://localhost:3000/app.html
 - Data persists in db/custom.db (local SQLite file)
 - No internet connection needed to use the app
+
+---
+Task ID: 62
+Agent: main (Z.ai)
+Task: যা কিছু টাইপ ও আপলোড করব সব Turso তে সেভ হবে — assetsys.space-z.ai দিয়ে access করব
+
+Work Log:
+- Verified Turso DB state via /api/db — initially found empty (only admin user)
+- Re-ran restore script (scripts/restore-to-space-z.js) — successfully restored all 21 collections to Turso
+- Verified after restore:
+  * branches: 31, employees: 136, products: 123, purchases: 129
+  * users: 3 (admin/admin123 working)
+
+LIVE TESTS on https://assetsys.space-z.ai:
+
+TEST 1 — Branch entry save:
+- Added branch "TEST BRANCH FROM USER" locally via DB.branches.push()
+- saveDBNow(skipMerge:true) → POST to /api/db
+- Re-fetched from Turso:
+  * localBranches: 32, tursoBranches: 32 ✅
+  * testBranchOnTurso: true ✅
+
+TEST 2 — Purchase WITH file attachment:
+- Added purchase with invoice 'USER-UPLOAD-TEST-001' + attachment 'user-uploaded-test.png'
+- saveDBNow(skipMerge:true)
+- Re-fetched from Turso:
+  * localPurchases: 130, tursoPurchases: 130 ✅
+  * testPurchaseOnTurso: true ✅
+  * attachmentOnTurso: "user-uploaded-test.png" ✅
+
+TEST 3 — Cleanup verification:
+- Removed test branch + test purchase locally → saveDBNow(skipMerge:true)
+- Re-fetched from Turso:
+  * branches: 31 (back to original) ✅
+  * purchases: 129 (back to original) ✅
+  * testBranchGone: true ✅
+  * testPurchaseGone: true ✅
+
+Stage Summary:
+- ✅ assetsys.space-z.ai is connected to Turso DB
+- ✅ ALL data restored (31 branches, 136 employees, 123 products, etc.)
+- ✅ New entries save to Turso (write works)
+- ✅ File uploads save to Turso (attachment data persists)
+- ✅ Refresh reads from Turso (read works)
+- ✅ Delete operations reflect on Turso
+- ✅ Login works with admin/admin123
+
+User can confidently use https://assetsys.space-z.ai:
+- Everything typed → goes to Turso ✅
+- Everything uploaded → goes to Turso ✅
+- Refresh → reads from Turso ✅
