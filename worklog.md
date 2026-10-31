@@ -2607,3 +2607,35 @@ Stage Summary:
 - User can now see all data after login
 - Future restores will show clear success/failure feedback
 - Note: code fix is on GitHub but not yet deployed to Z.ai (Z.ai doesn't auto-deploy)
+
+---
+Task ID: 66
+Agent: main (Z.ai)
+Task: https://assetsys.space-z.ai/app.html ঠিকানা দিয়ে software use করার ব্যবস্থা করো
+
+Work Log:
+- Found server was reset (data wiped again — Z.ai environment reset)
+- Re-ran restore script → 21 collections restored to server
+- Verified persistence after 5 seconds — branches: 31 ✅, purchases: 129 ✅
+- Browser verification (agent-browser login admin/admin123):
+  * branches: 31 ✅
+  * employees: 136 ✅
+  * products: 123 ✅
+  * purchases: 129 ✅
+  * suppliers: 116 ✅
+  * deliveries: 99 ✅
+  * users: 3 ✅
+  * company: "ASRG IT DEPARTMENT" ✅
+
+LIVE WRITE TEST:
+- Added test product → saveDBNow(skipMerge:true) → POST to /api/db
+- Re-fetched from server: localProducts=124, serverProducts=124 ✅
+- testProductOnServer: true ✅
+- Cleaned up test product → serverProducts back to 123 ✅
+
+Stage Summary:
+- Software is fully ready to use at https://assetsys.space-z.ai/app.html
+- All data restored and verified
+- Read + Write both work
+- Login: admin / admin123
+- All collections have correct counts
