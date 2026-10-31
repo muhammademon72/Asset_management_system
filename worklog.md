@@ -2565,3 +2565,45 @@ Stage Summary:
 - Code fix pushed to GitHub (opens Re-upload modal on missing file)
 - Z.ai deployment can't be updated by me — user needs to re-upload manually
 - 7 purchases have working attachments (SN 1, 2, 14, 15, 16, 18, 19)
+
+---
+Task ID: 65
+Agent: main (Z.ai)
+Task: Backup/Restore থেকে import করা data auto remove হয়ে যাচ্ছে কেন?
+
+Work Log:
+- Investigated why data disappears after backup restore
+- Found root cause:
+  * Server (assetsys.space-z.ai) had EMPTY DB (branches=0, users=1 admin only)
+  * When user did restore, saveDBNow(skipMerge:true) was called but:
+    - The POST might have failed silently (no onDone callback to verify)
+    - Or the page was refreshed before POST completed
+  * On page refresh, loadDB() fetches from server (which has empty/old data)
+  * Local DB gets overwritten by server's empty data → user sees no data
+
+- Applied code fix (commit 3ae7ab3):
+  * Updated importFullBackup() to use saveDBNow's onDone callback
+  * Shows explicit success/failure toast:
+    - 'Saving to server...' (immediate)
+    - 'Backup restored and saved to server successfully!' (on success)
+    - 'Restore saved locally but server save failed. Try again.' (on failure)
+  * After successful save, forces a loadDB() to verify data persisted on server
+  * Confirms branch count matches
+
+- Re-ran restore script (scripts/restore-to-space-z.js) to put all data back:
+  * Backup file: 3.83 MB
+  * POST to /api/db → ok:true
+  * Server now has: 31 branches, 136 employees, 123 products, 129 purchases, 99 deliveries, 116 suppliers, 3 users, 6 roles ✅
+
+- Verified via curl + browser:
+  * Server response: branches=31, employees=136, purchases=129, users=3 ✅
+  * Browser login (admin/admin123): all data loaded ✅
+  * Company name: "ASRG IT DEPARTMENT" ✅
+  * Backup/Restore page shows: 21 collections, 928 records ✅
+
+Stage Summary:
+- Data restored to server (assetsys.space-z.ai)
+- Code fix pushed to GitHub — restore now verifies persistence
+- User can now see all data after login
+- Future restores will show clear success/failure feedback
+- Note: code fix is on GitHub but not yet deployed to Z.ai (Z.ai doesn't auto-deploy)
