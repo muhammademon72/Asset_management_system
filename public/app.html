@@ -8376,8 +8376,27 @@ function importFullBackup(evt) {
           }
         }
         if (imported.company && typeof imported.company === 'object') DB.company = imported.company;
-        closeModal(); showToast('Restored ' + restoredCount + ' records (' + mode + ' mode)'); renderPage();
-        saveDBNow(null, { skipMerge: true });
+        closeModal();
+        showToast('Restored ' + restoredCount + ' records (' + mode + ' mode). Saving to server...');
+        renderPage();
+        // CRITICAL: Save with skipMerge:true so the restored data overwrites
+        // the server's empty/old DB directly (no GET-merge step that could
+        // re-add deleted rows or merge in stale data).
+        // Use the onDone callback to confirm the save actually completed.
+        saveDBNow(function(res) {
+          if (res && res.ok) {
+            showToast('Backup restored and saved to server successfully!', 'success');
+            // Force a reload from server to confirm persistence
+            setTimeout(function() {
+              loadDB(function() {
+                showToast('Data reloaded from server — verified ' + DB.branches.length + ' branches', 'info');
+                renderPage();
+              });
+            }, 1000);
+          } else {
+            showToast('Restore saved locally but server save failed. Try again.', 'error');
+          }
+        }, { skipMerge: true });
       });
     } catch (err) {
       showToast('Invalid JSON: ' + err.message, 'error');
