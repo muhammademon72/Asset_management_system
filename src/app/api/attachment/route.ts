@@ -9,8 +9,14 @@ const globalForLibsql = globalThis as unknown as { libsqlClient?: ReturnType<typ
 
 function getLibsqlClient() {
   if (globalForLibsql.libsqlClient) return globalForLibsql.libsqlClient;
-  const url = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL || "file:./db/custom.db";
-  const authToken = process.env.DATABASE_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN || "";
+  // FALLBACK: hardcoded Turso credentials so attachment storage is also
+  // persistent across Z.ai server resets.
+  const url = process.env.DATABASE_URL
+    || process.env.TURSO_DATABASE_URL
+    || "libsql://assetmanagementsystem-muhammademon72.aws-ap-south-1.turso.io";
+  const authToken = process.env.DATABASE_AUTH_TOKEN
+    || process.env.TURSO_AUTH_TOKEN
+    || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI4NjIwNjEsImlkIjoiMDFhMTVkZTgtNTQwMS03NzMyLWEwNzYtOTQ4MTk3MzI2NTFjIiwia2lkIjoiUHV4RTlyWXVaVmtqaVpMZlFRVUlTa0JlaU56RXNmdG5Xdmg5QTBib3Y5dyIsInJpZCI6Ijc1ZjE4MjY5LTE1YjItNDkyNy1hY2QxLTk1ZDA3ZjM4NTY1ZiJ9.gq4PAE8Kkgffsmqlb_6hSQ0aCv8hIBKijw0ABQLWMFilBfQOg1Gtra9UdttnJZRk53P-qBFm48NhkWrGRAqfCA";
   const client = createClient({ url, authToken: authToken || undefined });
   if (process.env.NODE_ENV !== "production") {
     globalForLibsql.libsqlClient = client;
