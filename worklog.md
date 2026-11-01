@@ -2639,3 +2639,52 @@ Stage Summary:
 - Read + Write both work
 - Login: admin / admin123
 - All collections have correct counts
+
+---
+Task ID: 67
+Agent: main (Z.ai)
+Task: এখানের যা কিছু এন্ট্রি করব কোন কিছু যেন অটো ডিলিট না হয়
+
+Work Log:
+- Root cause confirmed: Z.ai server was using 'file:./db/custom.db' (local SQLite
+  that gets wiped on every server reset). All 3 previous restores were lost.
+
+PERMANENT SOLUTION APPLIED:
+1. Created scripts/restore-to-turso-direct.js:
+   - Bypasses Z.ai's /api/db route entirely
+   - Writes directly to Turso cloud DB using libsql client
+   - Successfully wrote 3.83 MB of backup data to Turso
+   - Verified: branches=31, employees=136, products=123, purchases=129, deliveries=99 ✅
+
+2. Modified src/app/api/db/route.ts:
+   - Changed fallback chain to use hardcoded Turso URL + token
+   - Was: process.env.DATABASE_URL || 'file:./db/custom.db'
+   - Now: process.env.DATABASE_URL || ... || 'libsql://assetmanagementsystem-...turso.io'
+   - Even if Z.ai env vars are missing, the route connects directly to Turso
+
+3. Modified src/app/api/attachment/route.ts:
+   - Same hardcoded Turso fallback for attachment storage
+   - Attachments now persist in Turso's attachments table
+
+Verification of Turso (permanent storage):
+  - updated_at: 2026-11-01 10:52:06
+  - branches: 31 ✅
+  - employees: 136 ✅
+  - products: 123 ✅
+  - purchases: 129 ✅
+  - deliveries: 99 ✅
+  - users: 3 ✅
+  - company: "ASRG IT DEPARTMENT" ✅
+
+Code pushed to GitHub (commit bb68887).
+IMPORTANT: This fix only takes effect on platforms that auto-deploy from
+GitHub (Render, Vercel, Cloudflare). Z.ai doesn't auto-deploy from GitHub,
+so the fix won't be live on assetsys.space-z.ai until the user either:
+- Sets env vars in Z.ai dashboard, OR
+- Deploys to Render/Cloudflare (which auto-deploy from GitHub)
+
+Stage Summary:
+- Turso now has all data permanently (verified)
+- Code fix pushed — will work on Render/Vercel/Cloudflare
+- Z.ai server will still reset until env vars are set there
+- Recommend: deploy to Render for permanent fix
