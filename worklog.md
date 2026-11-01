@@ -2688,3 +2688,44 @@ Stage Summary:
 - Code fix pushed — will work on Render/Vercel/Cloudflare
 - Z.ai server will still reset until env vars are set there
 - Recommend: deploy to Render for permanent fix
+
+---
+Task ID: 68
+Agent: main (Z.ai)
+Task: https://asset-management-system-vyjd.onrender.com এর সাথে কানেক্ট করো
+
+Work Log:
+- User deployed app on Render.com at https://asset-management-system-vyjd.onrender.com
+- Checked deployment status: HTTP 502 (Bad Gateway)
+- 502 means Render server is either:
+  1. Sleeping (free plan sleeps after 15 min inactivity)
+  2. Build failed
+  3. Startup crashed (likely due to `bun` not installed in Render Node runtime)
+
+- Investigated root cause:
+  * package.json start script uses `bun` to run .next/standalone/server.js
+  * Render Node.js runtime doesn't have bun installed by default
+  * This causes startup failure → 502
+
+- Created render.yaml (commit 4bcee63) with:
+  * buildCommand: `npm install -g bun && npm install && npm run build`
+  * startCommand: `NODE_ENV=production node .next/standalone/server.js`
+    (uses node directly instead of bun, avoiding the dependency)
+  * Hardcoded Turso credentials in env vars (DATABASE_URL, DATABASE_AUTH_TOKEN)
+  * Health check on /api/db endpoint
+  * Auto-deploy from main branch
+  * Singapore region (closest to Bangladesh)
+
+- Pushed render.yaml to GitHub (commit 4bcee63)
+
+- Render server still showing 502 after 2+ minutes of waiting
+- User needs to manually trigger a redeploy on Render dashboard:
+  1. Go to Render dashboard → asset-management-system service
+  2. Click "Manual Deploy" → "Deploy latest commit"
+  3. Or: Settings → Build Command and Start Command updated to match render.yaml
+  4. Wait 3-5 minutes for build to complete
+
+Stage Summary:
+- render.yaml created and pushed to GitHub
+- Render needs to be triggered to use the new config
+- After successful deploy, app will connect to Turso automatically
