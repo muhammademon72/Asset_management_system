@@ -1,0 +1,36 @@
+# Render Blueprint Configuration for Asset Management System
+# This file tells Render how to build and run the app.
+# After pushing this to GitHub, Render will auto-detect it and use these settings.
+#
+# Required env vars (set in Render dashboard OR via this file):
+#   DATABASE_URL       — Turso DB URL
+#   DATABASE_AUTH_TOKEN — Turso auth token
+#
+# Note: The code already has hardcoded Turso fallback, so even without env vars,
+# the app will connect to Turso automatically.
+
+services:
+  - type: web
+    name: asset-management-system
+    runtime: node
+    plan: free
+    region: singapore  # closest to Bangladesh
+    branch: main
+    # Install bun first (the start script uses it), then build
+    buildCommand: npm install -g bun && npm install && npm run build
+    # Use node directly to run the standalone server (avoids bun dependency)
+    startCommand: NODE_ENV=production node .next/standalone/server.js
+    healthCheckPath: /api/db
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: libsql://assetmanagementsystem-muhammademon72.aws-ap-south-1.turso.io
+      - key: DATABASE_AUTH_TOKEN
+        value: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI4NjIwNjEsImlkIjoiMDFhMTVkZTgtNTQwMS03NzMyLWEwNzYtOTQ4MTk3MzI2NTFjIiwia2lkIjoiUHV4RTlyWXVaVmtqaVpMZlFRVUlTa0JlaU56RXNmdG5Xdmg5QTBib3Y5dyIsInJpZCI6Ijc1ZjE4MjY5LTE1YjItNDkyNy1hY2QxLTk1ZDA3ZjM4NTY1ZiJ9.gq4PAE8Kkgffsmqlb_6hSQ0aCv8hIBKijw0ABQLWMFilBfQOg1Gtra9UdttnJZRk53P-qBFm48NhkWrGRAqfCA
+      - key: PORT
+        value: 3000
+      - key: HOSTNAME
+        value: 0.0.0.0
+
