@@ -1,0 +1,25 @@
+# Cloudflare Pages Configuration
+# This file configures how Cloudflare Pages builds and serves the Next.js app.
+#
+# After pushing this to GitHub:
+# 1. Go to https://dash.cloudflare.com → Workers & Pages
+# 2. Click "Create application" → "Pages" → "Connect to Git"
+# 3. Select your repo: muhammademon72/Asset_management_system
+# 4. Use these settings (auto-detected from this file):
+#    - Framework preset: Next.js
+#    - Build command: npm run build:cf
+#    - Build output directory: .next
+#    - Environment variables: see below
+# 5. Click "Save and Deploy"
+
+name = "assetsys"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = ".next"
+
+# Environment variables (set these in Cloudflare dashboard → Settings → Environment Variables)
+# These are also hardcoded in the code as fallback, so even without setting them,
+# the app will connect to Turso automatically.
+[vars]
+DATABASE_URL = "libsql://assetmanagementsystem-muhammademon72.aws-ap-south-1.turso.io"
+# Note: DATABASE_AUTH_TOKEN must be set as a SECRET in Cloudflare dashboard
+# (don't put it in this file — it's a public file in the repo)
