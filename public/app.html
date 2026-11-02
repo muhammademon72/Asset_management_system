@@ -9064,12 +9064,61 @@ function loadDB(onDone) {
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.ok && res.data) {
-        // Server is the source of truth — always apply server data
-        applyDBData(res.data);
+        // Check if Z.ai server has been reset (only default admin user, no real data)
+        var serverData = res.data;
+        var serverTotal = (serverData.branches||[]).length + (serverData.purchases||[]).length + (serverData.products||[]).length + (serverData.employees||[]).length;
+
+        // Count cached localStorage data (this represents what we had before the reset)
+        var cachedTotal = 0;
+        try {
+          var cachedCheck = localStorage.getItem('itAssetDB');
+          if (cachedCheck) {
+            var cd = JSON.parse(cachedCheck);
+            cachedTotal = (cd.branches||[]).length + (cd.purchases||[]).length + (cd.products||[]).length + (cd.employees||[]).length;
+          }
+        } catch(e) {}
+
+        if (serverTotal === 0 && cachedTotal > 0) {
+          // Z.ai server was RESET — auto-restore from cached localStorage to server
+          console.warn('loadDB: Z.ai server reset detected — restoring from local cache (' + cachedTotal + ' records)');
+          try {
+            var cached = localStorage.getItem('itAssetDB');
+            if (cached) {
+              var cachedData = JSON.parse(cached);
+              applyDBData(cachedData);
+              DB_LAST_SAVED_AT = null;
+              DB_LOCAL_DIRTY = false;
+              DB_BOOT_DONE = true;
+              if (onDone) onDone(true);
+              // Auto-restore the cached data to the server (background, non-blocking)
+              setTimeout(function() {
+                fetch('/api/db', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ data: cachedData })
+                }).then(function(r) { return r.json(); }).then(function(postRes) {
+                  if (postRes && postRes.ok) {
+                    console.log('loadDB: auto-restore to server succeeded');
+                    DB_LAST_SAVED_AT = postRes.updatedAt;
+                    showToast('Data restored to server (was reset)', 'success');
+                  } else {
+                    console.warn('loadDB: auto-restore failed', postRes);
+                  }
+                }).catch(function(e) {
+                  console.warn('loadDB: auto-restore network error', e);
+                });
+              }, 500);
+              return;
+            }
+          } catch(e2) { /* fall through */ }
+        }
+
+        // Normal case — apply server data
+        applyDBData(serverData);
         DB_LAST_SAVED_AT = res.updatedAt || null;
         DB_LOCAL_DIRTY = false; // we just synced — no unsaved changes
         // Refresh the local cache so future loads are fast
-        try { localStorage.setItem('itAssetDB', JSON.stringify(res.data)); } catch (e) {}
+        try { localStorage.setItem('itAssetDB', JSON.stringify(serverData)); } catch (e) {}
         DB_BOOT_DONE = true;
         if (onDone) onDone(true);
       } else {
