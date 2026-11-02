@@ -1,0 +1,50 @@
+# .htaccess for Asset Management System on SolidHosting cPanel
+# Routes /api/db → /api/db.php and /api/attachment → /api/attachment.php
+# Also serves app.html as the main page
+
+RewriteEngine On
+
+# Force HTTPS (uncomment after SSL is set up)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Route /api/db to /api/db.php (clean URL)
+RewriteRule ^api/db$ api/db.php [L,QSA]
+RewriteRule ^api/db/(.*)$ api/db.php [L,QSA]
+
+# Route /api/attachment to /api/attachment.php
+RewriteRule ^api/attachment$ api/attachment.php [L,QSA]
+RewriteRule ^api/attachment/(.*)$ api/attachment.php [L,QSA]
+
+# Redirect root / to /app.html
+RewriteRule ^$ /app.html [L]
+
+# Cache static assets (1 year)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType text/html "access plus 1 hour"
+</IfModule>
+
+# Gzip compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Increase PHP upload limit (for attachments)
+php_value upload_max_filesize 10M
+php_value post_max_size 12M
+php_value memory_limit 256M
+php_value max_execution_time 60
