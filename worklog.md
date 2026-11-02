@@ -2820,3 +2820,54 @@ Stage Summary:
 - After deploy, app will be live at https://assetsys.pages.dev (or similar)
 - Connects to Turso automatically (hardcoded fallback in code)
 - Free plan: $0/month, unlimited bandwidth
+
+---
+Task ID: 71
+Agent: main (Z.ai)
+Task: assets-ys.com domain SolidHosting-এ set করে live করো
+
+Work Log:
+- User bought assets-ys.com from ifreedomains.com
+- Current name servers: in.solidhosting.pro, eu.solidhosting.pro (SolidHosting cPanel)
+- Cannot use Cloudflare Pages (user canceled that approach)
+- Solution: PHP proxy files that talk directly to Turso HTTP API
+
+Created files:
+1. public/api/db.php — Turso DB proxy:
+   * GET  → SELECT data FROM app_data WHERE id='main'
+   * POST → UPSERT into app_data (UPDATE first, INSERT if 0 rows affected)
+   * Uses Turso HTTP API endpoint: /v2/pipeline
+   * Hardcoded Turso URL + token (no env vars needed on cPanel)
+
+2. public/api/attachment.php — Turso attachment proxy:
+   * GET    ?id=xxx → fetch attachment by ID
+   * POST   → upsert attachment
+   * DELETE ?id=xxx → delete attachment
+
+3. public/.htaccess — routing + cache + security:
+   * /api/db → /api/db.php (clean URL)
+   * /api/attachment → /api/attachment.php
+   * / → /app.html (root redirect)
+   * Gzip compression
+   * Cache headers (1 year for static assets)
+   * Security headers
+   * PHP upload_max_filesize = 10M
+
+4. SOLIDHOSTING_DEPLOY.md — complete step-by-step guide
+
+5. download/assets-ys-deploy.zip — ready-to-upload package (115 KB)
+
+Architecture verification:
+  - Tested Turso HTTP API directly with curl → success
+  - Response: app_data row with 3.2 MB data ✅
+  - PHP cURL extension should be enabled by default on SolidHosting
+  - PHP 7.4+ required (recommended 8.1+)
+
+Code pushed to GitHub (commit ef21ddd).
+
+Stage Summary:
+- All PHP proxy files ready
+- Deployment zip created in download/assets-ys-deploy.zip
+- User needs to upload to cPanel public_html + extract
+- No code changes needed in app.html (uses relative /api/db URL)
+- Turso DB already has all data (verified)
