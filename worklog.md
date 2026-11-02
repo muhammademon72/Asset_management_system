@@ -2871,3 +2871,45 @@ Stage Summary:
 - User needs to upload to cPanel public_html + extract
 - No code changes needed in app.html (uses relative /api/db URL)
 - Turso DB already has all data (verified)
+
+---
+Task ID: 72
+Agent: main (Z.ai)
+Task: assets-ys.com SolidHosting cPanel-এ লাইভ করো (Turso DB সহ)
+
+Work Log:
+- User confirmed: SolidHosting cPanel + Turso DB
+- Verified all deployment files are ready:
+  * public/app.html (611 KB - single-file app)
+  * public/.htaccess (1.6 KB - routing + cache + security)
+  * public/api/db.php (6.2 KB - Turso DB proxy)
+  * public/api/attachment.php (5.7 KB - Turso attachment proxy)
+  * download/assets-ys-deploy.zip (115 KB - ready to upload)
+
+DNS check:
+- assets-ys.com → NXDOMAIN (DNS not yet propagated)
+- This is expected — new domains take 1-24 hours to propagate
+- DNS will work once SolidHosting name servers fully propagate
+
+Architecture:
+  Browser (assets-ys.com/app.html)
+    → fetch('/api/db')
+    → .htaccess rewrites to /api/db.php
+    → PHP curl to Turso HTTP API
+    → Turso cloud DB returns JSON
+    → browser renders data
+
+All files verified and ready. User needs to:
+1. Login to SolidHosting cPanel
+2. Open File Manager → public_html
+3. Upload assets-ys-deploy.zip
+4. Extract it (creates app.html + .htaccess + api/ folder)
+5. Issue Let's Encrypt SSL (free)
+6. Wait for DNS propagation (1-24 hours)
+7. Visit https://assets-ys.com/app.html → login admin/admin123
+
+Stage Summary:
+- SolidHosting cPanel deployment package ready
+- PHP proxies connect to Turso cloud DB (permanent storage)
+- All data already in Turso (31 branches, 136 employees, 129 purchases, etc.)
+- Deployment is one-click (upload + extract zip)
