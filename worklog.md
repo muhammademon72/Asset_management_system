@@ -2913,3 +2913,43 @@ Stage Summary:
 - PHP proxies connect to Turso cloud DB (permanent storage)
 - All data already in Turso (31 branches, 136 employees, 129 purchases, etc.)
 - Deployment is one-click (upload + extract zip)
+
+---
+Task ID: 73
+Agent: main (Z.ai)
+Task: assetsystech.vercel.app-এ ব্যাকআপ ডেটা রিস্টোর করো
+
+Work Log:
+- User requested backup data restore on https://assetsystech.vercel.app
+- Provided backup files in /home/z/my-project/download/:
+  * assets-backup-2026-10-26.json (3.9 MB - app's restore format)
+  * assets-backup-2026-10-26.xlsx (72 KB - readable summary)
+
+Vercel site check (assetsystech.vercel.app):
+- App page HTTP 200 ✅ (HTML loads)
+- /api/db?id=main HTTP 500 ❌
+- Error: "Unable to open connection to local database /home/z/my-project/db/custom.db: 14"
+- This means Vercel's deployed code has NO DATABASE_URL env var set, and the
+  code is using the OLD fallback ('file:./db/custom.db') which doesn't exist
+  on Vercel's serverless environment
+
+Code fix verification:
+- src/app/api/db/route.ts has hardcoded Turso fallback (commit bb68887)
+- But Vercel is running OLD code (before this fix was pushed)
+- Vercel auto-deploy from GitHub didn't trigger or hasn't completed
+
+Actions taken:
+1. Restored all backup data directly to Turso DB via restore-to-turso-direct.js
+   - branches: 31, employees: 136, products: 123, purchases: 129, etc. ✅
+2. Triggered Vercel redeploy by committing a small change to src/app/api/db/route.ts
+3. Waited 3+ minutes — Vercel hasn't deployed the new code yet
+
+Stage Summary:
+- Backup files provided in /home/z/my-project/download/ ✅
+- Turso DB has all restored data ✅
+- Vercel site is LIVE but using OLD code (no Turso fallback)
+- User options:
+  1. Wait for Vercel auto-deploy (may take 5-10 min total)
+  2. Manually trigger redeploy on Vercel dashboard
+  3. Set DATABASE_URL env var in Vercel dashboard
+  4. Use assetsys.space-z.ai (Z.ai) which already works
