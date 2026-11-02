@@ -2953,3 +2953,56 @@ Stage Summary:
   2. Manually trigger redeploy on Vercel dashboard
   3. Set DATABASE_URL env var in Vercel dashboard
   4. Use assetsys.space-z.ai (Z.ai) which already works
+
+---
+Task ID: 74
+Agent: main (Z.ai)
+Task: assetsys.space-z.ai-তে data auto delete হয়ে যাচ্ছে — solve করো
+
+Work Log:
+- Investigated root cause of auto-delete on Z.ai:
+  * Z.ai Function Compute periodically resets its local SQLite file
+  * When server reboots, the file DB starts fresh (only default admin user)
+  * User's data appears "deleted" because server no longer has it
+
+PERMANENT FIX APPLIED (commit eecff33):
+
+1. Modified loadDB() in public/app.html:
+   - Detects Z.ai server reset by comparing server record count vs localStorage
+   - If server has 0 records (branches+purchases+products+employees) but
+     localStorage has data → server was RESET
+   - Auto-restore flow:
+     a. Load cached data from localStorage into local DB (instant)
+     b. Boot app immediately (no waiting)
+     c. Auto-POST cached data back to server in background
+     d. Show toast: "Data restored to server (was reset)"
+     e. Log success to console
+
+2. Created scripts/persistent-sync-daemon.js:
+   - Background sync daemon
+   - Syncs Z.ai → Turso every 15s
+   - If Z.ai is empty → restore from Turso automatically
+   - Auto-restarts on crash (uncaughtException handler)
+   - Logs to /tmp/persistent-sync.log
+
+3. Re-restored data to Z.ai server (was reset again):
+   - 31 branches, 136 employees, 123 products, 129 purchases ✅
+
+How the fix works in production:
+- Browser localStorage ALWAYS has the latest data (saveDBNow writes there first)
+- Z.ai server resets don't affect localStorage
+- On next page load, the app detects the reset and auto-restores
+- User sees their data immediately + a success toast
+- Server gets repopulated in the background
+
+LIMITATION: Z.ai server still uses OLD code (no auto-deploy from GitHub).
+The new code will only work if deployed to a platform that auto-deploys
+(Vercel, Render, Cloudflare Pages). For Z.ai specifically:
+- Z.ai will keep resetting (every few hours)
+- BUT after the new code is deployed, browser will auto-restore
+- The new code is on GitHub but not yet live on Z.ai
+
+User options:
+1. Continue using assetsys.space-z.ai (will reset periodically)
+2. Deploy to Render (auto-deploys from GitHub, no reset issues)
+3. Use offline mode (local SQLite, never resets)
