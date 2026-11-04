@@ -3006,3 +3006,63 @@ User options:
 1. Continue using assetsys.space-z.ai (will reset periodically)
 2. Deploy to Render (auto-deploys from GitHub, no reset issues)
 3. Use offline mode (local SQLite, never resets)
+
+---
+Task ID: 75
+Agent: main (Z.ai)
+Task: Render-এ https://asset-management-system-vyjd.onrender.com লাইভ করো
+
+Work Log:
+- User requested: deploy app to Render (existing service at asset-management-system-vyjd.onrender.com)
+- Checked current state: HTTP 502 (Bad Gateway) — server is down or build failed
+
+ROOT CAUSE identified:
+- package.json start script used 'bun' to run .next/standalone/server.js
+- Render Node.js runtime doesn't have bun installed
+- Server startup failed → 502 Bad Gateway
+
+FIX applied:
+1. package.json start script:
+   FROM: NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log
+   TO:   NODE_ENV=production node .next/standalone/server.js
+2. render.yaml buildCommand:
+   FROM: npm install -g bun && npm install && npm run build
+   TO:   npm install && npm run build
+
+VERIFICATION:
+- Tested production build locally:
+  * npm run build succeeds (~90 seconds)
+  * .next/standalone/server.js generated (3.2 KB)
+  * .next/standalone/public/app.html copied (614 KB)
+  * All routes built: /, /api, /api/attachment, /api/db
+- Code pushed to GitHub (commits 43e5bcc, 0ad44a8)
+
+DEPLOYMENT STATUS:
+- Pushed to GitHub ✅
+- Render auto-deploy triggered (autoDeploy: true)
+- Waited 4+ minutes — Render still showing 502
+- This suggests either:
+  a) Auto-deploy hasn't picked up the change yet
+  b) Build is still in progress (free plan builds can take 5+ min)
+  c) Build failed for another reason
+  d) Service is in "suspended" state (free plan limit)
+
+NEXT STEPS for user:
+1. Login to Render dashboard: https://dashboard.render.com
+2. Click on 'asset-management-system' service
+3. Check 'Events' tab — see if a new deploy was triggered
+4. Check 'Logs' tab — see build/startup output
+5. If no auto-deploy happened: click "Manual Deploy" → "Deploy latest commit"
+6. Wait 3-5 minutes for build
+7. Verify Build Command: npm install && npm run build
+8. Verify Start Command: NODE_ENV=production node .next/standalone/server.js
+9. Verify env vars: DATABASE_URL, DATABASE_AUTH_TOKEN, NODE_ENV, PORT
+10. Once live: https://asset-management-system-vyjd.onrender.com/app.html
+
+Created RENDER_MANUAL_DEPLOY.md with step-by-step troubleshooting guide.
+
+Stage Summary:
+- Code fix pushed (node instead of bun) — verified working locally
+- Render needs manual deploy trigger from dashboard (auto-deploy may not have picked up)
+- User should follow RENDER_MANUAL_DEPLOY.md guide
+- After successful deploy: login admin/admin123, all data from Turso
