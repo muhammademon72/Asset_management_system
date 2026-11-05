@@ -9038,101 +9038,84 @@ function saveDBNow(onDone, options) {
     } catch (e) {}
     showSaveStatusIndicator('saving');
 
-    // ★ TURSO DIRECT SAVE — প্রতিটি saveDBNow() এর সাথে সাথে সরাসরি Turso-তেও লিখবে
-    // এটি background-এ চলবে, ইউজারকে ব্লক করবে না।
-    // Z.ai সার্ভার রিসেট হলেও ডেটা Turso-তে থাকবে এবং পরবর্তী লোডে ফিরে আসবে।
-    saveToTursoDirect(localPayload);
-
-    // If skipMerge is true (e.g., for large attachment saves), POST directly
-    // without the GET-merge step. This avoids doubling the data transfer,
-    // which can exceed Vercel's body size limit and cause "Network unexpected"
-    // errors when attachments are involved.
-    if (skipMerge) {
-      fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: localPayload })
-      }).then(function(r) { return safeParseFetchResponse(r); }).then(function(res) {
-        if (res && res.ok) {
-          DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
-          showSaveStatusIndicator('saved');
-        } else {
-          console.warn('saveDB: server returned error', res);
-          DB_LOCAL_DIRTY = true;
-          var errMsg = (res && res.error) ? res.error : 'unknown error';
-          // If it's a body-size error, show a helpful message
-          if (errMsg.indexOf('too large') !== -1 || errMsg.indexOf('413') !== -1 || errMsg.indexOf('Entity Too Large') !== -1) {
-            errMsg = 'File too large for server. Use a smaller file (max 5 MB).';
+    // ★ ONLY TURSO SAVE — Z.ai সার্ভারে সেভ করা হবে না
+    // সব ডেটা সরাসরি Turso ক্লাউড DB-তে সেভ হবে (স্থায়ী, কখনো মুছবে না)
+    // saveToTursoDirect একটি Promise-based fetch ব্যবহার করে যা সম্পূর্ণ হলে callback কল করে
+    try {
+      var _jsonPayload = JSON.stringify(localPayload);
+      var _tursoBody = JSON.stringify({
+        requests: [
+          {
+            type: 'execute',
+            stmt: {
+              sql: "UPDATE app_data SET data = ?, updated_at = datetime('now') WHERE id = ?",
+              args: [
+                { type: 'text', value: _jsonPayload },
+                { type: 'text', value: 'main' }
+              ]
+            }
           }
-          showSaveStatusIndicator('error', errMsg);
-          showToast('Save failed: ' + errMsg, 'error');
+        ]
+      });
+      fetch(TURSO_DIRECT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN
+        },
+        body: _tursoBody
+      }).then(function(r) {
+        if (!r.ok) throw new Error('Turso HTTP ' + r.status);
+        return r.json();
+      }).then(function(res) {
+        // Check if UPDATE affected 0 rows — need to INSERT
+        var rowsAffected = 0;
+        try { rowsAffected = res.results[0].response.result.affected_row_count || 0; } catch(e) {}
+        if (rowsAffected === 0) {
+          // INSERT instead
+          var _insBody = JSON.stringify({
+            requests: [
+              {
+                type: 'execute',
+                stmt: {
+                  sql: "INSERT INTO app_data (id, data, updated_at) VALUES (?, ?, datetime('now'))",
+                  args: [
+                    { type: 'text', value: 'main' },
+                    { type: 'text', value: _jsonPayload }
+                  ]
+                }
+              }
+            ]
+          });
+          return fetch(TURSO_DIRECT_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN
+            },
+            body: _insBody
+          }).then(function(r) { return r.json(); });
         }
-        if (onDone) onDone(res);
+        return res;
+      }).then(function() {
+        DB_LAST_SAVED_AT = new Date().toISOString();
+        showSaveStatusIndicator('saved');
+        if (onDone) onDone({ ok: true, updatedAt: DB_LAST_SAVED_AT });
       }).catch(function(err) {
-        console.warn('saveDB: network error', err);
+        console.warn('saveDB: Turso save failed', err);
         DB_LOCAL_DIRTY = true;
-        var errMsg = err && err.message ? err.message : 'network error';
-        // If it's a JSON parse error from a non-JSON response (e.g., Vercel 413),
-        // show a more helpful message
-        if (errMsg.indexOf('Unexpected token') !== -1 || errMsg.indexOf('is not valid JSON') !== -1) {
-          errMsg = 'Server rejected the request (file may be too large). Use a smaller file (max 5 MB).';
-        }
+        var errMsg = err && err.message ? err.message : 'Turso save failed';
         showSaveStatusIndicator('error', errMsg);
         showToast('Save failed: ' + errMsg, 'error');
         if (onDone) onDone({ ok: false, error: errMsg });
       });
-      return;
+    } catch(e) {
+      console.warn('saveDB failed:', e);
+      DB_LOCAL_DIRTY = true;
+      showSaveStatusIndicator('error', 'Exception: ' + (e && e.message ? e.message : 'unknown'));
+      showToast('Save failed: ' + (e && e.message ? e.message : 'unknown error') + '. Your changes are NOT saved.', 'error');
+      if (onDone) onDone({ ok: false, error: e && e.message });
     }
-
-    // STEP 1: GET the latest server DB so we don't overwrite other users' changes.
-    // This is critical for multi-user scenarios — without it, a stale local DB
-    // would overwrite purchases/records that other users just saved.
-    fetch('/api/db', { method: 'GET' })
-      .then(function(r) { return safeParseFetchResponse(r); })
-      .then(function(getRes) {
-        var serverDB = (getRes && getRes.ok && getRes.data) ? getRes.data : null;
-        // STEP 2: Merge local items into the server DB (union by id, local wins)
-        var mergedPayload = serverDB ? mergeDBWithServer(serverDB, localPayload) : localPayload;
-        // AUTO-TRIM: After merge, the payload may be too large (server had old
-        // attachments + local has new ones). Trim old attachment data to fit.
-        mergedPayload = trimLargePayload(mergedPayload);
-        // Update local DB with the merged result so subsequent saves are also safe
-        applyDBData(mergedPayload);
-        // STEP 3: POST the merged DB
-        return fetch('/api/db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: mergedPayload })
-        });
-      })
-      .then(function(r) { return safeParseFetchResponse(r); })
-      .then(function(res) {
-        if (res && res.ok) {
-          DB_LAST_SAVED_AT = res.updatedAt || new Date().toISOString();
-          showSaveStatusIndicator('saved');
-        } else {
-          console.warn('saveDB: server returned error', res);
-          DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
-          var errMsg2 = (res && res.error) ? res.error : 'unknown error';
-          if (errMsg2.indexOf('too large') !== -1 || errMsg2.indexOf('413') !== -1 || errMsg2.indexOf('Entity Too Large') !== -1) {
-            errMsg2 = 'File too large for server. Use a smaller file (max 5 MB).';
-          }
-          showSaveStatusIndicator('error', errMsg2);
-          showToast('Save failed: ' + errMsg2, 'error');
-        }
-        if (onDone) onDone(res);
-      })
-      .catch(function(err) {
-        console.warn('saveDB: network error', err);
-        DB_LOCAL_DIRTY = true; // restore dirty flag so we retry later
-        var errMsg3 = err && err.message ? err.message : 'network error';
-        if (errMsg3.indexOf('Unexpected token') !== -1 || errMsg3.indexOf('is not valid JSON') !== -1) {
-          errMsg3 = 'Server rejected the request (file may be too large). Use a smaller file (max 5 MB).';
-        }
-        showSaveStatusIndicator('error', errMsg3);
-        showToast('Save failed: ' + errMsg3, 'error');
-        if (onDone) onDone({ ok: false, error: errMsg3 });
-      });
   } catch (e) {
     console.warn('saveDB failed:', e);
     DB_LOCAL_DIRTY = true;
@@ -9189,164 +9172,37 @@ function showSaveStatusIndicator(status, errorMsg) {
 // The only exception: if the server is unreachable, we fall back to the localStorage
 // cache (best-effort) so the app remains usable offline.
 function loadDB(onDone) {
-  // Step 1: fetch the authoritative copy from the server FIRST
-  fetch('/api/db', { method: 'GET' })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (res && res.ok && res.data) {
-        // Check if Z.ai server has been reset (only default admin user, no real data)
-        var serverData = res.data;
-        var serverTotal = (serverData.branches||[]).length + (serverData.purchases||[]).length + (serverData.products||[]).length + (serverData.employees||[]).length;
-
-        // Count cached localStorage data (this represents what we had before the reset)
-        var cachedTotal = 0;
-        try {
-          var cachedCheck = localStorage.getItem('itAssetDB');
-          if (cachedCheck) {
-            var cd = JSON.parse(cachedCheck);
-            cachedTotal = (cd.branches||[]).length + (cd.purchases||[]).length + (cd.products||[]).length + (cd.employees||[]).length;
-          }
-        } catch(e) {}
-
-        if (serverTotal === 0 && cachedTotal > 0) {
-          // Z.ai server was RESET — auto-restore from cached localStorage to server
-          console.warn('loadDB: Z.ai server reset detected — restoring from local cache (' + cachedTotal + ' records)');
-          try {
-            var cached = localStorage.getItem('itAssetDB');
-            if (cached) {
-              var cachedData = JSON.parse(cached);
-              applyDBData(cachedData);
-              DB_LAST_SAVED_AT = null;
-              DB_LOCAL_DIRTY = false;
-              DB_BOOT_DONE = true;
-              if (onDone) onDone(true);
-              // Auto-restore the cached data to the server (background, non-blocking)
-              setTimeout(function() {
-                fetch('/api/db', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ data: cachedData })
-                }).then(function(r) { return r.json(); }).then(function(postRes) {
-                  if (postRes && postRes.ok) {
-                    console.log('loadDB: auto-restore to server succeeded');
-                    DB_LAST_SAVED_AT = postRes.updatedAt;
-                    showToast('Data restored to server (was reset)', 'success');
-                  } else {
-                    console.warn('loadDB: auto-restore failed', postRes);
-                  }
-                }).catch(function(e) {
-                  console.warn('loadDB: auto-restore network error', e);
-                });
-              }, 500);
-              return;
-            }
-          } catch(e2) { /* fall through */ }
-        }
-
-        if (serverTotal === 0 && cachedTotal === 0) {
-          // ★ সরাসরি Turso থেকে ফেচ করার চেষ্টা করবে — Z.ai রিসেট হলেও Turso-তে ডেটা থাকতে পারে
-          console.warn('loadDB: Both Z.ai and localStorage empty — fetching directly from Turso...');
-          fetchFromTursoDirect(function(tursoRes) {
-            if (tursoRes && tursoRes.ok && tursoRes.data) {
-              var tursoTotal = (tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length;
-              if (tursoTotal > 0) {
-                console.log('loadDB: ✓ Restored ' + tursoTotal + ' records from Turso');
-                applyDBData(tursoRes.data);
-                DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
-                DB_LOCAL_DIRTY = false;
-                DB_BOOT_DONE = true;
-                try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
-                if (onDone) onDone(true);
-                // Also restore to Z.ai server (so next load is fast)
-                setTimeout(function() {
-                  fetch('/api/db', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: tursoRes.data })
-                  }).then(function() { /* silent */ }).catch(function() { /* silent */ });
-                }, 500);
-                showToast('Data restored from Turso (server was reset)', 'success');
-                return;
-              }
-            }
-            // Turso also empty — use default
-            applyDBData(serverData);
-            DB_LAST_SAVED_AT = res.updatedAt || null;
-            DB_LOCAL_DIRTY = false;
-            try { localStorage.setItem('itAssetDB', JSON.stringify(serverData)); } catch (e) {}
-            DB_BOOT_DONE = true;
-            if (onDone) onDone(true);
-          });
+  // ★ ONLY TURSO LOAD — সরাসরি Turso ক্লাউড DB থেকে ডেটা লোড করবে
+  // Z.ai সার্ভার ব্যবহার করা হবে না — সব ডেটা Turso-তে স্থায়ীভাবে থাকবে
+  console.log('loadDB: fetching directly from Turso...');
+  fetchFromTursoDirect(function(tursoRes) {
+    if (tursoRes && tursoRes.ok && tursoRes.data) {
+      // Turso-তে ডেটা আছে — সেটি লোড করো
+      applyDBData(tursoRes.data);
+      DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
+      DB_LOCAL_DIRTY = false;
+      DB_BOOT_DONE = true;
+      try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
+      console.log('loadDB: ✓ Loaded from Turso (' + ((tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length) + ' records)');
+      if (onDone) onDone(true);
+    } else {
+      // Turso-তে ডেটা নেই বা error — localStorage থেকে চেষ্টা করো
+      console.warn('loadDB: Turso fetch failed, trying localStorage...', tursoRes);
+      try {
+        var cached = localStorage.getItem('itAssetDB');
+        if (cached) {
+          var cachedData = JSON.parse(cached);
+          applyDBData(cachedData);
+          DB_BOOT_DONE = true;
+          if (onDone) onDone(true);
           return;
         }
-
-        // Normal case — apply server data
-        applyDBData(serverData);
-        DB_LAST_SAVED_AT = res.updatedAt || null;
-        DB_LOCAL_DIRTY = false; // we just synced — no unsaved changes
-        // Refresh the local cache so future loads are fast
-        try { localStorage.setItem('itAssetDB', JSON.stringify(serverData)); } catch (e) {}
-        DB_BOOT_DONE = true;
-        if (onDone) onDone(true);
-      } else {
-        console.warn('loadDB: server returned error, falling back to Turso/localStorage', res);
-        // ★ Server error — try Turso directly first, then localStorage
-        fetchFromTursoDirect(function(tursoRes) {
-          if (tursoRes && tursoRes.ok && tursoRes.data) {
-            var tursoTotal = (tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length;
-            if (tursoTotal > 0) {
-              console.log('loadDB: ✓ Server error — restored from Turso (' + tursoTotal + ' records)');
-              applyDBData(tursoRes.data);
-              DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
-              DB_LOCAL_DIRTY = false;
-              DB_BOOT_DONE = true;
-              try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
-              if (onDone) onDone(true);
-              return;
-            }
-          }
-          // Fall back to localStorage cache
-          try {
-            var cached = localStorage.getItem('itAssetDB');
-            if (cached) {
-              var cachedData = JSON.parse(cached);
-              applyDBData(cachedData);
-            }
-          } catch (e2) { /* ignore */ }
-          DB_BOOT_DONE = true;
-          if (onDone) onDone(false);
-        });
-      }
-    })
-    .catch(function(err) {
-      console.warn('loadDB: network error, trying Turso then localStorage', err);
-      // ★ Network error — try Turso directly, then localStorage
-      fetchFromTursoDirect(function(tursoRes) {
-        if (tursoRes && tursoRes.ok && tursoRes.data) {
-          var tursoTotal = (tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length;
-          if (tursoTotal > 0) {
-            console.log('loadDB: ✓ Network error — restored from Turso (' + tursoTotal + ' records)');
-            applyDBData(tursoRes.data);
-            DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
-            DB_LOCAL_DIRTY = false;
-            DB_BOOT_DONE = true;
-            try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
-            if (onDone) onDone(true);
-            return;
-          }
-        }
-        // Fall back to localStorage cache
-        try {
-          var cached2 = localStorage.getItem('itAssetDB');
-          if (cached2) {
-            var cachedData2 = JSON.parse(cached2);
-            applyDBData(cachedData2);
-          }
-        } catch (e3) { /* ignore */ }
-        DB_BOOT_DONE = true;
-        if (onDone) onDone(false);
-      });
-    });
+      } catch(e2) { /* ignore */ }
+      // সব জায়গায় খালি — ডিফল্ট ডেটা ব্যবহার করো
+      DB_BOOT_DONE = true;
+      if (onDone) onDone(false);
+    }
+  });
 }
 
 // Apply a data object to the global DB (replaces arrays but keeps shape)
