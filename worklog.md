@@ -3297,3 +3297,43 @@ Stage Summary:
 - Only admin/admin123 user + 5 default roles remain
 - saveToTursoDirect() works with new token (verified via live test)
 - User can now login and import their backup
+
+---
+Task ID: 81
+Agent: main (Z.ai)
+Task: Only Turso save dao (Z.ai server bypass)
+
+Work Log:
+- User requested: data should save ONLY to Turso, not Z.ai server
+
+CHANGES (commit 22cbcc0):
+1. saveDBNow() — now saves ONLY to Turso
+   - Removed Z.ai server POST /api/db calls
+   - Removed GET-merge-POST logic
+   - Uses Turso HTTP API: POST /v2/pipeline with UPDATE/INSERT
+   - On success: showSaveStatusIndicator('saved')
+   - On failure: showToast with error
+
+2. loadDB() — now loads ONLY from Turso
+   - Removed Z.ai server GET /api/db
+   - Uses fetchFromTursoDirect()
+   - Fallback to localStorage cache if Turso fails
+
+3. Uploaded new app.html to Z.ai server (_latestAppHtml field)
+
+VERIFICATION:
+- New code loaded in browser (bootstrap applied) ✅
+- TURSO_DIRECT_TOKEN has new token (zzBLfunaWZFy) ✅
+- loadDB function verified: has 'ONLY TURSO LOAD' + 'fetchFromTursoDirect' ✅
+- saveDBNow function verified: has 'ONLY TURSO SAVE' + 'saveToTursoDirect' ✅
+- Direct Turso fetch from browser: works (HTTP 200) ✅
+- Manual save test: Turso branches 0→32 (UPDATE affected 1 row) ✅
+- loadDB from Turso: works (returns 0 records when Turso is empty) ✅
+
+ARCHITECTURE:
+  Browser → loadDB() → fetchFromTursoDirect() → Turso HTTP API → JSON
+  Browser → saveDBNow() → Turso HTTP API (UPDATE/INSERT) → permanent storage
+  Z.ai server: only used to serve static app.html file
+
+NOTE: After manual save test, Turso now has 32 branches (test data).
+User should wipe and import their own backup, OR keep this test data.
