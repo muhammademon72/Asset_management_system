@@ -8885,6 +8885,132 @@ function trimLargePayload(payload, keepRecentCount, maxBytes) {
   return payload;
 }
 
+// ============================================================================
+// TURSO DIRECT SAVE — প্রতিটি saveDBNow() এর সাথে সাথে সরাসরি Turso-তেও লিখবে
+// এতে Z.ai সার্ভার রিসেট হলেও ডেটা Turso-তে থাকবে এবং পরবর্তী লোডে ফিরে আসবে।
+//
+// Turso HTTP API endpoint:
+//   POST https://assetmanagementsystem-muhammademon72.aws-ap-south-1.turso.io/v2/pipeline
+//   Authorization: Bearer <token>
+//   Body: { "requests": [{ "type":"execute", "stmt":{ "sql":"...", "args":[...] } }] }
+// ============================================================================
+var TURSO_DIRECT_URL = 'https://assetmanagementsystem-muhammademon72.aws-ap-south-1.turso.io/v2/pipeline';
+var TURSO_DIRECT_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI4NjIwNjEsImlkIjoiMDFhMTVkZTgtNTQwMS03NzMyLWEwNzYtOTQ4MTk3MzI2NTFjIiwia2lkIjoiUHV4RTlyWXVaVmtqaVpMZlFRVUlTa0JlaU56RXNmdG5Xdmg5QTBib3Y5dyIsInJpZCI6Ijc1ZjE4MjY5LTE1YjItNDkyNy1hY2QxLTk1ZDA3ZjM4NTY1ZiJ9.gq4PAE8Kkgffsmqlb_6hSQ0aCv8hIBKijw0ABQLWMFilBfQOg1Gtra9UdttnJZRk53P-qBFm48NhkWrGRAqfCA';
+var TURSO_DIRECT_SAVE_IN_PROGRESS = false;
+
+// সরাসরি Turso-তে ডেটা সেভ করবে (background, non-blocking)
+// এটি saveDBNow() এর সাথে সাথে চলবে কিন্তু ইউজারকে ব্লক করবে না।
+function saveToTursoDirect(dbData) {
+  if (TURSO_DIRECT_SAVE_IN_PROGRESS) return;  // prevent overlapping saves
+  TURSO_DIRECT_SAVE_IN_PROGRESS = true;
+  try {
+    var json = JSON.stringify(dbData);
+    var body = JSON.stringify({
+      requests: [
+        {
+          type: 'execute',
+          stmt: {
+            sql: "UPDATE app_data SET data = ?, updated_at = datetime('now') WHERE id = ?",
+            args: [
+              { type: 'text', value: json },
+              { type: 'text', value: 'main' }
+            ]
+          }
+        }
+      ]
+    });
+    fetch(TURSO_DIRECT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN
+      },
+      body: body
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      TURSO_DIRECT_SAVE_IN_PROGRESS = false;
+      // Check if UPDATE affected 0 rows — need to INSERT instead
+      var rowsAffected = 0;
+      try {
+        rowsAffected = res.results[0].response.result.affected_row_count || 0;
+      } catch(e) {}
+      if (rowsAffected === 0) {
+        // No existing row — INSERT
+        var insertBody = JSON.stringify({
+          requests: [
+            {
+              type: 'execute',
+              stmt: {
+                sql: "INSERT INTO app_data (id, data, updated_at) VALUES (?, ?, datetime('now'))",
+                args: [
+                  { type: 'text', value: 'main' },
+                  { type: 'text', value: json }
+                ]
+              }
+            }
+          ]
+        });
+        fetch(TURSO_DIRECT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN
+          },
+          body: insertBody
+        }).then(function() { /* silent */ }).catch(function() { /* silent */ });
+      }
+    }).catch(function(e) {
+      TURSO_DIRECT_SAVE_IN_PROGRESS = false;
+      console.warn('Turso direct save failed (non-blocking):', e.message);
+    });
+  } catch(e) {
+    TURSO_DIRECT_SAVE_IN_PROGRESS = false;
+    console.warn('Turso direct save error:', e.message);
+  }
+}
+
+// সরাসরি Turso থেকে ডেটা ফেচ করবে (যখন Z.ai সার্ভার রিসেট থাকে)
+function fetchFromTursoDirect(onDone) {
+  try {
+    var body = JSON.stringify({
+      requests: [
+        {
+          type: 'execute',
+          stmt: {
+            sql: 'SELECT data, updated_at FROM app_data WHERE id = ?',
+            args: [{ type: 'text', value: 'main' }]
+          }
+        }
+      ]
+    });
+    fetch(TURSO_DIRECT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN
+      },
+      body: body
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      try {
+        var rows = res.results[0].response.result.rows;
+        if (rows && rows.length > 0) {
+          var dataStr = rows[0][0].value;
+          var updatedAt = rows[0][1] ? rows[0][1].value : null;
+          var parsed = JSON.parse(dataStr);
+          if (onDone) onDone({ ok: true, data: parsed, updatedAt: updatedAt });
+        } else {
+          if (onDone) onDone({ ok: false, error: 'No data in Turso' });
+        }
+      } catch(e) {
+        if (onDone) onDone({ ok: false, error: e.message });
+      }
+    }).catch(function(e) {
+      if (onDone) onDone({ ok: false, error: e.message });
+    });
+  } catch(e) {
+    if (onDone) onDone({ ok: false, error: e.message });
+  }
+}
+
 function saveDBNow(onDone, options) {
   options = options || {};
   var skipMerge = options.skipMerge || false;
@@ -8900,7 +9026,6 @@ function saveDBNow(onDone, options) {
     DB_LOCAL_DIRTY = false;
     // Skip localStorage cache for large payloads — it freezes the browser
     // and is not critical (server is the source of truth).
-    // Only cache if payload is small (< 2MB).
     try {
       var payloadEstimate = 0;
       var keyList = ['purchases','deliveries','employees','products','branches','suppliers','brands','categories'];
@@ -8912,6 +9037,11 @@ function saveDBNow(onDone, options) {
       }
     } catch (e) {}
     showSaveStatusIndicator('saving');
+
+    // ★ TURSO DIRECT SAVE — প্রতিটি saveDBNow() এর সাথে সাথে সরাসরি Turso-তেও লিখবে
+    // এটি background-এ চলবে, ইউজারকে ব্লক করবে না।
+    // Z.ai সার্ভার রিসেট হলেও ডেটা Turso-তে থাকবে এবং পরবর্তী লোডে ফিরে আসবে।
+    saveToTursoDirect(localPayload);
 
     // If skipMerge is true (e.g., for large attachment saves), POST directly
     // without the GET-merge step. This avoids doubling the data transfer,
@@ -9113,6 +9243,43 @@ function loadDB(onDone) {
           } catch(e2) { /* fall through */ }
         }
 
+        if (serverTotal === 0 && cachedTotal === 0) {
+          // ★ সরাসরি Turso থেকে ফেচ করার চেষ্টা করবে — Z.ai রিসেট হলেও Turso-তে ডেটা থাকতে পারে
+          console.warn('loadDB: Both Z.ai and localStorage empty — fetching directly from Turso...');
+          fetchFromTursoDirect(function(tursoRes) {
+            if (tursoRes && tursoRes.ok && tursoRes.data) {
+              var tursoTotal = (tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length;
+              if (tursoTotal > 0) {
+                console.log('loadDB: ✓ Restored ' + tursoTotal + ' records from Turso');
+                applyDBData(tursoRes.data);
+                DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
+                DB_LOCAL_DIRTY = false;
+                DB_BOOT_DONE = true;
+                try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
+                if (onDone) onDone(true);
+                // Also restore to Z.ai server (so next load is fast)
+                setTimeout(function() {
+                  fetch('/api/db', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: tursoRes.data })
+                  }).then(function() { /* silent */ }).catch(function() { /* silent */ });
+                }, 500);
+                showToast('Data restored from Turso (server was reset)', 'success');
+                return;
+              }
+            }
+            // Turso also empty — use default
+            applyDBData(serverData);
+            DB_LAST_SAVED_AT = res.updatedAt || null;
+            DB_LOCAL_DIRTY = false;
+            try { localStorage.setItem('itAssetDB', JSON.stringify(serverData)); } catch (e) {}
+            DB_BOOT_DONE = true;
+            if (onDone) onDone(true);
+          });
+          return;
+        }
+
         // Normal case — apply server data
         applyDBData(serverData);
         DB_LAST_SAVED_AT = res.updatedAt || null;
@@ -9122,31 +9289,63 @@ function loadDB(onDone) {
         DB_BOOT_DONE = true;
         if (onDone) onDone(true);
       } else {
-        console.warn('loadDB: server returned error, falling back to localStorage cache', res);
-        // Server returned an error — fall back to localStorage cache (best-effort)
-        try {
-          var cached = localStorage.getItem('itAssetDB');
-          if (cached) {
-            var cachedData = JSON.parse(cached);
-            applyDBData(cachedData);
+        console.warn('loadDB: server returned error, falling back to Turso/localStorage', res);
+        // ★ Server error — try Turso directly first, then localStorage
+        fetchFromTursoDirect(function(tursoRes) {
+          if (tursoRes && tursoRes.ok && tursoRes.data) {
+            var tursoTotal = (tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length;
+            if (tursoTotal > 0) {
+              console.log('loadDB: ✓ Server error — restored from Turso (' + tursoTotal + ' records)');
+              applyDBData(tursoRes.data);
+              DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
+              DB_LOCAL_DIRTY = false;
+              DB_BOOT_DONE = true;
+              try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
+              if (onDone) onDone(true);
+              return;
+            }
           }
-        } catch (e2) { /* ignore */ }
-        DB_BOOT_DONE = true;
-        if (onDone) onDone(false);
+          // Fall back to localStorage cache
+          try {
+            var cached = localStorage.getItem('itAssetDB');
+            if (cached) {
+              var cachedData = JSON.parse(cached);
+              applyDBData(cachedData);
+            }
+          } catch (e2) { /* ignore */ }
+          DB_BOOT_DONE = true;
+          if (onDone) onDone(false);
+        });
       }
     })
     .catch(function(err) {
-      console.warn('loadDB: network error, using cached/localStorage data', err);
-      // Network error — fall back to localStorage cache (best-effort)
-      try {
-        var cached2 = localStorage.getItem('itAssetDB');
-        if (cached2) {
-          var cachedData2 = JSON.parse(cached2);
-          applyDBData(cachedData2);
+      console.warn('loadDB: network error, trying Turso then localStorage', err);
+      // ★ Network error — try Turso directly, then localStorage
+      fetchFromTursoDirect(function(tursoRes) {
+        if (tursoRes && tursoRes.ok && tursoRes.data) {
+          var tursoTotal = (tursoRes.data.branches||[]).length + (tursoRes.data.purchases||[]).length;
+          if (tursoTotal > 0) {
+            console.log('loadDB: ✓ Network error — restored from Turso (' + tursoTotal + ' records)');
+            applyDBData(tursoRes.data);
+            DB_LAST_SAVED_AT = tursoRes.updatedAt || null;
+            DB_LOCAL_DIRTY = false;
+            DB_BOOT_DONE = true;
+            try { localStorage.setItem('itAssetDB', JSON.stringify(tursoRes.data)); } catch(e) {}
+            if (onDone) onDone(true);
+            return;
+          }
         }
-      } catch (e3) { /* ignore */ }
-      DB_BOOT_DONE = true;
-      if (onDone) onDone(false);
+        // Fall back to localStorage cache
+        try {
+          var cached2 = localStorage.getItem('itAssetDB');
+          if (cached2) {
+            var cachedData2 = JSON.parse(cached2);
+            applyDBData(cachedData2);
+          }
+        } catch (e3) { /* ignore */ }
+        DB_BOOT_DONE = true;
+        if (onDone) onDone(false);
+      });
     });
 }
 
