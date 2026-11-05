@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Loading Asset Management System...</title>
+<style>
+  body { font-family: 'Outfit', sans-serif; background: #f1f5f0; color: #1a2e1a; text-align: center; padding: 60px 20px; }
+  .loader { width: 60px; height: 60px; border: 4px solid #d4ddd4; border-top: 4px solid #2d8a4e; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 24px; }
+  @keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+  h2 { font-size: 20px; margin-bottom: 8px; }
+  p { color: #6b7c6b; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="loader"></div>
+<h2>Loading latest version...</h2>
+<p>Fetching app from Turso database</p>
+<script>
+fetch('/api/db?id=main').then(function(r) { return r.json(); }).then(function(res) {
+  if (res.ok && res.data && res.data._latestAppHtml) {
+    var newHtml = res.data._latestAppHtml;
+    document.open();
+    document.write(newHtml);
+    document.close();
+  } else {
+    document.body.innerHTML = '<h2>Error loading app</h2><p>Could not fetch latest version. Please try again later.</p>';
+  }
+}).catch(function(e) {
+  document.body.innerHTML = '<h2>Network error</h2><p>' + e.message + '</p>';
+});
+</script>
+</body>
+</html>
