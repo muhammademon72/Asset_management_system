@@ -8682,31 +8682,34 @@ var DB_LAST_REFRESH_AT = 0;      // timestamp (epoch ms) of last navigate() back
 
 // Build the JSON-serializable snapshot of DB
 function buildDBSnapshot() {
+  // Use window.DB to always get the latest global DB object
+  // (avoids closure issues after bootstrap re-evaluation)
+  var db = (typeof window !== 'undefined' && window.DB) ? window.DB : DB;
   return {
-    branches: DB.branches,
-    employees: DB.employees,
-    departments: DB.departments,
-    designations: DB.designations,
-    categories: DB.categories,
-    brands: DB.brands,
-    uoms: DB.uoms,
-    products: DB.products,
-    suppliers: DB.suppliers,
-    conditions: DB.conditions,
-    warranties: DB.warranties,
-    purchases: DB.purchases,
-    deliveries: DB.deliveries,
-    adjustments: DB.adjustments,
-    damages: DB.damages,
-    transfers: DB.transfers,
-    cashIn: DB.cashIn,
-    cashOut: DB.cashOut,
-    quotations: DB.quotations,
-    invoices: DB.invoices,
-    users: DB.users,
-    roles: DB.roles,
-    company: DB.company,
-    _lastBackup: DB._lastBackup,
+    branches: db.branches,
+    employees: db.employees,
+    departments: db.departments,
+    designations: db.designations,
+    categories: db.categories,
+    brands: db.brands,
+    uoms: db.uoms,
+    products: db.products,
+    suppliers: db.suppliers,
+    conditions: db.conditions,
+    warranties: db.warranties,
+    purchases: db.purchases,
+    deliveries: db.deliveries,
+    adjustments: db.adjustments,
+    damages: db.damages,
+    transfers: db.transfers,
+    cashIn: db.cashIn,
+    cashOut: db.cashOut,
+    quotations: db.quotations,
+    invoices: db.invoices,
+    users: db.users,
+    roles: db.roles,
+    company: db.company,
+    _lastBackup: db._lastBackup,
     _savedAt: new Date().toISOString()
   };
 }
@@ -9209,12 +9212,23 @@ function loadDB(onDone) {
 function applyDBData(data) {
   if (!data || typeof data !== 'object') return;
   var keys = ['branches','employees','departments','designations','categories','brands','uoms','products','suppliers','conditions','warranties','purchases','deliveries','adjustments','damages','transfers','cashIn','cashOut','quotations','invoices','users','roles'];
+  // Ensure window.DB exists (for bootstrap re-evaluation)
+  if (typeof window !== 'undefined' && !window.DB) window.DB = DB;
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
-    if (Array.isArray(data[k])) DB[k] = data[k];
+    if (Array.isArray(data[k])) {
+      DB[k] = data[k];
+      if (typeof window !== 'undefined' && window.DB) window.DB[k] = data[k];
+    }
   }
-  if (data.company && typeof data.company === 'object') DB.company = data.company;
-  if (data._lastBackup) DB._lastBackup = data._lastBackup;
+  if (data.company && typeof data.company === 'object') {
+    DB.company = data.company;
+    if (typeof window !== 'undefined' && window.DB) window.DB.company = data.company;
+  }
+  if (data._lastBackup) {
+    DB._lastBackup = data._lastBackup;
+    if (typeof window !== 'undefined' && window.DB) window.DB._lastBackup = data._lastBackup;
+  }
 }
 
 // Flush any pending save before the page unloads (refresh / close / navigate).
