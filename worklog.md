@@ -3066,3 +3066,64 @@ Stage Summary:
 - Render needs manual deploy trigger from dashboard (auto-deploy may not have picked up)
 - User should follow RENDER_MANUAL_DEPLOY.md guide
 - After successful deploy: login admin/admin123, all data from Turso
+
+---
+Task ID: 76
+Agent: main (Z.ai)
+Task: assetsys.space-z.ai-তে data entry করলে যেন Turso-তে সেভ হয় + auto remove/reset না হয়
+
+Work Log:
+- User wants: data entered on assetsys.space-z.ai should save to Turso,
+  and Z.ai server resets should NOT cause data loss
+
+ROOT CAUSE:
+- Z.ai server runs OLD app.html code (no saveToTursoDirect function)
+- Old code only saves to Z.ai's local SQLite (which gets reset periodically)
+- Cannot modify Z.ai's deployed app.html directly (no filesystem access)
+- Z.ai doesn't auto-deploy from GitHub
+
+PERMANENT SOLUTION (commit 7b3618c + 07d3c11):
+
+1. Added saveToTursoDirect() function to app.html:
+   - Called from saveDBNow() on EVERY save
+   - Writes directly to Turso HTTP API (POST /v2/pipeline)
+   - Background, non-blocking
+   - Upsert logic (UPDATE first, INSERT if 0 rows)
+   - Prevents overlapping saves
+
+2. Added fetchFromTursoDirect() function:
+   - Reads directly from Turso HTTP API
+   - Used as fallback in loadDB()
+
+3. Updated loadDB() with 3-tier fallback:
+   a. Try Z.ai server (/api/db)
+   b. If Z.ai is reset + localStorage has data → restore from cache
+   c. If Z.ai is reset + localStorage empty → fetch from Turso directly
+   d. If Z.ai returns error → try Turso first, then localStorage
+   e. If network error → try Turso first, then localStorage
+
+4. Bootstrap mechanism (since Z.ai has old code):
+   - _latestAppHtml field in DB stores the new app.html code
+   - _updateHtml field stores the update.html loader
+   - update.html loader page fetches _latestAppHtml and replaces itself
+   - Bootstrap snippet for browser console (one-time paste)
+
+5. scripts/full-restore-with-app.js:
+   - Restores all data + latest app code to BOTH Z.ai AND Turso
+   - Run this whenever Z.ai resets
+
+VERIFICATION:
+- Z.ai server restored: branches=31, purchases=129, users=3 ✅
+- _latestAppHtml field present on Z.ai server ✅
+- _latestAppHtml has saveToTursoDirect function ✅
+- Turso DB also has the same data + app code ✅
+
+USER FLOW:
+1. Visit https://assetsys.space-z.ai/app.html
+2. Open browser console (F12 → Console tab)
+3. Paste the bootstrap snippet (from scripts/bootstrap-snippet.js)
+4. Page reloads with new code that saves to Turso directly
+5. All future saves go to BOTH Z.ai AND Turso
+6. Z.ai server resets no longer cause data loss — Turso is the source of truth
+
+Code pushed to GitHub (commits 7b3618c, 07d3c11).
