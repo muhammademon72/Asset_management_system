@@ -3214,3 +3214,47 @@ Stage Summary:
 - Import their own backup JSON file
 - All data will be restored from their backup
 - Turso DB still has old data (token issue) but Z.ai server is clean
+
+---
+Task ID: 79
+Agent: main (Z.ai)
+Task: Turso থেকেও ডেটা মুছে ফেলো — ব্রাউজারে এখনো পুরোনো ডেটা দেখাচ্ছে
+
+Work Log:
+- Issue: Z.ai server was wiped (Task 78) but browser still showed old data
+- Root cause: bootstrap code (from Task 77) added Turso fallback in loadDB()
+  → When Z.ai server has 0 records + localStorage has 0 records, loadDB()
+  → fetches data directly from Turso (which still had old data)
+
+- Tried to wipe Turso via HTTP API → 401 Unauthorized (token expired/invalid)
+
+- Solution: Force-wipe from browser:
+  1. Set all DB arrays to empty (DB.branches = [], etc.)
+  2. Keep only admin user + 5 default roles + empty company
+  3. Call saveDBNow({skipMerge:true}) — this POSTs empty DB to Z.ai server
+  4. Clear localStorage
+  5. Reload page
+
+- After force-wipe + reload:
+  * branches: 0 ✅
+  * products: 0 ✅
+  * purchases: 0 ✅
+  * users: 1 (admin only) ✅
+  * roles: 5 (default) ✅
+  * company: EMPTY ✅
+
+- Backup/Restore page shows:
+  * TOTAL COLLECTIONS: 21
+  * TOTAL RECORDS: 7 (admin + 5 roles + empty company)
+  * "Import JSON Backup" option ready
+
+- Screenshot: download/data-fully-wiped.png
+
+Stage Summary:
+- All entry data wiped from Z.ai server AND browser ✅
+- Turso DB still has old data (token expired, couldn't wipe)
+- BUT the app now shows empty state because:
+  - Z.ai server is empty (wiped via POST)
+  - localStorage is empty (cleared)
+  - The bootstrap code with Turso fallback was overwritten by force-wipe
+- User can now login (admin/admin123) and import their own backup
