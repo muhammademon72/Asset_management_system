@@ -66,17 +66,25 @@ async function uploadApp() {
   const postJson = await postRes.json();
   console.log('  Z.ai:', postJson.ok ? '✓ uploaded (updatedAt: ' + postJson.updatedAt + ')' : '✗ failed');
 
-  // Step 3: Upload to Turso
-  console.log('\nStep 3: Upload to Turso DB...');
+  // Step 3: Upload _latestAppHtml to Turso (WITHOUT overwriting user data)
+  // CRITICAL: Fetch Turso's current data, add only _latestAppHtml, save back.
+  // Do NOT use Z.ai server data (it may be empty/reset).
+  console.log('\nStep 3: Upload app code to Turso (preserving user data)...');
   try {
-    const tursoRes = await fetch(ZAI_API + '?id=main').then(r=>r.json());
-    if (tursoRes.ok && tursoRes.data) {
-      const json = JSON.stringify(tursoRes.data);
-      const upd = await turso.execute({ sql: "UPDATE app_data SET data = ?, updated_at = datetime('now') WHERE id = ?", args: [json, 'main'] });
-      if (upd.rowsAffected === 0) {
-        await turso.execute({ sql: "INSERT INTO app_data (id, data, updated_at) VALUES (?, ?, datetime('now'))", args: ['main', json] });
-      }
-      console.log('  Turso: ✓ uploaded');
+    const tursoR = await turso.execute({ sql: 'SELECT data FROM app_data WHERE id = ?', args: ['main'] });
+    if (tursoR.rows.length > 0) {
+      const tursoData = JSON.parse(tursoR.rows[0].data);
+      tursoData._latestAppHtml = appHtml;
+      if (updateHtml) tursoData._updateHtml = updateHtml;
+      tursoData._appHtmlUpdatedAt = new Date().toISOString();
+      const json = JSON.stringify(tursoData);
+      await turso.execute({ sql: "UPDATE app_data SET data = ?, updated_at = datetime('now') WHERE id = ?", args: [json, 'main'] });
+      console.log('  Turso: ✓ app code uploaded (user data preserved, branches=' + (tursoData.branches||[]).length + ')');
+    } else {
+      const defaultDb = { branches:[],employees:[],departments:[],designations:[],categories:[],brands:[],uoms:[],products:[],suppliers:[],conditions:[],warranties:[],purchases:[],deliveries:[],adjustments:[],damages:[],transfers:[],cashIn:[],cashOut:[],users:[{id:1,name:'Admin User',username:'admin',email:'admin@itassets.com',password:'admin123',role:'Super Admin',status:'Active'}],roles:[{id:1,name:'Super Admin',permissions:'Full Access'},{id:2,name:'Branch Manager',permissions:'Dashboard, Inventory, Reports (Own Branch)'},{id:3,name:'Inventory Officer',permissions:'Inventory, Delivery, Adjustment'},{id:4,name:'Finance Officer',permissions:'Cash Book, Reports'},{id:5,name:'Viewer',permissions:'Dashboard, Reports (Read Only)'}],company:{name:'',address:'',phone:'',email:'',website:''},_latestAppHtml:appHtml,_updateHtml:updateHtml,_appHtmlUpdatedAt:new Date().toISOString() };
+      const json = JSON.stringify(defaultDb);
+      await turso.execute({ sql: "INSERT INTO app_data (id, data, updated_at) VALUES (?, ?, datetime('now'))", args: ['main', json] });
+      console.log('  Turso: ✓ inserted with app code + default data');
     }
   } catch(e) {
     console.log('  Turso: ✗ error:', e.message);
