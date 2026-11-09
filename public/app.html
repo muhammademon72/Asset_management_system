@@ -7243,43 +7243,11 @@ function renderReport(type) {
 
   var html = '<div style="font-size:20px;font-weight:800;margin-bottom:20px;">' + labels[type] + ' Report</div>';
 
-  // Filter dropdowns for Delivery Report (Branch, Employee Name, Department)
-  // Each filter has a search box inside the dropdown for easy searching
-  if (type === 'delivery') {
-    html += '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
-    // Branch filter — searchable dropdown
-    var branchSet = {};
-    var branchArr = [];
-    for (var bi = 0; bi < data.length; bi++) { if (data[bi].branch && !branchSet[data[bi].branch]) { branchSet[data[bi].branch] = true; branchArr.push({ value: data[bi].branch, label: data[bi].branch }); } }
-    html += '<div style="position:relative;">';
-    html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">Branch</div>';
-    html += purSearchableHTML('filter-branch', 'id="filter-branch"', branchArr, '', 'All Branches', 'Search branch...');
-    html += '</div>';
-    // Employee Name filter — searchable dropdown
-    var empSet = {};
-    var empArr = [];
-    for (var ei = 0; ei < data.length; ei++) { if (data[ei].receivedBy && !empSet[data[ei].receivedBy]) { empSet[data[ei].receivedBy] = true; empArr.push({ value: data[ei].receivedBy, label: data[ei].receivedBy }); } }
-    html += '<div style="position:relative;">';
-    html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">Employee Name</div>';
-    html += purSearchableHTML('filter-emp', 'id="filter-emp"', empArr, '', 'All Employees', 'Search employee...');
-    html += '</div>';
-    // Department filter — searchable dropdown
-    var deptSet = {};
-    var deptArr = [];
-    for (var di = 0; di < data.length; di++) { if (data[di].department && !deptSet[data[di].department]) { deptSet[data[di].department] = true; deptArr.push({ value: data[di].department, label: data[di].department }); } }
-    html += '<div style="position:relative;">';
-    html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">Department</div>';
-    html += purSearchableHTML('filter-dept', 'id="filter-dept"', deptArr, '', 'All Departments', 'Search department...');
-    html += '</div>';
-    html += '<button class="btn btn-secondary" style="border-radius:8px;font-size:12px;align-self:flex-end;" onclick="clearDeliveryFilters()"><i class="fas fa-undo"></i> Clear</button>';
-    html += '</div>';
-  }
-
   // Detailed Records table — different columns for purchase vs others
   html += '<div class="stat-card" style="padding:20px;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">';
   html += '<div style="font-size:15px;font-weight:700;">Detailed Records</div>';
-  // Right side: filters (Purchase only) + search + PDF + Print
+  // Right side: filters (Purchase/Delivery only) + search + PDF + Print
   html += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
   // Purchase Report filters — moved to right side of Detailed Records header
   if (type === 'purchase') {
@@ -7304,6 +7272,30 @@ function renderReport(type) {
     html += '</div>';
     // Clear button
     html += '<button class="btn btn-secondary" style="border-radius:8px;font-size:12px;padding:6px 10px;" onclick="clearPurchaseFilters()"><i class="fas fa-undo"></i></button>';
+  }
+  // Delivery Report filters — moved to right side of Detailed Records header
+  if (type === 'delivery') {
+    // Build branch + employee + department option arrays
+    var branchSet = {}, branchArr = [];
+    for (var bi = 0; bi < data.length; bi++) { if (data[bi].branch && !branchSet[data[bi].branch]) { branchSet[data[bi].branch] = true; branchArr.push({ value: data[bi].branch, label: data[bi].branch }); } }
+    var empSet = {}, empArr = [];
+    for (var ei = 0; ei < data.length; ei++) { if (data[ei].receivedBy && !empSet[data[ei].receivedBy]) { empSet[data[ei].receivedBy] = true; empArr.push({ value: data[ei].receivedBy, label: data[ei].receivedBy }); } }
+    var deptSet = {}, deptArr = [];
+    for (var di = 0; di < data.length; di++) { if (data[di].department && !deptSet[data[di].department]) { deptSet[data[di].department] = true; deptArr.push({ value: data[di].department, label: data[di].department }); } }
+    // Branch
+    html += '<div style="position:relative;width:160px;">';
+    html += purSearchableHTML('filter-branch', 'id="filter-branch"', branchArr, '', 'All Branches', 'Search branch...');
+    html += '</div>';
+    // Employee Name
+    html += '<div style="position:relative;width:160px;">';
+    html += purSearchableHTML('filter-emp', 'id="filter-emp"', empArr, '', 'All Employees', 'Search employee...');
+    html += '</div>';
+    // Department
+    html += '<div style="position:relative;width:160px;">';
+    html += purSearchableHTML('filter-dept', 'id="filter-dept"', deptArr, '', 'All Departments', 'Search department...');
+    html += '</div>';
+    // Clear button
+    html += '<button class="btn btn-secondary" style="border-radius:8px;font-size:12px;padding:6px 10px;" onclick="clearDeliveryFilters()"><i class="fas fa-undo"></i></button>';
   }
   html += '<div class="search-box"><i class="fas fa-search"></i><input class="form-input" style="width:200px;" placeholder="Search records..." oninput="filterTable(this.value)"></div>';
   html += '<button class="btn btn-secondary" id="btn-pdf-report" title="Download PDF" style="border-radius:8px;"><i class="fas fa-file-pdf"></i></button>';
