@@ -154,17 +154,25 @@
   .search-box input { padding-left: 38px; }
   .search-box i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; }
   @media (max-width: 768px) {
-    .sidebar { position: fixed; z-index: 100; left: 0; top: 0; transform: translateX(-100%); width: 270px; min-width: 270px; }
+    .sidebar { position: fixed; z-index: 100; left: 0; top: 0; transform: translateX(-100%); width: 270px; min-width: 270px; transition: transform 0.3s ease; }
     .sidebar.mobile-open { transform: translateX(0); }
     .sidebar.collapsed { width: 270px; min-width: 270px; } /* collapse doesn't apply on mobile */
     .sidebar.collapsed .nav-text,
     .sidebar.collapsed .logo-text { display: block !important; }
     .stat-grid { grid-template-columns: 1fr !important; }
+    /* Mobile overlay — dark backdrop when sidebar is open */
+    #mobile-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; }
+    #mobile-overlay.show { display: block; }
+    /* Top bar buttons smaller on mobile */
+    .top-bar button span { display: none; }
+    #topbar-user-area > div:nth-child(2) { display: none; }
   }
 </style>
 </head>
 <body>
 <div id="app" style="display:flex; height:100vh;">
+  <!-- Mobile overlay — dark backdrop when sidebar is open on mobile -->
+  <div id="mobile-overlay" onclick="toggleSidebar()"></div>
   <aside class="sidebar" id="sidebar">
     <div style="padding:20px 20px 10px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:18px; margin-bottom:8px;">
       <div style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;">
@@ -380,6 +388,13 @@ function navigate(page) {
   // Render immediately using local DB — this is FAST (no network round-trip).
   // The local DB is kept in sync by saveDBNow() calls after each action.
   renderPage();
+  // ★ MOBILE: close sidebar after navigation
+  if (window.innerWidth <= 768) {
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.remove('mobile-open');
+    var ov = document.getElementById('mobile-overlay');
+    if (ov) ov.classList.remove('show');
+  }
   // Then refresh from server in the BACKGROUND (non-blocking) — this picks
   // up changes from other users without slowing down navigation.
   // Only refresh if the page was last loaded more than 30 seconds ago.
@@ -401,6 +416,15 @@ function toggleSidebar() {
   if (window.innerWidth <= 768) {
     // On mobile: open/close the slide-out drawer
     sb.classList.toggle('mobile-open');
+    // Show/hide the dark overlay
+    var ov = document.getElementById('mobile-overlay');
+    if (ov) {
+      if (sb.classList.contains('mobile-open')) {
+        ov.classList.add('show');
+      } else {
+        ov.classList.remove('show');
+      }
+    }
   } else {
     // On desktop: collapse/expand the inline sidebar
     sb.classList.toggle('collapsed');
