@@ -3378,3 +3378,34 @@ Stage Summary:
 - Closure issue fixed — buildDBSnapshot now uses window.DB
 - Delete, add, and edit all persist correctly to Turso
 - Data no longer "comes back" after deletion
+
+---
+Task ID: 83
+Agent: main (Z.ai)
+Task: Mobile Version e Side Menu Show kore na
+
+Work Log:
+- User reported: side menu doesn't show on mobile
+
+Investigation:
+- CSS already had mobile sidebar styles (position: fixed, transform: translateX(-100%))
+- toggleSidebar() function already existed (toggles 'mobile-open' class)
+- But navigate() didn't auto-close sidebar after navigation on mobile
+- No dark overlay when sidebar was open
+
+FIXES (commit 50eb480):
+1. Added smooth transition: transform 0.3s ease on sidebar
+2. Added #mobile-overlay div in HTML — dark backdrop when sidebar is open
+3. toggleSidebar() now shows/hides the overlay
+4. navigate() now auto-closes sidebar on mobile after page navigation
+5. Overlay click closes sidebar (onclick="toggleSidebar()")
+6. Mobile CSS: top bar buttons text hidden (icon-only) to save space
+7. Mobile CSS: user area name hidden (avatar only) to save space
+8. Created scripts/upload-app-code.js — uploads app.html without needing backup file
+
+VERIFICATION (mobile viewport 375x812):
+- Login page loads correctly ✅
+- After bootstrap + login, hamburger menu works ✅
+- tap hamburger → sidebar slides in with all menu items visible ✅
+- tap a menu item → page loads + sidebar auto-closes ✅
+- Sidebar state: mobile-open=false after navigation ✅
