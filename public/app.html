@@ -8394,31 +8394,41 @@ function importFullBackup(evt) {
         for (var i = 0; i < collectionKeys.length; i++) {
           var key = collectionKeys[i];
           if (Array.isArray(imported[key])) {
-            if (mode === 'replace') DB[key] = imported[key].slice();
-            else { for (var j = 0; j < imported[key].length; j++) DB[key].push(imported[key][j]); }
+            if (mode === 'replace') {
+              DB[key] = imported[key].slice();
+              // ★ ALSO update window.DB — buildDBSnapshot() uses window.DB
+              if (typeof window !== 'undefined' && window.DB) window.DB[key] = DB[key];
+            } else {
+              for (var j = 0; j < imported[key].length; j++) {
+                DB[key].push(imported[key][j]);
+                if (typeof window !== 'undefined' && window.DB) window.DB[key] = DB[key];
+              }
+            }
             restoredCount += imported[key].length;
           }
         }
-        if (imported.company && typeof imported.company === 'object') DB.company = imported.company;
+        if (imported.company && typeof imported.company === 'object') {
+          DB.company = imported.company;
+          if (typeof window !== 'undefined' && window.DB) window.DB.company = DB.company;
+        }
         closeModal();
-        showToast('Restored ' + restoredCount + ' records (' + mode + ' mode). Saving to server...');
+        showToast('Restored ' + restoredCount + ' records (' + mode + ' mode). Saving to Turso...');
         renderPage();
         // CRITICAL: Save with skipMerge:true so the restored data overwrites
-        // the server's empty/old DB directly (no GET-merge step that could
-        // re-add deleted rows or merge in stale data).
+        // the Turso DB directly (no GET-merge step).
         // Use the onDone callback to confirm the save actually completed.
         saveDBNow(function(res) {
           if (res && res.ok) {
-            showToast('Backup restored and saved to server successfully!', 'success');
-            // Force a reload from server to confirm persistence
+            showToast('Backup restored and saved to Turso successfully!', 'success');
+            // Force a reload from Turso to confirm persistence
             setTimeout(function() {
               loadDB(function() {
-                showToast('Data reloaded from server — verified ' + DB.branches.length + ' branches', 'info');
+                showToast('Data reloaded from Turso — verified ' + DB.branches.length + ' branches', 'info');
                 renderPage();
               });
             }, 1000);
           } else {
-            showToast('Restore saved locally but server save failed. Try again.', 'error');
+            showToast('Restore saved locally but Turso save failed. Try again.', 'error');
           }
         }, { skipMerge: true });
       });
