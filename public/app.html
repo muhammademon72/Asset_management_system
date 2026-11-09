@@ -937,7 +937,10 @@ function modalFooter(saveFn) {
 // ==================== DASHBOARD ====================
 function renderDashboard() {
   var totalPurchase = DB.purchases.filter(function(p){return p.status==='Approved';}).reduce(function(s,p){return s+p.total;}, 0);
-  var totalPurchaseList = DB.purchases.length;
+  // Count UNIQUE invoices (one invoice may have multiple purchase rows)
+  var purchaseInvoices = {};
+  for (var pi = 0; pi < DB.purchases.length; pi++) { if (DB.purchases[pi].invoice) purchaseInvoices[DB.purchases[pi].invoice] = true; }
+  var totalPurchaseList = Object.keys(purchaseInvoices).length;
   var totalDelivery = DB.deliveries.length;
   var totalCashIn = DB.cashIn.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
   var totalCashOut = DB.cashOut.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
@@ -955,7 +958,7 @@ function renderDashboard() {
   var html = '<div class="stat-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-bottom:28px;">';
   var cards = [
     { label: 'Total Purchase', value: totalPurchase, prefix: '\u09F3', icon: 'fa-cart-shopping', cls: 'green', sub: DB.purchases.length + ' orders', subColor: 'var(--accent)' },
-    { label: 'Purchase List', value: totalPurchaseList, prefix: '', icon: 'fa-list-check', cls: 'green', sub: DB.purchases.filter(function(p){return p.status==='Approved';}).length + ' approved', subColor: 'var(--accent)' },
+    { label: 'Purchase List', value: totalPurchaseList, prefix: '', icon: 'fa-list-check', cls: 'green', sub: DB.purchases.length + ' total entries', subColor: 'var(--accent)' },
     { label: 'Total Delivery', value: totalDelivery, prefix: '', icon: 'fa-truck', cls: 'blue', sub: DB.deliveries.filter(function(d){return d.status==='In Transit';}).length + ' in transit', subColor: 'var(--info)' },
     { label: 'Total Cash In', value: totalCashIn, prefix: '\u09F3', icon: 'fa-arrow-down', cls: 'amber', sub: DB.cashIn.length + ' transactions', subColor: 'var(--warning)' },
     { label: 'Total Cash Out', value: totalCashOut, prefix: '\u09F3', icon: 'fa-arrow-up', cls: 'red', sub: DB.cashOut.length + ' transactions', subColor: 'var(--danger)' },
