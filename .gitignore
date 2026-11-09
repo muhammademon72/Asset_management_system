@@ -74,3 +74,7 @@ server.log
 .env
 .env.bak.*
 !.env.example
+db/custom.db
+download/assets-backup-*
+upload/assets-backup-*
+*.db
