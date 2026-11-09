@@ -159,7 +159,7 @@
     .sidebar.collapsed { width: 270px; min-width: 270px; } /* collapse doesn't apply on mobile */
     .sidebar.collapsed .nav-text,
     .sidebar.collapsed .logo-text { display: block !important; }
-    .stat-grid { grid-template-columns: 1fr !important; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
     /* Mobile overlay — dark backdrop when sidebar is open */
     #mobile-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; }
     #mobile-overlay.show { display: block; }
@@ -937,6 +937,7 @@ function modalFooter(saveFn) {
 // ==================== DASHBOARD ====================
 function renderDashboard() {
   var totalPurchase = DB.purchases.filter(function(p){return p.status==='Approved';}).reduce(function(s,p){return s+p.total;}, 0);
+  var totalPurchaseList = DB.purchases.length;
   var totalDelivery = DB.deliveries.length;
   var totalCashIn = DB.cashIn.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
   var totalCashOut = DB.cashOut.filter(function(c){return c.status==='Approved';}).reduce(function(s,c){return s+c.amount;}, 0);
@@ -951,9 +952,10 @@ function renderDashboard() {
     { label: 'Settings', icon: 'fa-cog', color: 'var(--muted)', page: 'company-profile' },
   ];
 
-  var html = '<div class="stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px;">';
+  var html = '<div class="stat-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-bottom:28px;">';
   var cards = [
     { label: 'Total Purchase', value: totalPurchase, prefix: '\u09F3', icon: 'fa-cart-shopping', cls: 'green', sub: DB.purchases.length + ' orders', subColor: 'var(--accent)' },
+    { label: 'Purchase List', value: totalPurchaseList, prefix: '', icon: 'fa-list-check', cls: 'green', sub: DB.purchases.filter(function(p){return p.status==='Approved';}).length + ' approved', subColor: 'var(--accent)' },
     { label: 'Total Delivery', value: totalDelivery, prefix: '', icon: 'fa-truck', cls: 'blue', sub: DB.deliveries.filter(function(d){return d.status==='In Transit';}).length + ' in transit', subColor: 'var(--info)' },
     { label: 'Total Cash In', value: totalCashIn, prefix: '\u09F3', icon: 'fa-arrow-down', cls: 'amber', sub: DB.cashIn.length + ' transactions', subColor: 'var(--warning)' },
     { label: 'Total Cash Out', value: totalCashOut, prefix: '\u09F3', icon: 'fa-arrow-up', cls: 'red', sub: DB.cashOut.length + ' transactions', subColor: 'var(--danger)' },
