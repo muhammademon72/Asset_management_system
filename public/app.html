@@ -614,28 +614,38 @@ async function loadAndPreviewAttachment(attachInfo) {
     full.type = full.type || attachInfo.type;
     previewAttachment(full);
   } catch(e) {
-    // Attachment file is missing from the server (this happens when the file
-    // was originally uploaded to a different deployment's /api/attachment table
-    // — e.g., Vercel's separate attachment table that wasn't included in the
-    // backup). Show a clear, actionable error with a Re-upload option.
+    // Attachment file is missing from the server. Show a clear modal with
+    // a Re-upload button instead of immediately calling reuploadAttachment()
+    // (which would fail with "No file selected" because the user hasn't
+    // picked a file yet).
     closeModal();
     setTimeout(function() {
-      // Use the existing reuploadAttachment() flow if it's available in the
-      // current context — it requires window._reuploadContext to be set.
-      // We populate it here from the attachInfo metadata.
-      window._reuploadContext = {
-        type: 'purchase',
-        invoice: (attachInfo.invoice || ''),
-        attachName: attachInfo.name,
-        attachType: attachInfo.type,
-        attachSize: attachInfo.size
-      };
-      // Open the standard re-upload modal
-      if (typeof reuploadAttachment === 'function') {
-        reuploadAttachment('purchase');
-      } else {
-        showToast('Attachment file not found on server. Please re-upload the file from the Edit screen.', 'error');
+      var invoice = (attachInfo.invoice || '');
+      // Find the invoice from the purchase record
+      if (!invoice) {
+        for (var i = 0; i < DB.purchases.length; i++) {
+          if (DB.purchases[i].attachment && DB.purchases[i].attachment.id === attachInfo.id) {
+            invoice = DB.purchases[i].invoice;
+            break;
+          }
+        }
       }
+      var html = '<div style="padding:24px;">' + modalHeader('Attachment Not Found') + '<div style="padding-top:16px;">';
+      html += '<div style="text-align:center;padding:20px 0;">';
+      html += '<div style="width:56px;height:56px;border-radius:14px;background:rgba(217,119,6,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:22px;"></i></div>';
+      html += '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">File not found on server</div>';
+      html += '<div style="font-size:13px;color:var(--muted);margin-bottom:16px;">' + (attachInfo.name || 'Attachment') + ' — Invoice: ' + (invoice || 'N/A') + '</div>';
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;">The file was uploaded to a previous server and is no longer available. Please re-upload the file.</div>';
+      html += '</div>';
+      // Re-upload button
+      window._reuploadContext = { type: 'purchase', invoice: invoice, attachName: attachInfo.name, attachType: attachInfo.type, attachSize: attachInfo.size };
+      html += '<div style="display:flex;gap:12px;justify-content:center;">';
+      html += '<input type="file" id="reupload-purchase-file" style="display:none;" onchange="reuploadAttachment(\'purchase\')">';
+      html += '<button class="btn btn-primary" onclick="document.getElementById(\'reupload-purchase-file\').click()"><i class="fas fa-upload"></i> Re-upload File</button>';
+      html += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+      html += '</div>';
+      html += '</div></div>';
+      openModal(html);
     }, 100);
   }
 }
@@ -650,21 +660,33 @@ async function loadAndDownloadAttachment(attachInfo) {
     full.type = full.type || attachInfo.type;
     downloadAttachment(full);
   } catch(e) {
-    // Same handling as loadAndPreviewAttachment — show actionable error
+    // Same handling as loadAndPreviewAttachment — show modal with Re-upload button
     closeModal();
     setTimeout(function() {
-      window._reuploadContext = {
-        type: 'purchase',
-        invoice: (attachInfo.invoice || ''),
-        attachName: attachInfo.name,
-        attachType: attachInfo.type,
-        attachSize: attachInfo.size
-      };
-      if (typeof reuploadAttachment === 'function') {
-        reuploadAttachment('purchase');
-      } else {
-        showToast('Attachment file not found on server. Please re-upload the file from the Edit screen.', 'error');
+      var invoice = (attachInfo.invoice || '');
+      if (!invoice) {
+        for (var i = 0; i < DB.purchases.length; i++) {
+          if (DB.purchases[i].attachment && DB.purchases[i].attachment.id === attachInfo.id) {
+            invoice = DB.purchases[i].invoice;
+            break;
+          }
+        }
       }
+      var html = '<div style="padding:24px;">' + modalHeader('Attachment Not Found') + '<div style="padding-top:16px;">';
+      html += '<div style="text-align:center;padding:20px 0;">';
+      html += '<div style="width:56px;height:56px;border-radius:14px;background:rgba(217,119,6,0.10);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:22px;"></i></div>';
+      html += '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">File not found on server</div>';
+      html += '<div style="font-size:13px;color:var(--muted);margin-bottom:16px;">' + (attachInfo.name || 'Attachment') + ' — Invoice: ' + (invoice || 'N/A') + '</div>';
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;">The file was uploaded to a previous server and is no longer available. Please re-upload the file.</div>';
+      html += '</div>';
+      window._reuploadContext = { type: 'purchase', invoice: invoice, attachName: attachInfo.name, attachType: attachInfo.type, attachSize: attachInfo.size };
+      html += '<div style="display:flex;gap:12px;justify-content:center;">';
+      html += '<input type="file" id="reupload-purchase-file" style="display:none;" onchange="reuploadAttachment(\'purchase\')">';
+      html += '<button class="btn btn-primary" onclick="document.getElementById(\'reupload-purchase-file\').click()"><i class="fas fa-upload"></i> Re-upload File</button>';
+      html += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+      html += '</div>';
+      html += '</div></div>';
+      openModal(html);
     }, 100);
   }
 }
