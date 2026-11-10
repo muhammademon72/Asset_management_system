@@ -561,30 +561,13 @@ function uploadAttachmentToServer(file) {
         name: file.name,
         type: file.type || 'File',
         size: (file.size / 1024).toFixed(1) + ' KB',
-        apiStored: true
+        data: dataUrl,  // ★ Store file data INLINE (in DB JSON), not on server
+        apiStored: false  // ★ Don't use /api/attachment — store in DB directly
       };
-      // Step 2: Upload to /api/attachment
-      fetch('/api/attachment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: attachId,
-          name: attachInfo.name,
-          type: attachInfo.type,
-          size: attachInfo.size,
-          data: dataUrl
-        })
-      }).then(function(res) {
-        return res.json();
-      }).then(function(result) {
-        if (result && result.ok) {
-          resolve(attachInfo);
-        } else {
-          reject(new Error(result && result.error ? result.error : 'Upload failed'));
-        }
-      }).catch(function(err) {
-        reject(new Error('Network error: ' + (err.message || 'unknown')));
-      });
+      // ★ No separate server upload — the file data is stored in the DB JSON
+      // (via saveDBNow → Turso). This way the file is PERMANENT in Turso and
+      // won't be lost when Z.ai server resets.
+      resolve(attachInfo);
     };
     reader.onerror = function() {
       reject(new Error('Could not read file'));
